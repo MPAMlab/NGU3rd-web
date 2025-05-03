@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NGU3rd - 编辑轮次信息</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            min-height: 100vh;
+            color: white;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
+        }
+         .input-glass {
+             background: rgba(255, 255, 255, 0.1);
+             border: 1px solid rgba(255, 255, 255, 0.2);
+             color: white;
+             padding: 8px 12px;
+             border-radius: 4px;
+         }
+         .input-glass:focus {
+            outline: none;
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.5);
+         }
+         select.input-glass option {
+            background: #1e293b; /* Dark background for dropdown options */
+            color: white;
+         }
+
+        .btn-primary {
+            background: linear-gradient(90deg, #8b5cf6, #c084fc);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: opacity 0.3s ease;
+        }
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+         .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+         }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: opacity 0.3s ease;
+             border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+         .btn-secondary:hover {
+            opacity: 0.8;
+         }
+
+
+        .sidebar-item {
+            transition: all 0.3s ease;
+        }
+        .sidebar-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .sidebar-item.active {
+            background: rgba(255, 255, 255, 0.1);
+            border-left: 3px solid #8b5cf6;
+        }
+        .team-a {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+        }
+        .team-b {
+            background: linear-gradient(135deg, #f43f5e, #e11d48);
+        }
+        .health-bar {
+            transition: width 0.8s ease-in-out;
+        }
+        .health-bar-bg {
+            background: rgba(0, 0, 0, 0.3);
+        }
+        .match-card {
+            transition: all 0.3s ease;
+        }
+        .match-card:hover {
+            transform: translateY(-4px);
+        }
+        .song-item {
+            transition: all 0.2s ease;
+        }
+        .song-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .circle-pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(139, 92, 246, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(139, 92, 246, 0);
+            }
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        th {
+            color: #cbd5e1; /* slate-300 */
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .alert-danger {
+            background: rgba(239, 68, 68, 0.1); /* red-500 with alpha */
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171; /* red-400 */
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+         .alert-success {
+            background: rgba(16, 185, 129, 0.1); /* green-500 with alpha */
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #6ee7b7; /* green-300 */
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+         }
+
+
+         .element-fire {
+            color: #ef4444;
+        }
+        .element-wood {
+            color: #10b981;
+        }
+        .element-water {
+            color: #3b82f6;
+        }
+
+        .player-card.current {
+             border: 2px solid #8b5cf6; /* Highlight current player */
+             background: rgba(139, 92, 246, 0.1);
+        }
+    </style>
+</head>
+<body class="text-white">
+    <div class="flex h-screen">
+        <!-- 侧边栏 -->
+        <div class="w-64 glass hidden md:block flex-shrink-0">
+            <div class="p-4 border-b border-white/10 flex items-center space-x-3">
+                <img src="https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Z2FtZSUyMGxvZ298ZW58MHx8MHx8fDA%3D" alt="NGU3rd Logo" class="h-10 w-10 rounded-full">
+                <span class="font-bold text-xl">NGU3rd</span>
+                <span class="ml-1 bg-purple-600/50 text-xs px-2 py-0.5 rounded-full">STAFF</span>
+            </div>
+            <div class="p-4">
+                <div class="flex items-center space-x-3 mb-6">
+                    <img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8cHJvZmVzc2lvbmFsJTIwcG9ydHJhaXR8ZW58MHx8MHx8fDA%3D" alt="staff头像" class="h-12 w-12 rounded-full">
+                    <div>
+                        <p class="font-medium">赵管理</p>
+                        <p class="text-xs text-gray-400">Staff ID: STAFF001</p>
+                    </div>
+                </div>
+                <nav class="space-y-1">
+                    <a href="/panel" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg">
+                         <img src="https://unpkg.com/lucide-static@latest/icons/layout-dashboard.svg" class="w-5 h-5">
+                        <span>仪表盘</span>
+                    </a>
+                    <a href="/panel/editmatch" class="sidebar-item active flex items-center space-x-3 p-3 rounded-lg">
+                         <img src="https://unpkg.com/lucide-static@latest/icons/edit-3.svg" class="w-5 h-5">
+                        <span>编辑轮次</span>
+                    </a>
+                    <a href="/panel/editachievement" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg">
+                         <img src="https://unpkg.com/lucide-static@latest/icons/award.svg" class="w-5 h-5">
+                        <span>发放成就</span>
+                    </a>
+                    <a href="/panel/my" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg">
+                         <img src="https://unpkg.com/lucide-static@latest/icons/badge.svg" class="w-5 h-5">
+                        <span>Staff牌</span>
+                    </a>
+                     <a href="/live" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg" target="_blank">
+                        <img src="https://unpkg.com/lucide-static@latest/icons/tv.svg" class="w-5 h-5">
+                        <span>前往直播页</span>
+                    </a>
+                </nav>
+            </div>
+        </div>
+
+        <!-- 移动端导航栏 -->
+        <div class="fixed bottom-0 left-0 right-0 glass md:hidden z-10">
+            <div class="flex justify-around p-3">
+                <a href="/panel" class="flex flex-col items-center space-y-1 text-gray-400">
+                     <img src="https://unpkg.com/lucide-static@latest/icons/layout-dashboard.svg" class="w-6 h-6">
+                    <span class="text-xs">仪表盘</span>
+                </a>
+                <a href="/panel/editmatch" class="flex flex-col items-center space-y-1 text-purple-400">
+                     <img src="https://unpkg.com/lucide-static@latest/icons/edit-3.svg" class="w-6 h-6">
+                    <span class="text-xs">编辑轮次</span>
+                </a>
+                <a href="/panel/editachievement" class="flex flex-col items-center space-y-1 text-gray-400">
+                     <img src="https://unpkg.com/lucide-static@latest/icons/award.svg" class="w-6 h-6">
+                    <span class="text-xs">发放成就</span>
+                </a>
+                <a href="/panel/my" class="flex flex-col items-center space-y-1 text-gray-400">
+                     <img src="https://unpkg.com/lucide-static@latest/icons/badge.svg" class="w-6 h-6">
+                    <span class="text-xs">Staff牌</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="flex-1 overflow-auto pb-16 md:pb-0" id="main-panel-content">
+            <div class="max-w-7xl mx-auto p-6">
+                <!-- 顶部导航栏 -->
+                <div class="flex justify-between items-center mb-8">
+                    <h1 class="text-2xl font-bold">编辑轮次信息</h1>
+                    <div class="flex items-center space-x-4">
+                        <button class="glass p-2 rounded-lg">
+                            <img src="https://unpkg.com/lucide-static@latest/icons/bell.svg" class="w-5 h-5">
+                        </button>
+                        <!-- Mobile menu button (if needed) -->
+                        <!-- <div class="md:hidden">
+                            <button class="glass p-2 rounded-lg">
+                                <img src="https://unpkg.com/lucide-static@latest/icons/menu.svg" class="w-5 h-5">
+                            </button>
+                        </div> -->
+                    </div>
+                </div>
+
+                <!-- 比赛阶段选择器 -->
+                <div class="glass rounded-xl p-6 mb-8">
+                    <div class="flex flex-wrap gap-4">
+                        <button class="glass px-6 py-3 rounded-lg font-medium bg-purple-600/30 hover:bg-purple-600/50 transition">初赛阶段</button>
+                        <button class="glass px-6 py-3 rounded-lg font-medium hover:bg-white/10 transition">复赛阶段</button>
+                        <button class="glass px-6 py-3 rounded-lg font-medium hover:bg-white/10 transition">决赛阶段</button>
+                    </div>
+                </div>
+
+
+                <!-- Rounds List View -->
+                <div id="rounds-list-view">
+                    <h2 class="text-2xl font-semibold mb-4">所有轮次</h2>
+                    <div class="glass rounded-lg p-6">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr>
+                                        <th>轮次</th>
+                                        <th>状态</th>
+                                        <th>队伍 A</th>
+                                        <th>队伍 B</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rounds-table-body">
+                                    <!-- Rows will be populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Round Setup View -->
+                <div id="round-setup-view" class="hidden">
+                    <button class="text-gray-400 hover:underline mb-4 btn-back-to-list">&larr; 返回轮次列表</button>
+                    <h2 class="text-2xl font-semibold mb-4">设置轮次：<span id="setup-round-name"></span></h2>
+
+                    <div class="glass rounded-lg p-6 mb-8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Team A Setup -->
+                            <div class="glass rounded-lg p-4">
+                                <h3 class="text-xl font-bold mb-4 text-blue-400" id="setup-team-a-name">队伍 A</h3>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-300 mb-1">选手 1 (首发)</label>
+                                        <select id="setup-team-a-player-1" class="w-full input-glass">
+                                            <option value="">选择选手</option>
+                                            <!-- Options will be populated by JS -->
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-300 mb-1">选手 2</label>
+                                        <select id="setup-team-a-player-2" class="w-full input-glass">
+                                            <option value="">选择选手</option>
+                                            <!-- Options will be populated by JS -->
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-300 mb-1">选手 3</label>
+                                        <select id="setup-team-a-player-3" class="w-full input-glass">
+                                            <option value="">选择选手</option>
+                                            <!-- Options will be populated by JS -->
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Team B Setup -->
+                            <div class="glass rounded-lg p-4">
+                                <h3 class="text-xl font-bold mb-4 text-red-400" id="setup-team-b-name">队伍 B</h3>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-300 mb-1">选手 1 (首发)</label>
+                                        <select id="setup-team-b-player-1" class="w-full input-glass">
+                                            <option value="">选择选手</option>
+                                            <!-- Options will be populated by JS -->
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-300 mb-1">选手 2</label>
+                                        <select id="setup-team-b-player-2" class="w-full input-glass">
+                                            <option value="">选择选手</option>
+                                            <!-- Options will be populated by JS -->
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-300 mb-1">选手 3</label>
+                                        <select id="setup-team-b-player-3" class="w-full input-glass">
+                                            <option value="">选择选手</option>
+                                            <!-- Options will be populated by JS -->
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center">
+                        <button id="start-round-btn" class="btn-primary">设置顺序并开始轮次</button>
+                    </div>
+                </div>
+
+
+                <!-- Match Editing View -->
+                <div id="match-editing-view" class="hidden">
+                     <button class="text-gray-400 hover:underline mb-4 btn-back-to-list">&larr; 返回轮次列表</button>
+                    <h2 class="text-2xl font-semibold mb-4">编辑轮次：<span id="editing-round-name"></span></h2>
+
+                    <!-- 正在进行的比赛 -->
+                    <div class="glass rounded-xl p-6 mb-8 bg-gradient-to-r from-purple-900/30 to-indigo-900/30 border-l-4 border-purple-500">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-bold flex items-center">
+                                <span class="inline-block w-3 h-3 bg-green-500 rounded-full mr-2 circle-pulse"></span>
+                                正在进行的比赛：<span id="current-match-info"></span>
+                            </h3>
+                            <span class="text-sm bg-purple-600/50 px-3 py-1 rounded-full" id="editing-round-status"></span>
+                        </div>
+
+                        <!-- 队伍对战状态 -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
+                            <!-- 队伍A -->
+                            <div class="glass rounded-lg p-4">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h4 class="font-bold text-lg text-blue-400" id="editing-team-a-name">队伍 A</h4>
+                                    <div>
+                                        <span class="text-sm text-gray-400 mr-2">血量:</span>
+                                        <span class="text-xl font-bold" id="editing-team-a-health">100</span>
+                                    </div>
+                                </div>
+                                <div class="w-full h-3 health-bar-bg rounded-full mb-4">
+                                    <div id="editing-team-a-health-bar" class="h-full bg-blue-500 rounded-full health-bar" style="width: 100%"></div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2" id="team-a-player-cards">
+                                    <!-- Player cards will be populated/updated by JS -->
+                                </div>
+                            </div>
+
+                            <!-- 队伍B -->
+                            <div class="glass rounded-lg p-4">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h4 class="font-bold text-lg text-red-400" id="editing-team-b-name">队伍 B</h4>
+                                     <div>
+                                        <span class="text-sm text-gray-400 mr-2">血量:</span>
+                                        <span class="text-xl font-bold" id="editing-team-b-health">85</span>
+                                    </div>
+                                </div>
+                                <div class="w-full h-3 health-bar-bg rounded-full mb-4">
+                                    <div id="editing-team-b-health-bar" class="h-full bg-red-500 rounded-full health-bar" style="width: 85%"></div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2" id="team-b-player-cards">
+                                    <!-- Player cards will be populated/updated by JS -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 当前歌曲 -->
+                        <div class="glass rounded-lg p-4 mb-6">
+                            <h3 class="font-bold mb-4">当前歌曲 (<span id="current-song-index">1</span>/<span id="total-songs">12</span>)</h3>
+                            <div class="flex flex-col md:flex-row md:items-center gap-4">
+                                <img src="https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8bXVzaWMlMjBjb3ZlcnxlbnwwfHwwfHx8MA%3D%3D" alt="歌曲封面" class="w-24 h-24 rounded-lg object-cover" id="editing-song-cover">
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-lg" id="editing-song-title">终末的花束</h4>
+                                    <div class="flex flex-wrap gap-2 mt-2" id="editing-song-details">
+                                        <!-- Song details will be populated by JS -->
+                                    </div>
+                                </div>
+                                <!-- Add random song button here if needed for >12 songs -->
+                                 <div class="md:flex-shrink-0 hidden" id="add-random-song-container">
+                                    <button class="glass px-4 py-2 rounded-lg font-medium hover:bg-white/10 transition flex items-center" id="add-random-song-btn">
+                                        <img src="https://unpkg.com/lucide-static@latest/icons/plus.svg" class="w-4 h-4 mr-1">
+                                        添加随机歌曲
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 记录当前对战选手成绩 -->
+                        <div class="glass rounded-lg p-6 mb-6">
+                            <h3 class="font-bold mb-4">记录当前对战选手成绩</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <!-- 队伍A当前选手成绩 -->
+                                <div>
+                                    <h4 class="font-medium mb-3 text-blue-400" id="current-player-a-score-name">选手 A</h4>
+                                    <div class="space-y-3">
+                                        <div class="flex items-center space-x-3">
+                                            <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=1160&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="队员头像" class="w-10 h-10 rounded-full" id="current-player-a-score-avatar">
+                                            <div class="flex-1">
+                                                <label class="block text-xs text-gray-400 mb-1">完成率小数点后四位 (0000-9999)</label>
+                                                <input type="number" id="current-player-a-score-input" class="w-full bg-black/20 border border-white/20 rounded px-3 py-2 text-sm input-glass" placeholder="输入 0000-9999" min="0" max="9999">
+                                            </div>
+                                        </div>
+                                         <div class="flex items-center space-x-3">
+                                            <img src="https://unpkg.com/lucide-static@latest/icons/heart.svg" class="w-10 h-10 text-red-400 p-2 glass rounded-full"> <!-- Placeholder for effect icon -->
+                                            <div class="flex-1">
+                                                <label class="block text-xs text-gray-400 mb-1">特殊效果血量调整 (+/-)</label>
+                                                <input type="number" id="current-player-a-effect-input" class="w-full bg-black/20 border border-white/20 rounded px-3 py-2 text-sm input-glass" placeholder="输入数值">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 队伍B当前选手成绩 -->
+                                <div>
+                                    <h4 class="font-medium mb-3 text-red-400" id="current-player-b-score-name">选手 B</h4>
+                                     <div class="space-y-3">
+                                        <div class="flex items-center space-x-3">
+                                            <img src="https://images.unsplash.com/photo-1542178243-bc20204b769e?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fHdvbWFuJTIwYXNpYW58ZW58MHx8MHx8fDA%3D" alt="队员头像" class="w-10 h-10 rounded-full" id="current-player-b-score-avatar">
+                                            <div class="flex-1">
+                                                 <label class="block text-xs text-gray-400 mb-1">完成率小数点后四位 (0000-9999)</label>
+                                                <input type="number" id="current-player-b-score-input" class="w-full mt-1 bg-black/20 border border-white/20 rounded px-3 py-2 text-sm input-glass" placeholder="输入 0000-9999" min="0" max="9999">
+                                            </div>
+                                        </div>
+                                         <div class="flex items-center space-x-3">
+                                             <img src="https://unpkg.com/lucide-static@latest/icons/heart.svg" class="w-10 h-10 text-red-400 p-2 glass rounded-full"> <!-- Placeholder for effect icon -->
+                                            <div class="flex-1">
+                                                 <label class="block text-xs text-gray-400 mb-1">特殊效果血量调整 (+/-)</label>
+                                                <input type="number" id="current-player-b-effect-input" class="w-full mt-1 bg-black/20 border border-white/20 rounded px-3 py-2 text-sm input-glass" placeholder="输入数值">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex justify-center mt-6">
+                                <button id="submit-match-score-btn" class="btn-primary">提交成绩并计算伤害</button>
+                            </div>
+                        </div>
+
+                        <!-- Alert Area -->
+                        <div id="health-alert" class="alert-danger hidden">
+                            <p class="font-bold">注意：<span id="alert-message"></span></p>
+                        </div>
+                         <div id="success-alert" class="alert-success hidden">
+                            <p class="font-bold">成功：<span id="success-message"></span></p>
+                        </div>
+
+
+                        <!-- 比赛结束按钮 -->
+                        <div class="flex justify-center mt-6">
+                            <button id="end-round-btn" class="bg-red-600 hover:bg-red-700 transition px-8 py-3 rounded-lg font-medium flex items-center hidden">
+                                <img src="https://unpkg.com/lucide-static@latest/icons/flag.svg" class="w-5 h-5 mr-2">
+                                结束本轮次比赛
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 曲目列表 -->
+                    <div class="glass rounded-xl p-6 mb-8">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold">轮次曲目列表</h2>
+                             <!-- Add random song button here if needed for >12 songs -->
+                             <!-- Moved this button into the Current Song Info section -->
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="text-left text-gray-400 text-sm">
+                                        <th class="pb-3 pl-4">序号</th>
+                                        <th class="pb-3">曲目</th>
+                                        <th class="pb-3">难度</th>
+                                        <th class="pb-3">属性</th>
+                                        <th class="pb-3">选择者</th>
+                                        <th class="pb-3">状态</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="songs-table-body">
+                                     <!-- Song rows will be populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Round Completed View -->
+                <div id="round-completed-view" class="hidden">
+                    <button class="text-gray-400 hover:underline mb-4 btn-back-to-list">&larr; 返回轮次列表</button>
+                    <div class="glass rounded-lg p-6 text-center">
+                        <h2 class="text-3xl font-bold mb-4">轮次结束！</h2>
+                        <p class="text-xl mb-4">轮次：<span id="completed-round-name"></span></p>
+                        <div class="text-2xl font-bold mb-6">获胜队伍：<span id="completed-winner-team" class="text-purple-400"></span></div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                            <div class="glass rounded-lg p-4">
+                                <h3 class="text-xl font-bold mb-4 text-blue-400" id="completed-team-a-name">队伍 A</h3>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between">
+                                        <span>最终血量</span>
+                                        <span class="font-bold" id="completed-team-a-health"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="glass rounded-lg p-4">
+                                <h3 class="text-xl font-bold mb-4 text-red-400" id="completed-team-b-name">队伍 B</h3>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between">
+                                        <span>最终血量</span>
+                                        <span class="font-bold" id="completed-team-b-health"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="btn-primary btn-back-to-list">返回轮次列表</button>
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const mainPanelContent = document.getElementById('main-panel-content');
+            const roundsListView = document.getElementById('rounds-list-view');
+            const roundSetupView = document.getElementById('round-setup-view');
+            const matchEditingView = document.getElementById('match-editing-view');
+            const roundCompletedView = document.getElementById('round-completed-view');
+
+            const roundsTableBody = document.getElementById('rounds-table-body');
+            const songsTableBody = document.getElementById('songs-table-body');
+
+            const setupRoundName = document.getElementById('setup-round-name');
+            const editingRoundName = document.getElementById('editing-round-name');
+            const completedRoundName = document.getElementById('completed-round-name');
+            const editingRoundStatus = document.getElementById('editing-round-status');
+
+            const setupTeamAName = document.getElementById('setup-team-a-name');
+            const setupTeamBName = document.getElementById('setup-team-b-name');
+            const editingTeamAName = document.getElementById('editing-team-a-name');
+            const editingTeamBName = document.getElementById('editing-team-b-name');
+            const completedTeamAName = document.getElementById('completed-team-a-name');
+            const completedTeamBName = document.getElementById('completed-team-b-name');
+
+            const editingTeamAHealth = document.getElementById('editing-team-a-health');
+            const editingTeamBHealth = document.getElementById('editing-team-b-health');
+            const editingTeamAHealthBar = document.getElementById('editing-team-a-health-bar');
+            const editingTeamBHealthBar = document.getElementById('editing-team-b-health-bar');
+            const completedTeamAHealth = document.getElementById('completed-team-a-health');
+            const completedTeamBHealth = document.getElementById('completed-team-b-health');
+            const completedWinnerTeam = document.getElementById('completed-winner-team');
+
+            const setupTeamAPlayer1 = document.getElementById('setup-team-a-player-1');
+            const setupTeamAPlayer2 = document.getElementById('setup-team-a-player-2');
+            const setupTeamAPlayer3 = document.getElementById('setup-team-a-player-3');
+            const setupTeamBPlayer1 = document.getElementById('setup-team-b-player-1');
+            const setupTeamBPlayer2 = document.getElementById('setup-team-b-player-2');
+            const setupTeamBPlayer3 = document.getElementById('setup-team-b-player-3');
+
+            const teamAPlayerCardsContainer = document.getElementById('team-a-player-cards');
+            const teamBPlayerCardsContainer = document.getElementById('team-b-player-cards');
+
+            const currentMatchInfo = document.getElementById('current-match-info');
+            const currentSongIndex = document.getElementById('current-song-index');
+            const totalSongs = document.getElementById('total-songs');
+            const editingSongCover = document.getElementById('editing-song-cover');
+            const editingSongTitle = document.getElementById('editing-song-title');
+            const editingSongDetails = document.getElementById('editing-song-details');
+            const addRandomSongContainer = document.getElementById('add-random-song-container');
+            const addRandomSongBtn = document.getElementById('add-random-song-btn');
+
+
+            const currentPlayerAScoreName = document.getElementById('current-player-a-score-name');
+            const currentPlayerBScoreName = document.getElementById('current-player-b-score-name');
+            const currentPlayerAScoreAvatar = document.getElementById('current-player-a-score-avatar');
+            const currentPlayerBScoreAvatar = document.getElementById('current-player-b-score-avatar');
+            const currentPlayerAScoreInput = document.getElementById('current-player-a-score-input');
+            const currentPlayerAEffectInput = document.getElementById('current-player-a-effect-input');
+            const currentPlayerBScoreInput = document.getElementById('current-player-b-score-input');
+            const currentPlayerBEffectInput = document.getElementById('current-player-b-effect-input');
+
+            const healthAlert = document.getElementById('health-alert');
+            const successAlert = document.getElementById('success-alert');
+            const alertMessage = document.getElementById('alert-message');
+            const successMessage = document.getElementById('success-message');
+
+
+            const startRoundBtn = document.getElementById('start-round-btn');
+            const submitMatchScoreBtn = document.getElementById('submit-match-score-btn');
+            const endRoundBtn = document.getElementById('end-round-btn');
+            const backToListBtns = document.querySelectorAll('.btn-back-to-list');
+
+            let currentRoundData = null;
+            let currentMatchIndex = 0; // 0, 1, 2 for the three 1v1 matches
+            let teamAPlayerOrder = [];
+            let teamBPlayerOrder = [];
+            let teamAHealth = 100; // Simulate health
+            let teamBHealth = 100; // Simulate health
+            let currentSongData = null; // Data for the current song in the 1v1 match
+
+            // --- Simulate Data (Replace with API calls) ---
+            const allPlayers = [
+                 {id: 'pa1', name: '李小明', team: '音游大师队', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=1160&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', element: 'fire', job: '绝剑士'},
+                 {id: 'pa2', name: '王小红', team: '音游大师队', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', element: 'wood', job: '矩盾手'},
+                 {id: 'pa3', name: '张小强', team: '音游大师队', avatar: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', element: 'water', job: '炼星师'},
+                 {id: 'pb1', name: '陈一鸣', team: '节奏大师队', avatar: 'https://images.unsplash.com/photo-1557862921-37829c790f19?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8bWFuJTIwYXNpYW58ZW58MHx8MHx8fDA%3D', element: 'water', job: '炼星师'},
+                 {id: 'pb2', name: '林小雨', team: '节奏大师队', avatar: 'https://images.unsplash.com/photo-1542178243-bc20204b769e?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fHdvbWFuJTIwYXNpYW58ZW58MHx8MHx8fDA%3D', element: 'fire', job: '绝剑士'},
+                 {id: 'pb3', name: '黄小龙', team: '节奏大师队', avatar: 'https://images.unsplash.com/photo-1504257432389-52343af06ae3?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTZ8fG1hbiUyMGFzaWFufGVufDB8fDB8fHww', element: 'wood', job: '矩盾手'}
+            ];
+
+            const allRounds = [
+                { id: 1, name: "初赛 - 第1轮", status: "completed", teamA: "音游大师队", teamB: "节奏大师队", winner: "音游大师队", finalHealthA: 35, finalHealthB: 0 },
+                { id: 2, name: "初赛 - 第2轮", status: "ongoing", teamA: "音游大师队", teamB: "节奏大师队", playersA: ['pa1', 'pa2', 'pa3'], playersB: ['pb1', 'pb2', 'pb3'], playerOrderA: ['pa1', 'pa2', 'pa3'], playerOrderB: ['pb1', 'pb2', 'pb3'], currentMatch: 0, healthA: 100, healthB: 100, songs: [{index: 1, title: 'Song One', difficulty: '11', element: 'water', picker: '音游大师队', status: 'completed'}, {index: 2, title: 'Song Two', difficulty: '12+', element: 'fire', picker: '节奏大师队', status: 'completed'}, {index: 3, title: '终末的花束', difficulty: '12', element: 'fire', picker: '音游大师队', status: 'ongoing'}]},
+                { id: 3, name: "初赛 - 第3轮", status: "pending", teamA: "星光舞者队", teamB: "旋律掌控者队", playersA: [{id: 'px1', name: '选手X1'}, {id: 'px2', name: '选手X2'}, {id: 'px3', name: '选手X3'}], playersB: [{id: 'py1', name: '选手Y1'}, {id: 'py2', name: '选手Y2'}, {id: 'py3', name: '选手Y3'}]}
+            ];
+
+             const allSongs = [
+                { id: 's1', title: 'Butterfly', difficulty: '12+', element: 'fire', cover: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+                { id: 's2', title: '终末的花束', difficulty: '12', element: 'fire', cover: 'https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8bXVzaWMlMjBjb3ZlcnxlbnwwfHwwfHx8MA%3D%3D' },
+                { id: 's3', title: 'Good Song', difficulty: '13', element: 'water', cover: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+                 // Add more songs...
+            ];
+
+            // Function to get player object by ID
+            function getPlayerById(playerId) {
+                 return allPlayers.find(p => p.id === playerId);
+            }
+
+            // Function to get song object by title (or ID in a real app)
+            function getSongByTitle(songTitle) {
+                 return allSongs.find(s => s.title === songTitle);
+            }
+
+            // Function to switch views
+            function switchView(viewElement) {
+                roundsListView.classList.add('hidden');
+                roundSetupView.classList.add('hidden');
+                matchEditingView.classList.add('hidden');
+                roundCompletedView.classList.add('hidden');
+
+                viewElement.classList.remove('hidden');
+            }
+
+            // Function to populate the rounds table
+            function populateRoundsTable() {
+                roundsTableBody.innerHTML = ''; // Clear current rows
+                allRounds.forEach(round => {
+                    const row = document.createElement('tr');
+                    row.classList.add('glass', 'hover:bg-white/5');
+                    row.innerHTML = `
+                        <td class="py-3 pl-4 rounded-l-lg">${round.name}</td>
+                        <td class="py-3">${round.status === 'completed' ? '<span class="text-green-400">已完成</span>' : round.status === 'ongoing' ? '<span class="text-yellow-400">进行中</span>' : '<span class="text-gray-400">待开始</span>'}</td>
+                        <td class="py-3">${round.teamA}</td>
+                        <td class="py-3">${round.teamB}</td>
+                        <td class="py-3 rounded-r-lg">
+                            <button class="text-purple-400 hover:underline view-round-btn" data-round-id="${round.id}">${round.status === 'completed' ? '查看' : round.status === 'ongoing' ? '编辑' : '设置'}</button>
+                        </td>
+                    `;
+                    roundsTableBody.appendChild(row);
+                });
+
+                 // Add event listeners to the new buttons
+                 document.querySelectorAll('.view-round-btn').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const roundId = parseInt(e.target.dataset.roundId);
+                        currentRoundData = allRounds.find(round => round.id === roundId);
+
+                        if (currentRoundData) {
+                            if (currentRoundData.status === 'pending') {
+                                setupRoundName.textContent = currentRoundData.name;
+                                setupTeamAName.textContent = currentRoundData.teamA;
+                                setupTeamBName.textContent = currentRoundData.teamB;
+
+                                // Filter players for these teams (simulated)
+                                const playersA = allPlayers.filter(p => p.team === currentRoundData.teamA);
+                                const playersB = allPlayers.filter(p => p.team === currentRoundData.teamB);
+                                populatePlayerSelects(playersA, playersB);
+
+                                // Reset dropdowns
+                                setupTeamAPlayer1.value = "";
+                                setupTeamAPlayer2.value = "";
+                                setupTeamAPlayer3.value = "";
+                                setupTeamBPlayer1.value = "";
+                                setupTeamBPlayer2.value = "";
+                                setupTeamBPlayer3.value = "";
+
+                                switchView(roundSetupView);
+
+                            } else if (currentRoundData.status === 'ongoing') {
+                                teamAPlayerOrder = currentRoundData.playerOrderA;
+                                teamBPlayerOrder = currentRoundData.playerOrderB;
+                                currentMatchIndex = currentRoundData.currentMatch || 0;
+                                teamAHealth = currentRoundData.healthA || 100;
+                                teamBHealth = currentRoundData.healthB || 100;
+                                currentSongData = currentRoundData.songs.find(s => s.status === 'ongoing') || currentRoundData.songs[currentMatchIndex]; // Find ongoing song or use match index
+
+                                setupMatchEditingView();
+                                switchView(matchEditingView);
+
+                            } else if (currentRoundData.status === 'completed') {
+                                completedRoundName.textContent = currentRoundData.name;
+                                completedTeamAName.textContent = currentRoundData.teamA;
+                                completedTeamBName.textContent = currentRoundData.teamB;
+                                completedTeamAHealth.textContent = currentRoundData.finalHealthA;
+                                completedTeamBHealth.textContent = currentRoundData.finalHealthB;
+                                completedWinnerTeam.textContent = currentRoundData.winner;
+                                switchView(roundCompletedView);
+                            }
+                        }
+                    });
+                });
+            }
+
+            // Function to populate player dropdowns in Setup view
+            function populatePlayerSelects(playersA, playersB) {
+                const selectsA = [setupTeamAPlayer1, setupTeamAPlayer2, setupTeamAPlayer3];
+                const selectsB = [setupTeamBPlayer1, setupTeamBPlayer2, setupTeamBPlayer3];
+
+                selectsA.forEach(select => {
+                    select.innerHTML = '<option value="">选择选手</option>';
+                    playersA.forEach(player => {
+                        select.innerHTML += `<option value="${player.id}">${player.name}</option>`;
+                    });
+                });
+                 selectsB.forEach(select => {
+                    select.innerHTML = '<option value="">选择选手</option>';
+                    playersB.forEach(player => {
+                        select.innerHTML += `<option value="${player.id}">${player.name}</option>`;
+                    });
+                });
+            }
+
+             // Function to populate player cards in Editing view
+             function populatePlayerCards(playersA, playersB) {
+                 teamAPlayerCardsContainer.innerHTML = '';
+                 teamBPlayerCardsContainer.innerHTML = '';
+
+                 playersA.forEach(playerId => {
+                     const player = getPlayerById(playerId);
+                     if (player) {
+                         const card = document.createElement('div');
+                         card.id = `player-card-${player.id}`;
+                         card.classList.add('glass', 'rounded-lg', 'p-2', 'flex', 'flex-col', 'items-center', 'player-card');
+                         card.innerHTML = `
+                             <img src="${player.avatar}" alt="${player.name}头像" class="w-12 h-12 rounded-full mb-2 object-cover">
+                             <p class="text-sm font-medium">${player.name}</p>
+                             <p class="text-xs ${player.element === 'fire' ? 'text-red-400' : player.element === 'wood' ? 'text-green-400' : 'text-blue-400'}">${player.element === 'fire' ? '火 (R)' : player.element === 'wood' ? '木 (G)' : '水 (B)'}</p>
+                             <p class="text-xs text-gray-300">${player.job}</p>
+                         `;
+                         teamAPlayerCardsContainer.appendChild(card);
+                     }
+                 });
+
+                  playersB.forEach(playerId => {
+                     const player = getPlayerById(playerId);
+                     if (player) {
+                         const card = document.createElement('div');
+                          card.id = `player-card-${player.id}`;
+                         card.classList.add('glass', 'rounded-lg', 'p-2', 'flex', 'flex-col', 'items-center', 'player-card');
+                         card.innerHTML = `
+                             <img src="${player.avatar}" alt="${player.name}头像" class="w-12 h-12 rounded-full mb-2 object-cover">
+                             <p class="text-sm font-medium">${player.name}</p>
+                             <p class="text-xs ${player.element === 'fire' ? 'text-red-400' : player.element === 'wood' ? 'text-green-400' : 'text-blue-400'}">${player.element === 'fire' ? '火 (R)' : player.element === 'wood' ? '木 (G)' : '水 (B)'}</p>
+                             <p class="text-xs text-gray-300">${player.job}</p>
+                         `;
+                         teamBPlayerCardsContainer.appendChild(card);
+                     }
+                 });
+             }
+
+            // Function to populate the songs table
+            function populateSongsTable(songs) {
+                songsTableBody.innerHTML = ''; // Clear current rows
+                songs.forEach((song, index) => {
+                    const songDetails = getSongByTitle(song.title); // Get details like cover, element etc.
+                    const row = document.createElement('tr');
+                    row.classList.add('glass', 'hover:bg-white/5', 'song-item');
+                     if (song.status === 'ongoing') {
+                        row.classList.add('border-l-4', 'border-purple-500'); // Highlight ongoing song
+                     }
+                    row.innerHTML = `
+                        <td class="py-3 pl-4 ${index === 0 ? 'rounded-l-lg' : ''}">${song.index}</td>
+                        <td class="py-3">
+                            <div class="flex items-center space-x-3">
+                                <img src="${songDetails ? songDetails.cover : 'https://via.placeholder.com/50x50'}" alt="歌曲封面" class="w-10 h-10 rounded object-cover">
+                                <div>
+                                    <p class="font-medium">${song.title}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-3">${song.difficulty}</td>
+                        <td class="py-3">
+                             <span class="text-xs ${song.element === 'fire' ? 'text-red-400' : song.element === 'wood' ? 'text-green-400' : 'text-blue-400'}">${song.element === 'fire' ? '火' : song.element === 'wood' ? '木' : '水'}</span>
+                        </td>
+                        <td class="py-3">${song.picker}</td>
+                        <td class="py-3 ${index === allRounds[0].songs.length - 1 ? 'rounded-r-lg' : ''}">
+                             ${song.status === 'completed' ? '<span class="text-green-400">已完成</span>' : song.status === 'ongoing' ? '<span class="text-yellow-400">进行中</span>' : '<span class="text-gray-400">待进行</span>'}
+                        </td>
+                    `;
+                    songsTableBody.appendChild(row);
+                });
+            }
+
+
+            // --- Match Editing View Logic ---
+            function setupMatchEditingView() {
+                 editingRoundName.textContent = currentRoundData.name;
+                 editingRoundStatus.textContent = currentRoundData.status === 'ongoing' ? '进行中' : ''; // Should be ongoing
+                 editingTeamAName.textContent = currentRoundData.teamA;
+                 editingTeamBName.textContent = currentRoundData.teamB;
+
+                 // Populate player cards once
+                 populatePlayerCards(currentRoundData.playerOrderA, currentRoundData.playerOrderB);
+                 populateSongsTable(currentRoundData.songs);
+
+                 updateMatchEditingDisplay();
+            }
+
+            function updateMatchEditingDisplay() {
+                editingTeamAHealth.textContent = teamAHealth;
+                editingTeamBHealth.textContent = teamBHealth;
+                editingTeamAHealthBar.style.width = `${teamAHealth}%`;
+                editingTeamBHealthBar.style.width = `${teamBHealth}%`;
+
+                // Reset score inputs and hide alerts
+                currentPlayerAScoreInput.value = '';
+                currentPlayerAEffectInput.value = '';
+                currentPlayerBScoreInput.value = '';
+                currentPlayerBEffectInput.value = '';
+                healthAlert.classList.add('hidden');
+                successAlert.classList.add('hidden');
+                endRoundBtn.classList.add('hidden');
+                submitMatchScoreBtn.classList.remove('hidden'); // Ensure submit button is visible
+
+                // Update current match info and player score inputs
+                if (currentMatchIndex < 3) {
+                    const playerAId = teamAPlayerOrder[currentMatchIndex];
+                    const playerBId = teamBPlayerOrder[currentMatchIndex];
+                    const playerA = getPlayerById(playerAId);
+                    const playerB = getPlayerById(playerBId);
+
+                    currentMatchInfo.textContent = `第 ${currentMatchIndex + 1} 场：${playerA ? playerA.name : '未知选手'} vs ${playerB ? playerB.name : '未知选手'}`;
+
+                    // Update score input section player info
+                    currentPlayerAScoreName.textContent = playerA ? playerA.name : '选手 A';
+                    currentPlayerBScoreName.textContent = playerB ? playerB.name : '选手 B';
+                    if(playerA) currentPlayerAScoreAvatar.src = playerA.avatar;
+                    if(playerB) currentPlayerBScoreAvatar.src = playerB.avatar;
+
+                    // Highlight current players in player cards
+                    document.querySelectorAll('.player-card').forEach(card => card.classList.remove('current'));
+                    if(playerA) document.getElementById(`player-card-${playerA.id}`).classList.add('current');
+                    if(playerB) document.getElementById(`player-card-${playerB.id}`).classList.add('current');
+
+                    // Update current song info (assuming song is tied to the match index for simplicity)
+                    // In a real app, this would be more complex (user picks song before match)
+                    currentSongData = currentRoundData.songs[currentMatchIndex];
+                    if (currentSongData) {
+                        const songDetails = getSongByTitle(currentSongData.title);
+                        currentSongIndex.textContent = currentSongData.index;
+                        totalSongs.textContent = currentRoundData.songs.length; // Assuming total songs is fixed for the round
+
+                        if (songDetails) {
+                             editingSongCover.src = songDetails.cover;
+                             editingSongTitle.textContent = songDetails.title;
+                             editingSongDetails.innerHTML = `
+                                <span class="bg-yellow-500/30 text-yellow-300 text-xs px-2 py-1 rounded">难度: ${currentSongData.difficulty}</span>
+                                <span class="bg-red-500/30 text-red-300 text-xs px-2 py-1 rounded">属性: ${currentSongData.element === 'fire' ? '火' : currentSongData.element === 'wood' ? '木' : '水'}</span>
+                                <span class="bg-purple-500/30 text-purple-300 text-xs px-2 py-1 rounded">${currentSongData.picker} 选择</span>
+                             `;
+                        } else {
+                             editingSongCover.src = 'https://via.placeholder.com/50x50';
+                             editingSongTitle.textContent = currentSongData.title;
+                             editingSongDetails.innerHTML = '<span class="text-xs text-gray-400">歌曲详情未知</span>';
+                        }
+
+                        // Highlight current song in the table
+                        document.querySelectorAll('#songs-table-body tr').forEach(row => row.classList.remove('border-l-4', 'border-purple-500'));
+                        const currentSongRow = songsTableBody.querySelector(`tr:nth-child(${currentSongData.index})`);
+                        if (currentSongRow) {
+                             currentSongRow.classList.add('border-l-4', 'border-purple-500');
+                        }
+
+                         // Show add random song button only if current song index is >= 13 (or other rule)
+                         if (currentSongData.index >= 13) { // Example rule
+                            addRandomSongContainer.classList.remove('hidden');
+                         } else {
+                             addRandomSongContainer.classList.add('hidden');
+                         }
+
+
+                    } else {
+                         // No song data for this match index
+                         currentSongIndex.textContent = currentMatchIndex + 1;
+                         totalSongs.textContent = currentRoundData.songs.length;
+                         editingSongCover.src = 'https://via.placeholder.com/50x50';
+                         editingSongTitle.textContent = "歌曲信息待定";
+                         editingSongDetails.innerHTML = '<span class="text-xs text-gray-400">请联系用户确认选曲或添加随机歌曲</span>';
+                         addRandomSongContainer.classList.remove('hidden'); // Allow adding random song if no song is set
+                         document.querySelectorAll('#songs-table-body tr').forEach(row => row.classList.remove('border-l-4', 'border-purple-500')); // No song highlighted
+                    }
+
+
+                } else {
+                    // All 3 matches completed, check if round ended by health
+                    currentMatchInfo.textContent = `所有对战已完成`;
+                    document.querySelectorAll('.player-card').forEach(card => card.classList.remove('current')); // Remove highlights
+                    submitMatchScoreBtn.classList.add('hidden'); // Hide submit button
+                    endRoundBtn.classList.remove('hidden'); // Show end round button
+
+                    // If health is still > 0 for both teams after 3 matches
+                     if (teamAHealth > 0 && teamBHealth > 0) {
+                         alertMessage.textContent = `所有比赛已完成，但双方均未归零。请手动结束轮次。`;
+                         healthAlert.classList.remove('hidden');
+                     } else {
+                         // This case should be caught earlier, but as a fallback
+                          alertMessage.textContent = `${teamAHealth <= 0 ? currentRoundData.teamA : currentRoundData.teamB} 的血量已归零！请结束轮次。`;
+                         healthAlert.classList.remove('hidden');
+                     }
+
+                    // Disable score inputs
+                    currentPlayerAScoreInput.disabled = true;
+                    currentPlayerAEffectInput.disabled = true;
+                    currentPlayerBScoreInput.disabled = true;
+                    currentPlayerBEffectInput.disabled = true;
+                }
+            }
+
+
+            startRoundBtn.addEventListener('click', () => {
+                // Get selected player order
+                const orderA = [setupTeamAPlayer1.value, setupTeamAPlayer2.value, setupTeamAPlayer3.value];
+                const orderB = [setupTeamBPlayer1.value, setupTeamBPlayer2.value, setupTeamBPlayer3.value];
+
+                // Basic validation (check if all players are selected and unique within team)
+                const uniqueA = new Set(orderA);
+                const uniqueB = new Set(orderB);
+                if (orderA.includes("") || orderB.includes("") || uniqueA.size !== 3 || uniqueB.size !== 3) {
+                    alert("请为两队选择所有选手，并确保队内选手不重复。");
+                    return;
+                }
+
+                teamAPlayerOrder = orderA;
+                teamBPlayerOrder = orderB;
+                currentMatchIndex = 0; // Start from the first match
+                teamAHealth = 100; // Reset health
+                teamBHealth = 100; // Reset health
+
+                // In a real app, you'd update the round status to 'ongoing' in the backend
+                currentRoundData.status = 'ongoing';
+                currentRoundData.playerOrderA = teamAPlayerOrder;
+                currentRoundData.playerOrderB = teamBPlayerOrder;
+                currentRoundData.currentMatch = currentMatchIndex;
+                currentRoundData.healthA = teamAHealth;
+                currentRoundData.healthB = teamBHealth;
+                 // Simulate adding initial songs if none exist (in real app, user picks)
+                 if (!currentRoundData.songs || currentRoundData.songs.length === 0) {
+                     currentRoundData.songs = [
+                         {index: 1, title: 'Butterfly', difficulty: '12+', element: 'fire', picker: currentRoundData.teamA, status: 'ongoing'},
+                         {index: 2, title: '终末的花束', difficulty: '12', element: 'fire', picker: currentRoundData.teamB, status: 'pending'},
+                         {index: 3, title: 'Good Song', difficulty: '13', element: 'water', picker: currentRoundData.teamA, status: 'pending'},
+                         // Add more placeholder songs up to 12 if needed
+                     ];
+                 }
+                 currentSongData = currentRoundData.songs[currentMatchIndex];
+
+
+                setupMatchEditingView();
+                switchView(matchEditingView);
+            });
+
+            submitMatchScoreBtn.addEventListener('click', () => {
+                const scoreA = parseInt(currentPlayerAScoreInput.value);
+                const effectA = parseInt(currentPlayerAEffectInput.value) || 0;
+                const scoreB = parseInt(currentPlayerBScoreInput.value);
+                const effectB = parseInt(currentPlayerBEffectInput.value) || 0;
+
+                // Basic score validation
+                 if (isNaN(scoreA) || isNaN(scoreB) || scoreA < 0 || scoreA > 9999 || scoreB < 0 || scoreB > 9999) {
+                     alert("请为当前对战选手输入有效的完成率小数点后四位 (0-9999)。");
+                     return;
+                 }
+
+                // --- Simulate Damage Calculation (Replace with Backend Logic) ---
+                // Example: Damage based on score difference + effects
+                const baseDamage = Math.abs(scoreA - scoreB) / 100; // Simplified: difference in last 4 digits / 100
+                let damageToB = 0;
+                let damageToA = 0;
+
+                if (scoreA > scoreB) {
+                    damageToB = Math.max(0, Math.floor(baseDamage) + effectA - effectB); // A deals damage to B
+                } else if (scoreB > scoreA) {
+                     damageToA = Math.max(0, Math.floor(baseDamage) + effectB - effectA); // B deals damage to A
+                } else { // Draw
+                     damageToA = Math.max(0, effectB - effectA); // Effects still apply
+                     damageToB = Math.max(0, effectA - effectB);
+                }
+
+
+                // Apply damage
+                teamBHealth = Math.max(0, teamBHealth - damageToB);
+                teamAHealth = Math.max(0, teamAHealth - damageToA);
+
+                // Update health display immediately
+                editingTeamAHealth.textContent = teamAHealth;
+                editingTeamBHealth.textContent = teamBHealth;
+                editingTeamAHealthBar.style.width = `${teamAHealth}%`;
+                editingTeamBHealthBar.style.width = `${teamBHealth}%`;
+
+                // In a real app, you'd send scores to the backend, which would calculate health, check for shields, etc.
+                // The backend would return the new health values and whether the round ended.
+                // For demo, we simulate the shield logic here simply
+                 if (teamAHealth <= 0 && currentRoundData.shieldAUsed !== true) {
+                     teamAHealth = 33; // Simulate shield recovery
+                     currentRoundData.shieldAUsed = true;
+                     editingTeamAHealth.textContent = teamAHealth;
+                     editingTeamAHealthBar.style.width = `${teamAHealth}%`;
+                     successMessage.textContent = `${currentRoundData.teamA} 触发了复影折镜，血量恢复至 33！`;
+                     successAlert.classList.remove('hidden');
+                     healthAlert.classList.add('hidden'); // Hide any health alert
+                 }
+                 if (teamBHealth <= 0 && currentRoundData.shieldBUsed !== true) {
+                     teamBHealth = 33; // Simulate shield recovery
+                     currentRoundData.shieldBUsed = true;
+                     editingTeamBHealth.textContent = teamBHealth;
+                     editingTeamBHealthBar.style.width = `${teamBHealth}%`;
+                     successMessage.textContent = `${currentRoundData.teamB} 触发了复影折镜，血量恢复至 33！`;
+                     successAlert.classList.remove('hidden');
+                     healthAlert.classList.add('hidden'); // Hide any health alert
+                 }
+
+
+                // Mark current song as completed (simulated)
+                 if (currentSongData) {
+                     currentSongData.status = 'completed';
+                     // Update the song status in the main round data array
+                     const songIndexInRound = currentRoundData.songs.findIndex(s => s.index === currentSongData.index);
+                     if (songIndexInRound !== -1) {
+                         currentRoundData.songs[songIndexInRound].status = 'completed';
+                     }
+                     populateSongsTable(currentRoundData.songs); // Refresh song table
+                 }
+
+
+                // Check if round ends after damage/shield calculation
+                if (teamAHealth <= 0 || teamBHealth <= 0) {
+                    alertMessage.textContent = `${teamAHealth <= 0 ? currentRoundData.teamA : currentRoundData.teamB} 的血量已归零！请结束轮次。`;
+                    healthAlert.classList.remove('hidden');
+                    successAlert.classList.add('hidden'); // Hide success alert
+                    submitMatchScoreBtn.classList.add('hidden'); // Hide submit button
+                    endRoundBtn.classList.remove('hidden'); // Show end round button
+
+                    // For demo, set winner based on final health
+                    currentRoundData.winner = teamAHealth > teamBHealth ? currentRoundData.teamA : (teamBHealth > teamAHealth ? currentRoundData.teamB : '平局'); // Simplified winner logic
+                    currentRoundData.finalHealthA = teamAHealth;
+                    currentRoundData.finalHealthB = teamBHealth;
+                    currentRoundData.currentMatch = currentMatchIndex; // Save state
+
+                } else {
+                    // Round not ended, move to next match
+                    currentMatchIndex++;
+                    currentRoundData.currentMatch = currentMatchIndex; // Save state
+                    currentRoundData.healthA = teamAHealth; // Save health state
+                    currentRoundData.healthB = teamBHealth; // Save health state
+
+                    if (currentMatchIndex < 3) {
+                        // Set next song to ongoing (simulated)
+                         if (currentRoundData.songs[currentMatchIndex]) {
+                             currentRoundData.songs[currentMatchIndex].status = 'ongoing';
+                             populateSongsTable(currentRoundData.songs); // Refresh song table
+                         }
+                        updateMatchEditingDisplay(); // Setup display for the next match
+                         successMessage.textContent = `成绩已提交。进入第 ${currentMatchIndex + 1} 场。`;
+                         successAlert.classList.remove('hidden');
+                         healthAlert.classList.add('hidden'); // Hide health alert
+
+                    } else {
+                        // All 3 matches played, but neither team's health dropped to 0
+                        // This scenario might need specific rules (e.g., sudden death, judge decision)
+                        // For this demo, we'll just show an alert and enable the end round button
+                        alertMessage.textContent = `所有比赛已完成，但双方均未归零。请手动结束轮次。`;
+                        healthAlert.classList.remove('hidden');
+                        successAlert.classList.add('hidden'); // Hide success alert
+                        submitMatchScoreBtn.classList.add('hidden'); // Hide submit button
+                        endRoundBtn.classList.remove('hidden'); // Show end round button
+
+                         // For demo, set winner based on final health
+                        currentRoundData.winner = teamAHealth > teamBHealth ? currentRoundData.teamA : (teamBHealth > teamAHealth ? currentRoundData.teamB : '平局'); // Simplified winner logic
+                        currentRoundData.finalHealthA = teamAHealth;
+                        currentRoundData.finalHealthB = teamBHealth;
+                    }
+                }
+            });
+
+             // Simulate adding a random song (for index >= 13)
+             addRandomSongBtn.addEventListener('click', () => {
+                 if (!currentRoundData || !currentRoundData.songs) return;
+
+                 // Simulate picking a random song from allSongs
+                 const randomSong = allSongs[Math.floor(Math.random() * allSongs.length)];
+                 const nextSongIndex = currentRoundData.songs.length + 1;
+
+                 const newSong = {
+                     index: nextSongIndex,
+                     title: randomSong.title,
+                     difficulty: randomSong.difficulty, // Use random song's difficulty
+                     element: randomSong.element, // Use random song's element
+                     picker: 'Staff 随机', // Indicate it was random
+                     status: 'ongoing' // New song is ongoing
+                 };
+
+                 // Mark previous ongoing song as completed (if any)
+                 const previousOngoingSong = currentRoundData.songs.find(s => s.status === 'ongoing');
+                 if (previousOngoingSong) {
+                     previousOngoingSong.status = 'completed';
+                 }
+
+                 currentRoundData.songs.push(newSong);
+                 currentSongData = newSong; // Set the new song as current
+
+                 populateSongsTable(currentRoundData.songs); // Refresh song table
+                 updateMatchEditingDisplay(); // Update song info display
+
+                 successMessage.textContent = `已添加随机歌曲 "${newSong.title}"。`;
+                 successAlert.classList.remove('hidden');
+                 healthAlert.classList.add('hidden'); // Hide health alert
+
+                  // Hide the add random song button until index >= 13 again (if applicable)
+                 if (currentSongData.index < 13) { // Example rule
+                     addRandomSongContainer.classList.add('hidden');
+                 }
+             });
+
+
+            endRoundBtn.addEventListener('click', () => {
+                // In a real app, you'd finalize the round in the backend
+                currentRoundData.status = 'completed'; // Simulate status update
+
+                // Set data for completed view
+                completedRoundName.textContent = currentRoundData.name;
+                completedTeamAName.textContent = currentRoundData.teamA;
+                completedTeamBName.textContent = currentRoundData.teamB;
+                completedTeamAHealth.textContent = currentRoundData.finalHealthA;
+                completedTeamBHealth.textContent = currentRoundData.finalHealthB;
+                completedWinnerTeam.textContent = currentRoundData.winner;
+
+                 // Find the round in the allRounds array and update its status and final data
+                 const roundIndex = allRounds.findIndex(round => round.id === currentRoundData.id);
+                 if (roundIndex !== -1) {
+                     allRounds[roundIndex] = { ...allRounds[roundIndex], ...currentRoundData }; // Merge updated data
+                 }
+
+
+                switchView(roundCompletedView);
+            });
+
+
+            // --- Back to List Logic ---
+            backToListBtns.forEach(button => {
+                button.addEventListener('click', () => {
+                    // Reset state
+                    currentRoundData = null;
+                    currentMatchIndex = 0;
+                    teamAPlayerOrder = [];
+                    teamBPlayerOrder = [];
+                    teamAHealth = 100;
+                    teamBHealth = 100;
+                    currentSongData = null;
+
+                    // Repopulate the rounds table to show updated statuses
+                    populateRoundsTable();
+
+                    switchView(roundsListView);
+                });
+            });
+
+            // Initial load: Populate rounds table and show list view
+            populateRoundsTable();
+            switchView(roundsListView);
+
+        });
+    </script>
+</body>
+</html>

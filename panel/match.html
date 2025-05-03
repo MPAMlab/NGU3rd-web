@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NGU3rd - 比赛战绩</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            min-height: 100vh;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
+        }
+        .sidebar-item {
+            transition: all 0.3s ease;
+        }
+        .sidebar-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .sidebar-item.active {
+            background: rgba(255, 255, 255, 0.1);
+            border-left: 3px solid #8b5cf6;
+        }
+        .element-fire {
+            color: #ef4444;
+        }
+        .element-wood {
+            color: #10b981;
+        }
+        .element-water {
+            color: #3b82f6;
+        }
+        .bg-element-fire {
+            background: linear-gradient(135deg, #ef4444, #f87171);
+        }
+        .bg-element-wood {
+            background: linear-gradient(135deg, #10b981, #34d399);
+        }
+        .bg-element-water {
+            background: linear-gradient(135deg, #3b82f6, #60a5fa);
+        }
+        .song-card {
+            transition: all 0.3s ease;
+        }
+        .song-card:hover {
+            transform: translateY(-5px);
+        }
+        .song-card.selected {
+            border: 2px solid #8b5cf6;
+        }
+        .tab {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .tab.active {
+            background: rgba(139, 92, 246, 0.2);
+            color: #8b5cf6;
+        }
+        .health-bar {
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #8b5cf6, #6366f1);
+            transition: width 0.5s ease-in-out;
+        }
+        .opponent-health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ef4444, #f87171);
+            transition: width 0.5s ease-in-out;
+        }
+    </style>
+</head>
+<body class="text-white">
+    <div class="flex h-screen">
+        <!-- 侧边栏 -->
+        <div class="w-64 glass hidden md:block">
+            <div class="p-4 border-b border-white/10 flex items-center space-x-3">
+                <img src="https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Z2FtZSUyMGxvZ298ZW58MHx8MHx8fDA%3D" alt="NGU3rd Logo" class="h-10 w-10 rounded-full">
+                <span class="font-bold text-xl">NGU3rd</span>
+            </div>
+            <div class="p-4">
+                <div class="flex items-center space-x-3 mb-6">
+                    <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=1160&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="用户头像" class="h-12 w-12 rounded-full">
+                    <div>
+                        <p class="font-medium">李小明</p>
+                        <p class="text-xs text-gray-400">ID: 12345678</p>
+                    </div>
+                </div>
+                <nav class="space-y-1">
+                    <a href="/panel" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg">
+                        <img src="https://unpkg.com/lucide-static@latest/icons/layout-dashboard.svg" class="w-5 h-5">
+                        <span>仪表盘</span>
+                    </a>
+                    <a href="/panel/match" class="sidebar-item active flex items-center space-x-3 p-3 rounded-lg">
+                        <img src="https://unpkg.com/lucide-static@latest/icons/trophy.svg" class="w-5 h-5">
+                        <span>比赛战绩</span>
+                    </a>
+                    <a href="/panel/achievement" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg">
+                        <img src="https://unpkg.com/lucide-static@latest/icons/medal.svg" class="w-5 h-5">
+                        <span>成就系统</span>
+                    </a>
+                    <a href="/panel/my" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg">
+                        <img src="https://unpkg.com/lucide-static@latest/icons/id-card.svg" class="w-5 h-5">
+                        <span>选手牌</span>
+                    </a>
+                </nav>
+            </div>
+        </div>
+
+        <!-- 移动端导航栏 -->
+        <div class="fixed bottom-0 left-0 right-0 glass md:hidden z-10">
+            <div class="flex justify-around p-3">
+                <a href="/panel" class="flex flex-col items-center space-y-1">
+                    <img src="https://unpkg.com/lucide-static@latest/icons/layout-dashboard.svg" class="w-6 h-6">
+                    <span class="text-xs">仪表盘</span>
+                </a>
+                <a href="/panel/match" class="flex flex-col items-center space-y-1 text-purple-400">
+                    <img src="https://unpkg.com/lucide-static@latest/icons/trophy.svg" class="w-6 h-6">
+                    <span class="text-xs">比赛战绩</span>
+                </a>
+                <a href="/panel/achievement" class="flex flex-col items-center space-y-1">
+                    <img src="https://unpkg.com/lucide-static@latest/icons/medal.svg" class="w-6 h-6">
+                    <span class="text-xs">成就系统</span>
+                </a>
+                <a href="/panel/my" class="flex flex-col items-center space-y-1">
+                    <img src="https://unpkg.com/lucide-static@latest/icons/id-card.svg" class="w-6 h-6">
+                    <span class="text-xs">选手牌</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="flex-1 overflow-auto p-6 pb-20 md:pb-6">
+            <div class="max-w-6xl mx-auto">
+                <!-- 顶部导航栏 -->
+                <div class="flex justify-between items-center mb-8">
+                    <h1 class="text-2xl font-bold">比赛战绩</h1>
+                    <div class="flex items-center space-x-4">
+                        <button class="glass p-2 rounded-lg">
+                            <img src="https://unpkg.com/lucide-static@latest/icons/bell.svg" class="w-5 h-5">
+                        </button>
+                        <div class="md:hidden">
+                            <button class="glass p-2 rounded-lg">
+                                <img src="https://unpkg.com/lucide-static@latest/icons/menu.svg" class="w-5 h-5">
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 比赛概览 -->
+                <div class="glass rounded-xl p-6 mb-8 bg-gradient-to-r from-purple-900/30 to-indigo-900/30">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between">
+                        <div>
+                            <h2 class="text-xl font-bold mb-2">音游大师队</h2>
+                            <p class="text-gray-300 mb-4">当前状态: <span class="text-green-400 font-medium">已晋级复赛</span></p>
+                        </div>
+                        <div class="mt-4 md:mt-0 flex space-x-4">
+                            <div class="glass p-4 rounded-lg">
+                                <div class="text-center">
+                                    <p class="text-sm text-gray-300">胜场</p>
+                                    <p class="font-bold text-xl">2</p>
+                                </div>
+                            </div>
+                            <div class="glass p-4 rounded-lg">
+                                <div class="text-center">
+                                    <p class="text-sm text-gray-300">败场</p>
+                                    <p class="font-bold text-xl">1</p>
+                                </div>
+                            </div>
+                            <div class="glass p-4 rounded-lg">
+                                <div class="text-center">
+                                    <p class="text-sm text-gray-300">总得分</p>
+                                    <p class="font-bold text-xl">245</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 标签页切换 -->
+                <div class="flex mb-6 overflow-x-auto">
+                    <button class="tab active px-6 py-3 rounded-t-lg font-medium" data-tab="details">比赛详情</button>
+                    <button class="tab px-6 py-3 rounded-t-lg font-medium" data-tab="songs">歌曲选择</button>
+                    <button class="tab px-6 py-3 rounded-t-lg font-medium" data-tab="stats">队伍数据</button>
+                </div>
+
+                <!-- 比赛详情内容 -->
+                <div id="tab-details" class="tab-content glass rounded-xl p-6 mb-8">
+                    <h3 class="text-lg font-bold mb-4">比赛进程</h3>
+                    
+                    <!-- 比赛进程图 -->
+                    <div class="relative py-8 mb-8">
+                        <div class="absolute left-0 right-0 top-1/2 h-1 bg-gray-700 -translate-y-1/2"></div>
+                        
+                        <div class="flex justify-between relative">
+                            <!-- 初赛 -->
+                            <div class="flex flex-col items-center relative z-10">
+                                <div class="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center mb-2">
+                                    <img src="https://unpkg.com/lucide-static@latest/icons/check.svg" class="w-4 h-4">
+                                </div>
+                                <p class="text-sm font-medium">初赛</p>
+                                <p class="text-xs text-gray-400">已完成</p>
+                            </div>
+                            
+                            <!-- 复赛 -->
+                            <div class="flex flex-col items-center relative z-10">
+                                <div class="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center mb-2">
+                                    <span class="text-sm font-bold">2</span>
+                                </div>
+                                <p class="text-sm font-medium">复赛</p>
+                                <p class="text-xs text-purple-400">进行中</p>
+                            </div>
+                            
+                            <!-- 决赛 -->
+                            <div class="flex flex-col items-center relative z-10">
+                                <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center mb-2">
+                                    <span class="text-sm font-bold">3</span>
+                                </div>
+                                <p class="text-sm font-medium">决赛</p>
+                                <p class="text-xs text-gray-400">未开始</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 当前比赛 -->
+                    <div class="glass rounded-lg p-4 mb-6 bg-gradient-to-r from-purple-900/20 to-indigo-900/20">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="font-medium">当前比赛</h4>
+                            <span class="text-xs bg-purple-500 bg-opacity-30 text-purple-300 px-2 py-1 rounded-full">进行中</span>
+                        </div>
+                        <div class="flex flex-col md:flex-row justify-between">
+                            <div class="mb-4 md:mb-0">
+                                <p class="text-sm text-gray-300">复赛 第1轮</p>
+                                <p class="font-bold text-lg">音游大师 vs 节奏猎人</p>
+                                <p class="text-sm">时间: 2023年12月15日 14:30</p>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-end mb-2">
+                                    <span class="text-sm mr-2">我方血量:</span>
+                                    <span class="font-bold">85</span>
+                                </div>
+                                <div class="health-bar w-48">
+                                    <div class="health-fill" style="width: 85%"></div>
+                                </div>
+                                <div class="flex items-center justify-end mt-3 mb-2">
+                                    <span class="text-sm mr-2">对方血量:</span>
+                                    <span class="font-bold">62</span>
+                                </div>
+                                <div class="health-bar w-48">
+                                    <div class="opponent-health-fill" style="width: 62%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 历史比赛 -->
+                    <h4 class="font-medium mb-4">历史比赛</h4>
+                    <div class="space-y-4">
+                        <!-- 历史比赛1 -->
+                        <div class="glass rounded-lg p-4 hover:bg-white/5 transition">
+                            <div class="flex flex-col md:flex-row justify-between">
+                                <div class="mb-4 md:mb-0">
+                                    <div class="flex items-center mb-1">
+                                        <span class="text-sm text-gray-300 mr-2">初赛 第2轮</span>
+                                        <span class="text-xs bg-green-500 bg-opacity-30 text-green-300 px-2 py-0.5 rounded-full">胜利</span>
+                                    </div>
+                                    <p class="font-bold">音游大师 vs 节奏大师</p>
+                                    <p class="text-sm">时间: 2023年12月10日</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm">最终血量: <span class="font-bold text-green-400">35</span> : <span class="font-bold text-red-400">0</span></p>
+                                    <p class="text-sm">总伤害输出: <span class="font-bold">65</span></p>
+                                    <button class="mt-2 text-xs text-purple-400 hover:underline">查看详情</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 历史比赛2 -->
+                        <div class="glass rounded-lg p-4 hover:bg-white/5 transition">
+                            <div class="flex flex-col md:flex-row justify-between">
+                                <div class="mb-4 md:mb-0">
+                                    <div class="flex items-center mb-1">
+                                        <span class="text-sm text-gray-300 mr-2">初赛 第1轮</span>
+                                        <span class="text-xs bg-red-500 bg-opacity-30 text-red-300 px-2 py-0.5 rounded-full">失败</span>
+                                    </div>
+                                    <p class="font-bold">音游大师 vs 音符猎人</p>
+                                    <p class="text-sm">时间: 2023年12月05日</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm">最终血量: <span class="font-bold text-red-400">0</span> : <span class="font-bold text-green-400">28</span></p>
+                                    <p class="text-sm">总伤害输出: <span class="font-bold">72</span></p>
+                                    <button class="mt-2 text-xs text-purple-400 hover:underline">查看详情</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 歌曲选择区域 (默认隐藏) -->
+                <div id="tab-songs" class="tab-content glass rounded-xl p-6 mb-8 hidden">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-lg font-bold">歌曲选择</h3>
+                        <div class="flex space-x-2">
+                            <button class="bg-purple-600 px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-purple-700 transition">保存选择</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 选择说明 -->
+                    <div class="glass rounded-lg p-4 mb-6 bg-blue-900/20">
+                        <div class="flex items-start space-x-3">
+                            <div class="bg-blue-500 bg-opacity-20 p-2 rounded-full mt-1">
+                                <img src="https://unpkg.com/lucide-static@latest/icons/info.svg" class="w-5 h-5">
+                            </div>
+                            <div>
+                                <h4 class="font-medium mb-1">歌曲选择规则</h4>
+                                <ul class="text-sm text-gray-300 space-y-1 list-disc list-inside">
+                                    <li>初赛和复赛各可选择至多两首歌曲</li>
+                                    <li>同一赛段内不能选择重复歌曲</li>
+                                    <li>同组内可以选择相同歌曲</li>
+                                    <li>若双方血量在12首歌后均未归零，将由staff随机后续歌曲</li>
+                                    <li>决赛曲目由staff指定，不可挑选</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 初赛歌曲选择 -->
+                    <div class="mb-8">
+                        <h4 class="font-medium mb-4">初赛歌曲选择 (已选择 2/2)</h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            <!-- 歌曲1 -->
+                            <div class="song-card glass rounded-lg overflow-hidden selected">
+                                <img src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="歌曲封面" class="w-full h-32 object-cover">
+                                <div class="p-3">
+                                    <h5 class="font-medium mb-1">Butterfly</h5>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xs text-gray-300">难度: 12+</span>
+                                        <span class="text-xs bg-purple-500 bg-opacity-30 text-purple-300 px-2 py-0.5 rounded-full">已选择</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 歌曲2 -->
+                            <div class="song-card glass rounded-lg overflow-hidden selected">
+                                <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="歌曲封面" class="w-full h-32 object-cover">
+                                <div class="p-3">
+                                    <h5 class="font-medium mb-1">Stardust</h5>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xs text-gray-300">难度: 13</span>
+                                        <span class="text-xs bg-purple-500 bg-opacity-30 text-purple-300 px-2 py-0.5 rounded-full">已选择</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 复赛歌曲选择 -->
+                    <div>
+                        <h4 class="font-medium mb-4">复赛歌曲选择 (已选择 1/2)</h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            <!-- 歌曲1 -->
+                            <div class="song-card glass rounded-lg overflow-hidden selected">
+                                <img src="https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="歌曲封面" class="w-full h-32 object-cover">
+                                <div class="p-3">
+                                    <h5 class="font-medium mb-1">Neon Dreams</h5>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xs text-gray-300">难度: 13+</span>
+                                        <span class="text-xs bg-purple-500 bg-opacity-30 text-purple-300 px-2 py-0.5 rounded-full">已选择</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 歌曲2 -->
+                            <div class="song-card glass rounded-lg overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1459749411175-04bf5292ceea?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="歌曲封面" class="w-full h-32 object-cover">
+                                <div class="p-3">
+                                    <h5 class="font-medium mb-1">Cosmic Ray</h5>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xs text-gray-300">难度: 14</span>
+                                        <button class="text-xs text-purple-400 hover:underline">选择</button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 歌曲3 -->
+                            <div class="song-card glass rounded-lg overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=1074&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="歌曲封面" class="w-full h-32 object-cover">
+                                <div class="p-3">
+                                    <h5 class="font-medium mb-1">Stellar</h5>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xs text-gray-300">难度: 13</span>
+                                        <button class="text-xs text-purple-400 hover:underline">选择</button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 歌曲4 -->
+                            <div class="song-card glass rounded-lg overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1506157786151-b8491531f063?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="歌曲封面" class="w-full h-32 object-cover">
+                                <div class="p-3">
+                                    <h5 class="font-medium mb-1">Infinity</h5>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xs text-gray-300">难度: 14+</span>
+                                        <button class="text-xs text-purple-400 hover:underline">选择</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 队伍数据区域 (默认隐藏) -->
+                <div id="tab-stats" class="tab-content glass rounded-xl p-6 mb-8 hidden">
+                    <h3 class="text-lg font-bold mb-6">队伍数据分析</h3>
+                    
+                    <!-- 队伍成员表现 -->
+                    <div class="mb-8">
+                        <h4 class="font-medium mb-4">队伍成员表现</h4>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="text-left text-gray-400 text-sm">
+                                        <th class="pb-3 pl-4">队员</th>
+                                        <th class="pb-3">职业</th>
+                                        <th class="pb-3">场次</th>
+                                        <th class="pb-3">平均完成率</th>
+                                        <th class="pb-3">总伤害</th>
+                                        <th class="pb-3 rounded-r-lg">MVP次数</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="glass hover:bg-white/5">
+                                        <td class="py-3 pl-4 rounded-l-lg">
+                                            <div class="flex items-center space-x-3">
+                                                <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=1160&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="队员头像" class="w-8 h-8 rounded-full">
+                                                <span>李小明 (你)</span>
+                                            </div>
+                                        </td>
+                                        <td class="py-3">绝剑士</td>
+                                        <td class="py-3">3</td>
+                                        <td class="py-3">92.5678%</td>
+                                        <td class="py-3">75</td>
+                                        <td class="py-3 rounded-r-lg">1</td>
+                                    </tr>
+                                     <tr class="glass hover:bg-white/5">
+                                        <td class="py-3 pl-4 rounded-l-lg">
+                                            <div class="flex items-center space-x-3">
+                                                <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="队员头像" class="w-8 h-8 rounded-full">
+                                                <span>王小红</span>
+                                            </div>
+                                        </td>
+                                        <td class="py-3">矩盾手</td>
+                                        <td class="py-3">3</td>
+                                        <td class="py-3">88.1234%</td>
+                                        <td class="py-3">68</td>
+                                        <td class="py-3 rounded-r-lg">0</td>
+                                    </tr>
+                                     <tr class="glass hover:bg-white/5">
+                                        <td class="py-3 pl-4 rounded-l-lg">
+                                            <div class="flex items-center space-x-3">
+                                                <img src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="队员头像" class="w-8 h-8 rounded-full">
+                                                <span>张小强</span>
+                                            </div>
+                                        </td>
+                                        <td class="py-3">炼星师</td>
+                                        <td class="py-3">3</td>
+                                        <td class="py-3">95.8765%</td>
+                                        <td class="py-3">81</td>
+                                        <td class="py-3 rounded-r-lg">2</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 队伍总数据 -->
+                    <div>
+                         <h4 class="font-medium mb-4">队伍总览</h4>
+                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                             <div class="glass rounded-lg p-4">
+                                 <p class="text-sm text-gray-300">总血量恢复</p>
+                                 <p class="font-bold text-xl mt-1">45</p>
+                             </div>
+                             <div class="glass rounded-lg p-4">
+                                 <p class="text-sm text-gray-300">总伤害无效化</p>
+                                 <p class="font-bold text-xl mt-1">12</p>
+                             </div>
+                             <div class="glass rounded-lg p-4">
+                                 <p class="text-sm text-gray-300">复影折镜触发次数</p>
+                                 <p class="font-bold text-xl mt-1">1</p>
+                             </div>
+                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab切换逻辑
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+
+                    const targetTab = tab.dataset.tab;
+                    tabContents.forEach(content => {
+                        if (content.id === `tab-${targetTab}`) {
+                            content.classList.remove('hidden');
+                        } else {
+                            content.classList.add('hidden');
+                        }
+                    });
+                });
+            });
+
+            // 默认显示第一个tab
+            if (tabs.length > 0) {
+                 tabs[0].click();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NGU3rd - 发放成就</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            min-height: 100vh;
+            color: white;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
+        }
+         .input-glass {
+             background: rgba(255, 255, 255, 0.1);
+             border: 1px solid rgba(255, 255, 255, 0.2);
+             color: white;
+             padding: 8px 12px;
+             border-radius: 4px;
+         }
+         .input-glass::placeholder {
+             color: rgba(255, 255, 255, 0.5);
+         }
+         .input-glass:focus {
+            outline: none;
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.5);
+         }
+         select.input-glass option {
+            background: #1e293b; /* Dark background for dropdown options */
+            color: white;
+         }
+
+        .btn-primary {
+            background: linear-gradient(90deg, #8b5cf6, #c084fc);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: opacity 0.3s ease;
+        }
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+         .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+         }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: opacity 0.3s ease;
+             border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+         .btn-secondary:hover {
+            opacity: 0.8;
+         }
+
+
+        .sidebar-item {
+            transition: all 0.3s ease;
+        }
+        .sidebar-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .sidebar-item.active {
+            background: rgba(255, 255, 255, 0.1);
+            border-left: 3px solid #8b5cf6;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1); /* green-500 with alpha */
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #6ee7b7; /* green-300 */
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+         .alert-danger {
+            background: rgba(239, 68, 68, 0.1); /* red-500 with alpha */
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171; /* red-400 */
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .achievement-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .achievement-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4);
+        }
+
+        .recipient-item {
+             transition: background-color 0.2s ease;
+        }
+        .recipient-item:hover {
+             background: rgba(255, 255, 255, 0.05);
+        }
+         .recipient-item.selected {
+             background: rgba(139, 92, 246, 0.1);
+             border-left: 3px solid #8b5cf6;
+         }
+
+         .icon-picker-grid {
+             display: grid;
+             grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+             gap: 8px;
+             max-height: 150px;
+             overflow-y: auto;
+         }
+         .icon-picker-item {
+             padding: 8px;
+             border-radius: 4px;
+             cursor: pointer;
+             transition: background-color 0.2s ease, border-color 0.2s ease;
+             border: 1px solid transparent;
+             display: flex;
+             justify-content: center;
+             align-items: center;
+         }
+         .icon-picker-item:hover {
+             background: rgba(255, 255, 255, 0.1);
+         }
+         .icon-picker-item.selected {
+             background: rgba(139, 92, 246, 0.2);
+             border-color: #8b5cf6;
+         }
+    </style>
+</head>
+<body class="text-white">
+    <div class="flex h-screen">
+        <!-- 侧边栏 -->
+        <div class="w-64 glass hidden md:block flex-shrink-0">
+            <div class="p-4 border-b border-white/10 flex items-center space-x-3">
+                <img src="https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Z2FtZSUyMGxvZ298ZW58MHx8MHx8fDA%3D" alt="NGU3rd Logo" class="h-10 w-10 rounded-full">
+                <span class="font-bold text-xl">NGU3rd</span>
+                <span class="ml-1 bg-purple-600/50 text-xs px-2 py-0.5 rounded-full">STAFF</span>
+            </div>
+            <div class="p-4">
+                <div class="flex items-center space-x-3 mb-6">
+                    <img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8cHJvZmVzc2lvbmFsJTIwcG9ydHJhaXR8ZW58MHx8MHx8fDA%3D" alt="staff头像" class="h-12 w-12 rounded-full object-cover">
+                    <div>
+                        <p class="font-medium">赵管理</p>
+                        <p class="text-xs text-gray-400">Staff ID: STAFF001</p>
+                    </div>
+                </div>
+                <nav class="space-y-1">
+                    <a href="/panel" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg">
+                         <img src="https://unpkg.com/lucide-static@latest/icons/layout-dashboard.svg" class="w-5 h-5">
+                        <span>仪表盘</span>
+                    </a>
+                    <a href="/panel/editmatch" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg">
+                         <img src="https://unpkg.com/lucide-static@latest/icons/edit-3.svg" class="w-5 h-5">
+                        <span>编辑轮次</span>
+                    </a>
+                    <a href="/panel/editachievement" class="sidebar-item active flex items-center space-x-3 p-3 rounded-lg">
+                         <img src="https://unpkg.com/lucide-static@latest/icons/award.svg" class="w-5 h-5">
+                        <span>发放成就</span>
+                    </a>
+                    <a href="/panel/my" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg">
+                         <img src="https://unpkg.com/lucide-static@latest/icons/badge.svg" class="w-5 h-5">
+                        <span>Staff牌</span>
+                    </a>
+                     <a href="/live" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg" target="_blank">
+                        <img src="https://unpkg.com/lucide-static@latest/icons/tv.svg" class="w-5 h-5">
+                        <span>前往直播页</span>
+                    </a>
+                </nav>
+            </div>
+        </div>
+
+        <!-- 移动端导航栏 -->
+        <div class="fixed bottom-0 left-0 right-0 glass md:hidden z-10">
+            <div class="flex justify-around p-3">
+                <a href="/panel" class="flex flex-col items-center space-y-1 text-gray-400">
+                     <img src="https://unpkg.com/lucide-static@latest/icons/layout-dashboard.svg" class="w-6 h-6">
+                    <span class="text-xs">仪表盘</span>
+                </a>
+                <a href="/panel/editmatch" class="flex flex-col items-center space-y-1 text-gray-400">
+                     <img src="https://unpkg.com/lucide-static@latest/icons/edit-3.svg" class="w-6 h-6">
+                    <span class="text-xs">编辑轮次</span>
+                </a>
+                <a href="/panel/editachievement" class="flex flex-col items-center space-y-1 text-purple-400">
+                     <img src="https://unpkg.com/lucide-static@latest/icons/award.svg" class="w-6 h-6">
+                    <span class="text-xs">发放成就</span>
+                </a>
+                <a href="/panel/my" class="flex flex-col items-center space-y-1 text-gray-400">
+                     <img src="https://unpkg.com/lucide-static@latest/icons/badge.svg" class="w-6 h-6">
+                    <span class="text-xs">Staff牌</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="flex-1 overflow-auto pb-16 md:pb-0">
+            <div class="max-w-4xl mx-auto p-6">
+                <!-- 顶部导航栏 -->
+                <div class="flex justify-between items-center mb-8">
+                    <h1 class="text-2xl font-bold">发放成就</h1>
+                    <div class="flex items-center space-x-4">
+                        <button class="glass p-2 rounded-lg">
+                            <img src="https://unpkg.com/lucide-static@latest/icons/bell.svg" class="w-5 h-5">
+                        </button>
+                        <!-- Mobile menu button (if needed) -->
+                        <!-- <div class="md:hidden">
+                            <button class="glass p-2 rounded-lg">
+                                <img src="https://unpkg.com/lucide-static@latest/icons/menu.svg" class="w-5 h-5">
+                            </button>
+                        </div> -->
+                    </div>
+                </div>
+
+                <!-- Achievement List View -->
+                <div id="achievement-list-view">
+                    <h2 class="text-2xl font-semibold mb-6">可手动发放成就列表</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="achievement-cards-container">
+                        <!-- Achievement cards will be populated by JS -->
+                    </div>
+                     <div class="text-center mt-8">
+                         <button id="create-custom-achievement-btn" class="btn-secondary flex items-center justify-center mx-auto">
+                             <img src="https://unpkg.com/lucide-static@latest/icons/plus-circle.svg" class="w-5 h-5 mr-2">
+                             创建并发放自定义成就
+                         </button>
+                     </div>
+                </div>
+
+                <!-- Distribute Achievement View -->
+                <div id="distribute-achievement-view" class="hidden">
+                    <button class="text-gray-400 hover:underline mb-6 btn-back-to-list">&larr; 返回成就列表</button>
+                    <h2 class="text-2xl font-semibold mb-6">发放成就</h2>
+
+                    <!-- Achievement Selection/Creation -->
+                    <div class="glass rounded-lg p-6 mb-6">
+                        <div class="flex space-x-4 mb-4">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="achievement-source" value="existing" checked class="form-radio text-purple-600">
+                                <span class="ml-2 text-gray-300">选择现有成就</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="achievement-source" value="custom" class="form-radio text-purple-600">
+                                <span class="ml-2 text-gray-300">创建自定义成就</span>
+                            </label>
+                        </div>
+
+                        <!-- Existing Achievement Selection -->
+                        <div id="existing-achievement-section">
+                            <label class="block text-sm font-medium text-gray-300 mb-2">选择成就</label>
+                            <select id="existing-achievement-select" class="w-full input-glass">
+                                <option value="">-- 请选择一个成就 --</option>
+                                <!-- Options will be populated by JS -->
+                            </select>
+                             <!-- Display selected achievement details -->
+                             <div id="selected-achievement-details" class="glass rounded-lg p-4 mt-4 hidden">
+                                <div class="flex items-center space-x-4">
+                                    <img src="https://unpkg.com/lucide-static@latest/icons/award.svg" class="w-12 h-12 text-purple-400" id="selected-achievement-icon">
+                                    <div>
+                                        <h3 class="text-lg font-bold mb-1" id="selected-achievement-name">成就名称</h3>
+                                        <p class="text-gray-400 text-sm" id="selected-achievement-description">成就描述。</p>
+                                    </div>
+                                </div>
+                             </div>
+                        </div>
+
+                        <!-- Custom Achievement Creation -->
+                        <div id="custom-achievement-section" class="hidden">
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-1">成就名称</label>
+                                    <input type="text" id="custom-achievement-name-input" class="w-full input-glass" placeholder="输入成就名称">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-1">成就描述</label>
+                                    <textarea id="custom-achievement-description-input" class="w-full input-glass" rows="3" placeholder="输入成就描述"></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-2">选择图标</label>
+                                    <div class="icon-picker-grid" id="icon-picker">
+                                        <!-- Icons will be populated by JS -->
+                                    </div>
+                                     <input type="hidden" id="selected-icon-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <!-- Recipient Selection -->
+                    <div class="glass rounded-lg p-6 mb-6">
+                        <h3 class="text-xl font-bold mb-4">选择接收者 (用户/队伍)</h3>
+                        <input type="text" id="recipient-search-input" class="w-full input-glass mb-4" placeholder="搜索用户或队伍...">
+
+                        <div class="max-h-60 overflow-y-auto glass rounded-lg">
+                            <ul id="recipient-list">
+                                <!-- Recipient items will be populated/filtered by JS -->
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Alert Area -->
+                    <div id="distribute-alert-area">
+                        <!-- Alerts will appear here -->
+                    </div>
+
+                    <div class="text-center">
+                        <button id="confirm-distribute-btn" class="btn-primary" disabled>确认发放 (<span id="selected-recipient-count">0</span>)</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const achievementListView = document.getElementById('achievement-list-view');
+            const distributeAchievementView = document.getElementById('distribute-achievement-view');
+
+            const achievementCardsContainer = document.getElementById('achievement-cards-container');
+            const createCustomAchievementBtn = document.getElementById('create-custom-achievement-btn');
+
+            const achievementSourceRadios = document.querySelectorAll('input[name="achievement-source"]');
+            const existingAchievementSection = document.getElementById('existing-achievement-section');
+            const customAchievementSection = document.getElementById('custom-achievement-section');
+
+            const existingAchievementSelect = document.getElementById('existing-achievement-select');
+            const selectedAchievementDetails = document.getElementById('selected-achievement-details');
+            const selectedAchievementIcon = document.getElementById('selected-achievement-icon');
+            const selectedAchievementName = document.getElementById('selected-achievement-name');
+            const selectedAchievementDescription = document.getElementById('selected-achievement-description');
+
+            const customAchievementNameInput = document.getElementById('custom-achievement-name-input');
+            const customAchievementDescriptionInput = document.getElementById('custom-achievement-description-input');
+            const iconPicker = document.getElementById('icon-picker');
+            const selectedIconInput = document.getElementById('selected-icon-input');
+
+
+            const recipientSearchInput = document.getElementById('recipient-search-input');
+            const recipientList = document.getElementById('recipient-list');
+            const distributeAlertArea = document.getElementById('distribute-alert-area');
+
+            const confirmDistributeBtn = document.getElementById('confirm-distribute-btn');
+            const selectedRecipientCountSpan = document.getElementById('selected-recipient-count');
+            const backToListBtns = document.querySelectorAll('.btn-back-to-list');
+
+            let currentAchievement = null; // The achievement being distributed (either selected or custom)
+            let selectedRecipients = new Set();
+
+            // --- Simulate Data (Replace with API calls) ---
+            const allAchievements = [
+                { id: 'ach1', name: '初赛优胜', description: '在初赛中取得优异成绩的队伍。', icon: 'trophy', type: 'manual' },
+                { id: 'ach2', name: '全勤奖', description: '所有比赛轮次均按时到场的选手。', icon: 'calendar-check', type: 'automatic' },
+                { id: 'ach3', name: '节奏之星', description: '在特定歌曲中获得高分的选手。', icon: 'star', type: 'manual' },
+                { id: 'ach4', name: '坚韧不拔', description: '血量归零后触发复影折镜的选手。', icon: 'shield', type: 'automatic' },
+                 { id: 'ach5', name: 'Staff 辛劳奖', description: '感谢Staff为比赛的辛勤付出！', icon: 'heart-handshake', type: 'manual' },
+                // Add more achievements
+            ];
+
+             // Simulate all possible recipients (Users and Teams)
+             const allRecipients = [
+                 { id: 'user_pa1', type: 'user', name: '李小明', team: '音游大师队', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=1160&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+                 { id: 'user_pa2', type: 'user', name: '王小红', team: '音游大师队', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+                 { id: 'user_pa3', type: 'user', name: '张小强', team: '音游大师队', avatar: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+                 { id: 'user_pb1', type: 'user', name: '陈一鸣', team: '节奏大师队', avatar: 'https://images.unsplash.com/photo-1557862921-37829c790f19?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8bWFuJTIwYXNpYW58ZW58MHx8MHx8fDA%3D' },
+                 { id: 'user_pb2', type: 'user', name: '林小雨', team: '节奏大师队', avatar: 'https://images.unsplash.com/photo-1542178243-bc20204b769e?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fHdvbWFuJTIwYXNpYW58ZW58MHx8MHx8fDA%3D' },
+                 { id: 'user_pb3', type: 'user', name: '黄小龙', team: '节奏大师队', avatar: 'https://images.unsplash.com/photo-1504257432389-52343af06ae3?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTZ8fG1hbiUyMGFzaWFufGVufDB8fDB8fHww', },
+                 { id: 'team_t1', type: 'team', name: '音游大师队', avatar: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Z2FtZSUyMGxvZ298ZW58MHx8MHx8fDA%3D' },
+                 { id: 'team_t2', type: 'team', name: '节奏大师队', avatar: 'https://images.unsplash.com/photo-1563906267088-b029e7101114?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+                  { id: 'team_t3', type: 'team', name: '星光舞者队', avatar: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' },
+                 // Add more users/teams
+             ];
+
+            // Simulate available icons (Lucide icons)
+            const availableIcons = [
+                'award', 'trophy', 'star', 'shield', 'heart-handshake', 'zap', 'music', 'swords', 'crown', 'sparkles', 'flame', 'leaf', 'droplets', 'medal', 'gift', 'rocket'
+            ];
+
+
+            // Function to switch views
+            function switchView(viewElement) {
+                achievementListView.classList.add('hidden');
+                distributeAchievementView.classList.add('hidden');
+                viewElement.classList.remove('hidden');
+                 distributeAlertArea.innerHTML = ''; // Clear alerts on view switch
+            }
+
+            // Function to populate achievement cards in the list view
+            function populateAchievementCards() {
+                achievementCardsContainer.innerHTML = ''; // Clear current cards
+                allAchievements.filter(ach => ach.type === 'manual').forEach(ach => {
+                    const card = document.createElement('div');
+                    card.classList.add('glass', 'rounded-lg', 'p-4', 'flex', 'flex-col', 'items-center', 'text-center', 'achievement-card');
+                    card.innerHTML = `
+                        <img src="https://unpkg.com/lucide-static@latest/icons/${ach.icon}.svg" class="w-12 h-12 text-purple-400 mb-3">
+                        <h3 class="font-bold text-lg mb-2">${ach.name}</h3>
+                        <p class="text-gray-300 text-sm mb-4 flex-grow">${ach.description}</p>
+                        <button class="btn-secondary text-sm select-existing-achievement-btn" data-achievement-id="${ach.id}">发放此成就</button>
+                    `;
+                    achievementCardsContainer.appendChild(card);
+                });
+
+                 // Add event listeners to the new buttons
+                 document.querySelectorAll('.select-existing-achievement-btn').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const achievementId = e.target.dataset.achievementId;
+                        currentAchievement = allAchievements.find(ach => ach.id === achievementId);
+                        if (currentAchievement) {
+                            // Set radio button and update UI
+                            document.querySelector('input[name="achievement-source"][value="existing"]').checked = true;
+                            toggleAchievementSource(); // Update section visibility
+                            populateExistingAchievementSelect(); // Repopulate select with potentially new custom achievements
+                            existingAchievementSelect.value = currentAchievement.id; // Select the chosen achievement
+                            displaySelectedAchievementDetails(currentAchievement); // Display details
+
+                            // Reset recipient selection
+                            populateRecipientList(allRecipients);
+                            selectedRecipients.clear();
+                            updateSelectedRecipientCount();
+                            confirmDistributeBtn.disabled = true; // Disable button initially
+                            recipientSearchInput.value = ''; // Clear search
+
+                            switchView(distributeAchievementView);
+                        }
+                    });
+                });
+            }
+
+            // Function to populate the recipient list
+            function populateRecipientList(recipients) {
+                recipientList.innerHTML = ''; // Clear current list
+                if (recipients.length === 0) {
+                     recipientList.innerHTML = '<li class="p-4 text-center text-gray-400">无匹配的接收者</li>';
+                     return;
+                }
+
+                recipients.forEach(recipient => {
+                    const listItem = document.createElement('li');
+                    listItem.classList.add('p-3', 'flex', 'items-center', 'space-x-3', 'cursor-pointer', 'recipient-item');
+                    listItem.dataset.recipientId = recipient.id;
+
+                    const avatarSrc = recipient.type === 'user' ? recipient.avatar : (recipient.avatar || 'https://images.unsplash.com/photo-1563906267088-b029e7101114?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'); // Use default team avatar if none provided
+                    const avatarAlt = recipient.type === 'user' ? `${recipient.name}头像` : `${recipient.name} Logo`;
+
+                    listItem.innerHTML = `
+                        <img src="${avatarSrc}" alt="${avatarAlt}" class="w-8 h-8 rounded-full object-cover">
+                        <div class="flex-1">
+                            <p class="font-medium">${recipient.name}</p>
+                            <p class="text-xs text-gray-400">${recipient.type === 'user' ? `队伍: ${recipient.team}` : '队伍'}</p>
+                        </div>
+                        <img src="https://unpkg.com/lucide-static@latest/icons/check-circle.svg" class="w-5 h-5 text-green-500 hidden selected-icon">
+                    `;
+
+                    listItem.addEventListener('click', () => {
+                        listItem.classList.toggle('selected');
+                        const selectedIcon = listItem.querySelector('.selected-icon');
+                        selectedIcon.classList.toggle('hidden');
+
+                        if (listItem.classList.contains('selected')) {
+                            selectedRecipients.add(recipient.id);
+                        } else {
+                            selectedRecipients.delete(recipient.id);
+                        }
+                        updateSelectedRecipientCount();
+                    });
+
+                    recipientList.appendChild(listItem);
+                });
+            }
+
+            // Update selected recipient count and button state
+            function updateSelectedRecipientCount() {
+                selectedRecipientCountSpan.textContent = selectedRecipients.size;
+                // Enable button only if an achievement is selected/created AND recipients are selected
+                const isAchievementSelected = currentAchievement !== null;
+                confirmDistributeBtn.disabled = !isAchievementSelected || selectedRecipients.size === 0;
+            }
+
+            // Handle recipient search
+            recipientSearchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                const filteredRecipients = allRecipients.filter(recipient =>
+                    recipient.name.toLowerCase().includes(searchTerm) ||
+                    (recipient.team && recipient.team.toLowerCase().includes(searchTerm))
+                );
+                populateRecipientList(filteredRecipients);
+                 // Re-select previously selected items after filtering
+                 selectedRecipients.forEach(selectedId => {
+                     const item = recipientList.querySelector(`[data-recipient-id="${selectedId}"]`);
+                     if (item) {
+                         item.classList.add('selected');
+                         item.querySelector('.selected-icon').classList.remove('hidden');
+                     }
+                 });
+            });
+
+
+            // --- Achievement Source Toggle Logic ---
+            function toggleAchievementSource() {
+                const selectedSource = document.querySelector('input[name="achievement-source"]:checked').value;
+                if (selectedSource === 'existing') {
+                    existingAchievementSection.classList.remove('hidden');
+                    customAchievementSection.classList.add('hidden');
+                     // Clear custom fields when switching away
+                     customAchievementNameInput.value = '';
+                     customAchievementDescriptionInput.value = '';
+                     selectedIconInput.value = '';
+                     document.querySelectorAll('.icon-picker-item').forEach(item => item.classList.remove('selected'));
+
+                    // Update currentAchievement based on selected option
+                    const selectedAchId = existingAchievementSelect.value;
+                    currentAchievement = allAchievements.find(ach => ach.id === selectedAchId) || null;
+                    displaySelectedAchievementDetails(currentAchievement);
+
+                } else { // custom
+                    existingAchievementSection.classList.add('hidden');
+                    customAchievementSection.classList.remove('hidden');
+                    selectedAchievementDetails.classList.add('hidden'); // Hide details for existing
+
+                    // Clear existing selection when switching away
+                    existingAchievementSelect.value = "";
+                    currentAchievement = null; // Clear current achievement
+
+                    // Update currentAchievement based on custom inputs (will happen on distribute click)
+                }
+                 updateSelectedRecipientCount(); // Re-evaluate button state
+            }
+
+            achievementSourceRadios.forEach(radio => {
+                radio.addEventListener('change', toggleAchievementSource);
+            });
+
+            // Populate existing achievement select dropdown
+            function populateExistingAchievementSelect() {
+                 existingAchievementSelect.innerHTML = '<option value="">-- 请选择一个成就 --</option>';
+                 allAchievements.filter(ach => ach.type === 'manual').forEach(ach => {
+                     const option = document.createElement('option');
+                     option.value = ach.id;
+                     option.textContent = ach.name;
+                     existingAchievementSelect.appendChild(option);
+                 });
+            }
+
+            // Display details of selected existing achievement
+            function displaySelectedAchievementDetails(achievement) {
+                 if (achievement) {
+                     selectedAchievementDetails.classList.remove('hidden');
+                     selectedAchievementIcon.src = `https://unpkg.com/lucide-static@latest/icons/${achievement.icon}.svg`;
+                     selectedAchievementName.textContent = achievement.name;
+                     selectedAchievementDescription.textContent = achievement.description;
+                 } else {
+                     selectedAchievementDetails.classList.add('hidden');
+                 }
+                 // Update currentAchievement when select changes
+                 currentAchievement = achievement;
+                 updateSelectedRecipientCount(); // Re-evaluate button state
+            }
+
+            existingAchievementSelect.addEventListener('change', (e) => {
+                 const selectedAchId = e.target.value;
+                 const selectedAch = allAchievements.find(ach => ach.id === selectedAchId) || null;
+                 displaySelectedAchievementDetails(selectedAch);
+            });
+
+            // Populate icon picker
+            function populateIconPicker() {
+                 iconPicker.innerHTML = '';
+                 availableIcons.forEach(iconName => {
+                     const iconItem = document.createElement('div');
+                     iconItem.classList.add('glass', 'icon-picker-item');
+                     iconItem.dataset.icon = iconName;
+                     iconItem.innerHTML = `<img src="https://unpkg.com/lucide-static@latest/icons/${iconName}.svg" class="w-6 h-6 text-purple-400">`;
+                     iconItem.addEventListener('click', () => {
+                         document.querySelectorAll('.icon-picker-item').forEach(item => item.classList.remove('selected'));
+                         iconItem.classList.add('selected');
+                         selectedIconInput.value = iconName;
+                         updateSelectedRecipientCount(); // Re-evaluate button state
+                     });
+                     iconPicker.appendChild(iconItem);
+                 });
+            }
+
+             // Listen for input changes in custom fields to update button state
+             customAchievementNameInput.addEventListener('input', updateSelectedRecipientCount);
+             customAchievementDescriptionInput.addEventListener('input', updateSelectedRecipientCount);
+             selectedIconInput.addEventListener('change', updateSelectedRecipientCount); // Listen for hidden input change
+
+
+             // Function to check if custom achievement inputs are valid
+             function isCustomAchievementValid() {
+                 return customAchievementNameInput.value.trim() !== '' &&
+                        customAchievementDescriptionInput.value.trim() !== '' &&
+                        selectedIconInput.value.trim() !== '';
+             }
+
+            // Override updateSelectedRecipientCount to check custom fields if needed
+             const originalUpdateSelectedRecipientCount = updateSelectedRecipientCount;
+             updateSelectedRecipientCount = () => {
+                 const selectedSource = document.querySelector('input[name="achievement-source"]:checked').value;
+                 const isAchievementReady = selectedSource === 'existing' ? (currentAchievement !== null) : isCustomAchievementValid();
+                 selectedRecipientCountSpan.textContent = selectedRecipients.size;
+                 confirmDistributeBtn.disabled = !isAchievementReady || selectedRecipients.size === 0;
+             };
+
+
+            // Handle confirm distribute button click
+            confirmDistributeBtn.addEventListener('click', () => {
+                if (selectedRecipients.size === 0) {
+                    alert("请选择至少一个接收者。");
+                    return;
+                }
+
+                const selectedSource = document.querySelector('input[name="achievement-source"]:checked').value;
+                let achievementToDistribute = null;
+
+                if (selectedSource === 'existing') {
+                    achievementToDistribute = currentAchievement;
+                    if (!achievementToDistribute) {
+                         alert("请选择一个现有成就。");
+                         return;
+                    }
+                } else { // custom
+                    if (!isCustomAchievementValid()) {
+                         alert("请填写自定义成就的所有信息 (名称, 描述, 图标)。");
+                         return;
+                    }
+                    // Create a new custom achievement object
+                    const customAchId = `custom_${Date.now()}`; // Simple unique ID
+                    achievementToDistribute = {
+                        id: customAchId,
+                        name: customAchievementNameInput.value.trim(),
+                        description: customAchievementDescriptionInput.value.trim(),
+                        icon: selectedIconInput.value,
+                        type: 'manual' // Custom achievements are manual
+                    };
+                    // Add the custom achievement to the list (simulated)
+                    allAchievements.push(customAchievementToDistribute);
+                }
+
+                // --- Simulate Distribution (Replace with API call) ---
+                console.log(`Distributing achievement "${achievementToDistribute.name}" (ID: ${achievementToDistribute.id}) to:`, Array.from(selectedRecipients));
+
+                // Simulate API call success/failure
+                const isSuccess = Math.random() > 0.1; // 90% success rate for demo
+
+                distributeAlertArea.innerHTML = ''; // Clear previous alerts
+
+                if (isSuccess) {
+                    const successDiv = document.createElement('div');
+                    successDiv.classList.add('alert-success');
+                    successDiv.innerHTML = `<p class="font-bold">成功：已将成就 "${achievementToDistribute.name}" 发放给 ${selectedRecipients.size} 位接收者。</p>`;
+                    distributeAlertArea.appendChild(successDiv);
+
+                    // Reset form and selection after successful distribution
+                    selectedRecipients.clear();
+                    updateSelectedRecipientCount();
+                    populateRecipientList(allRecipients); // Refresh list
+                    recipientSearchInput.value = ''; // Clear search
+
+                    // Reset achievement selection/creation form
+                    document.querySelector('input[name="achievement-source"][value="existing"]').checked = true;
+                    toggleAchievementSource(); // Switch back to existing and clear custom fields
+                    populateExistingAchievementSelect(); // Repopulate select to include the new custom one
+                    existingAchievementSelect.value = ""; // Clear selected existing
+                    displaySelectedAchievementDetails(null); // Hide details
+
+                    // Refresh the list view cards in case a custom one was added
+                    populateAchievementCards();
+
+
+                } else {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.classList.add('alert-danger');
+                    errorDiv.innerHTML = `<p class="font-bold">错误：发放成就 "${achievementToDistribute.name}" 失败。请稍后再试。</p>`;
+                    distributeAlertArea.appendChild(errorDiv);
+                }
+
+                 // Optional: Auto-hide alerts after a few seconds
+                 setTimeout(() => {
+                     distributeAlertArea.innerHTML = '';
+                 }, 5000);
+            });
+
+             // Handle "Create Custom Achievement" button click from list view
+             createCustomAchievementBtn.addEventListener('click', () => {
+                 // Switch to distribute view and select custom tab
+                 switchView(distributeAchievementView);
+                 document.querySelector('input[name="achievement-source"][value="custom"]').checked = true;
+                 toggleAchievementSource(); // Show custom section
+                 // Reset recipient selection
+                 populateRecipientList(allRecipients);
+                 selectedRecipients.clear();
+                 updateSelectedRecipientCount();
+                 confirmDistributeBtn.disabled = true; // Disable button initially
+                 recipientSearchInput.value = ''; // Clear search
+             });
+
+
+            // --- Back to List Logic ---
+            backToListBtns.forEach(button => {
+                button.addEventListener('click', () => {
+                    // Reset state
+                    currentAchievement = null;
+                    selectedRecipients.clear();
+                    updateSelectedRecipientCount();
+                    recipientSearchInput.value = ''; // Clear search
+                    populateRecipientList(allRecipients); // Reset recipient list display
+
+                    // Reset achievement selection/creation form
+                    document.querySelector('input[name="achievement-source"][value="existing"]').checked = true;
+                    toggleAchievementSource(); // Switch back to existing and clear custom fields
+                    populateExistingAchievementSelect(); // Repopulate select to include any new custom ones
+                    existingAchievementSelect.value = ""; // Clear selected existing
+                    displaySelectedAchievementDetails(null); // Hide details
+
+
+                    populateAchievementCards(); // Refresh achievement list
+
+                    switchView(achievementListView);
+                });
+            });
+
+            // Initial load: Populate achievement cards, populate existing select, populate icons, populate recipients, and show list view
+            populateAchievementCards();
+            populateExistingAchievementSelect();
+            populateIconPicker();
+            populateRecipientList(allRecipients);
+            switchView(achievementListView);
+
+        });
+    </script>
+</body>
+</html>
