@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NGU3rd - 舞萌音游大赛</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            min-height: 100vh;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
+        }
+        .hero-gradient {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899);
+        }
+        .text-gradient {
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            background-image: linear-gradient(to right, #6366f1, #8b5cf6, #ec4899);
+        }
+    </style>
+</head>
+<body class="text-white">
+    <!-- 导航栏 -->
+    <nav class="glass fixed w-full z-50 px-4 py-3">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <img src="https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Z2FtZSUyMGxvZ298ZW58MHx8MHx8fDA%3D" alt="NGU3rd Logo" class="h-10 w-10 rounded-full">
+                <span class="text-xl font-bold">NGU3rd</span>
+            </div>
+            <div class="hidden md:flex space-x-6">
+                <a href="/" class="hover:text-purple-300 transition">首页</a>
+                <a href="/live" class="hover:text-purple-300 transition">比赛直播</a>
+                <a href="/login" class="hover:text-purple-300 transition">登录</a>
+            </div>
+            <div class="md:hidden">
+                <button class="focus:outline-none">
+                    <img src="https://unpkg.com/lucide-static@latest/icons/menu.svg" class="w-6 h-6">
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 移动端菜单 -->
+    <div class="hidden fixed inset-0 z-40 bg-black bg-opacity-50">
+        <div class="glass h-full w-64 p-5 transform transition-transform">
+            <div class="flex justify-between items-center mb-8">
+                <span class="text-xl font-bold">NGU3rd</span>
+                <button class="focus:outline-none">
+                    <img src="https://unpkg.com/lucide-static@latest/icons/x.svg" class="w-6 h-6">
+                </button>
+            </div>
+            <div class="flex flex-col space-y-4">
+                <a href="/" class="hover:text-purple-300 transition py-2">首页</a>
+                <a href="/live" class="hover:text-purple-300 transition py-2">比赛直播</a>
+                <a href="/login" class="hover:text-purple-300 transition py-2">登录</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hero 区域 -->
+    <section class="pt-24 pb-16 px-4">
+        <div class="container mx-auto">
+            <div class="flex flex-col md:flex-row items-center">
+                <div class="md:w-1/2 mb-8 md:mb-0">
+                    <h1 class="text-4xl md:text-6xl font-bold mb-4">NGU3rd <span class="text-gradient">音游大赛</span></h1>
+                    <p class="text-lg md:text-xl text-gray-300 mb-8">挑战极限，展现你的音游实力！</p>
+                    <div class="flex space-x-4">
+                        <a href="/live" class="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3 rounded-lg font-medium hover:opacity-90 transition">观看直播</a>
+                        <a href="/login" class="glass px-6 py-3 rounded-lg font-medium hover:bg-white hover:bg-opacity-10 transition">参与比赛</a>
+                    </div>
+                </div>
+                <div class="md:w-1/2">
+                    <div class="relative">
+                        <div class="hero-gradient absolute -inset-4 rounded-xl opacity-30 blur-xl"></div>
+                        <img src="https://images.unsplash.com/photo-1511882150382-421056c89033?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="NGU3rd 比赛" class="relative rounded-xl w-full">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 比赛介绍 -->
+    <section class="py-16 px-4">
+        <div class="container mx-auto">
+            <h2 class="text-3xl font-bold mb-12 text-center">关于 <span class="text-gradient">NGU3rd</span></h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="glass rounded-xl p-6 transform transition-transform hover:-translate-y-2">
+                    <div class="bg-purple-500 bg-opacity-20 p-3 rounded-full w-14 h-14 flex items-center justify-center mb-4">
+                        <img src="https://unpkg.com/lucide-static@latest/icons/trophy.svg" class="w-8 h-8">
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">激烈竞技</h3>
+                    <p class="text-gray-300">八组选手，三轮淘汰赛制，只有最强者才能站到最后！每个选手都有独特属性和技能，影响比赛得分判定。</p>
+                </div>
+                <div class="glass rounded-xl p-6 transform transition-transform hover:-translate-y-2">
+                    <div class="bg-blue-500 bg-opacity-20 p-3 rounded-full w-14 h-14 flex items-center justify-center mb-4">
+                        <img src="https://unpkg.com/lucide-static@latest/icons/music.svg" class="w-8 h-8">
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">精选曲目</h3>
+                    <p class="text-gray-300">选手可自选初赛和复赛曲目，决赛曲目由主办方精心挑选，确保比赛的公平性和观赏性。</p>
+                </div>
+                <div class="glass rounded-xl p-6 transform transition-transform hover:-translate-y-2">
+                    <div class="bg-pink-500 bg-opacity-20 p-3 rounded-full w-14 h-14 flex items-center justify-center mb-4">
+                        <img src="https://unpkg.com/lucide-static@latest/icons/medal.svg" class="w-8 h-8">
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">成就系统</h3>
+                    <p class="text-gray-300">完成特定挑战获得独特成就，展示你的实力和荣誉！成为MVP，获得专属徽章。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 赛制说明 -->
+    <section class="py-16 px-4 bg-gradient-to-b from-transparent to-black/30">
+        <div class="container mx-auto">
+            <h2 class="text-3xl font-bold mb-12 text-center">赛制 <span class="text-gradient">说明</span></h2>
+            <div class="glass rounded-xl p-8 mb-12">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <h3 class="text-2xl font-semibold mb-4">比赛流程</h3>
+                        <ul class="space-y-3 text-gray-300">
+                            <li class="flex items-start">
+                                <span class="bg-purple-500 rounded-full p-1 mr-3 mt-1">
+                                    <img src="https://unpkg.com/lucide-static@latest/icons/check.svg" class="w-4 h-4">
+                                </span>
+                                <span>初赛：8组选手随机分组，每组3人，4组晋级</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="bg-purple-500 rounded-full p-1 mr-3 mt-1">
+                                    <img src="https://unpkg.com/lucide-static@latest/icons/check.svg" class="w-4 h-4">
+                                </span>
+                                <span>复赛：4组对决，1组对3组，2组对4组，2组晋级</span>
+                            </li>
+                            <li class="flex items-start">
+                                <span class="bg-purple-500 rounded-full p-1 mr-3 mt-1">
+                                    <img src="https://unpkg.com/lucide-static@latest/icons/check.svg" class="w-4 h-4">
+                                </span>
+                                <span>决赛：2组对决，决出最终冠军</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="text-2xl font-semibold mb-4">计分规则</h3>
+                        <p class="text-gray-300 mb-4">每个选手在一把里会获得闭区间 [0,101]（单位为%，保留四位小数）的"结果"，结果的四位小数分别相加为最后分数。</p>
+                        <p class="text-gray-300">例如：100.2583% 的分数为 2+5+8+3=18，95.7063% 的分数为 7+10+6+3=26（0为10）。计算技能影响后的得分是对手将会扣除的血量，任何一组血量减为0后该轮次结束。</p>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-center">
+                <img src="https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="比赛现场" class="rounded-xl w-full max-w-3xl">
+            </div>
+        </div>
+    </section>
+
+    <!-- 参赛选手 -->
+    <section class="py-16 px-4">
+        <div class="container mx-auto">
+            <h2 class="text-3xl font-bold mb-12 text-center">精彩 <span class="text-gradient">瞬间</span></h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="glass rounded-xl overflow-hidden transform transition-transform hover:-translate-y-2">
+                    <img src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="比赛瞬间" class="w-full h-48 object-cover">
+                    <div class="p-4">
+                        <h3 class="font-semibold">激烈对决</h3>
+                        <p class="text-sm text-gray-300">选手们全神贯注，争夺每一分</p>
+                    </div>
+                </div>
+                <div class="glass rounded-xl overflow-hidden transform transition-transform hover:-translate-y-2">
+                    <img src="https://images.unsplash.com/photo-1560253023-3ec5d502959f?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="比赛瞬间" class="w-full h-48 object-cover">
+                    <div class="p-4">
+                        <h3 class="font-semibold">欢呼时刻</h3>
+                        <p class="text-sm text-gray-300">胜利的喜悦无法言表</p>
+                    </div>
+                </div>
+                <div class="glass rounded-xl overflow-hidden transform transition-transform hover:-translate-y-2">
+                    <img src="https://images.unsplash.com/photo-1551817958-d9d86fb29431?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="比赛瞬间" class="w-full h-48 object-cover">
+                    <div class="p-4">
+                        <h3 class="font-semibold">专注表演</h3>
+                        <p class="text-sm text-gray-300">每一个音符都不容错过</p>
+                    </div>
+                </div>
+                <div class="glass rounded-xl overflow-hidden transform transition-transform hover:-translate-y-2">
+                    <img src="https://images.unsplash.com/photo-1603688042193-7b153782568e?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="比赛瞬间" class="w-full h-48 object-cover">
+                    <div class="p-4">
+                        <h3 class="font-semibold">颁奖典礼</h3>
+                        <p class="text-sm text-gray-300">荣誉属于最强者</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA 区域 -->
+    <section class="py-16 px-4">
+        <div class="container mx-auto">
+            <div class="glass rounded-xl p-8 text-center">
+                <h2 class="text-3xl font-bold mb-4">准备好挑战了吗？</h2>
+                <p class="text-lg text-gray-300 mb-8 max-w-2xl mx-auto">加入NGU3rd音游大赛，展示你的实力，赢取荣誉与奖励！</p>
+                <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+                    <a href="/login" class="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3 rounded-lg font-medium hover:opacity-90 transition">立即登录</a>
+                    <a href="/live" class="glass px-6 py-3 rounded-lg font-medium hover:bg-white hover:bg-opacity-10 transition">观看直播</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="py-8 px-4 border-t border-gray-800">
+        <div class="container mx-auto">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="flex items-center space-x-2 mb-4 md:mb-0">
+                    <img src="https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Z2FtZSUyMGxvZ298ZW58MHx8MHx8fDA%3D" alt="NGU3rd Logo" class="h-8 w-8 rounded-full">
+                    <span class="text-lg font-bold">NGU3rd</span>
+                </div>
+                <div class="text-sm text-gray-400">
+                    © 2023 NGU3rd 音游大赛. 保留所有权利.
+                </div>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

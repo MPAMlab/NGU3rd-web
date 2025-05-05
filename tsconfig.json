@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "jsx": "preserve",
+    "sourceMap": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "lib": ["ESNext", "DOM"],
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    // REMOVED "vue/ref-macros" from this array
+    "types": ["vue/compiler-sfc", "vite/client", "js-cookie", "crypto-js", "node"],
+    "baseUrl": "./src",
+    "paths": {
+       "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "env.d.ts"
+  ],
+  // This reference requires tsconfig.node.json to be configured correctly
+  "references": [{ "path": "./tsconfig.node.json" }]
+}
