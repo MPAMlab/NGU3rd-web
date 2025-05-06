@@ -1,80 +1,86 @@
+// src/stores/matchStore.ts
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { MatchState } from '@/types/match';
-import { defaultMatchFormData } from '@/types/match';
+import type { MatchState, ArchivedMatchSummary } from '@/types/match'; // Adjust path if needed
 
-const API_URL_PREFIX = import.meta.env.VITE_API_URL_PREFIX || '/api/match'; // Fallback if env var is not set
-const WS_URL = import.meta.env.VITE_WS_URL || 
-               (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + 
-               '//' + window.location.host + '/api/match/websocket'; // Dynamic fallback
+const API_BASE_URL = ''; // Assuming requests are to the same origin as the frontend
 
 export const useMatchStore = defineStore('match', () => {
   const currentMatch = ref<MatchState | null>(null);
-  const isLoading = ref(false);
+  const isLoading = ref(false); // For fetching/updating current match
   const error = ref<string | null>(null);
-  const isConnected = ref(false);
-  let socket: WebSocket | null = null;
+  const isConnected = ref(false); // WebSocket connection status
 
-  const matchDataForForm = computed(() => {
-    if (currentMatch.value) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { matchId, ...formData } = currentMatch.value;
-      return formData;
-    }
-    return { ...defaultMatchFormData };
-  });
+  const archivedMatches = ref<ArchivedMatchSummary[]>([]);
+  const isLoadingArchivedList = ref(false);
+  const isLoadingArchive = ref(false); // For the archive action
+
+  let socket: WebSocket | null = null;
+  let reconnectAttempts = 0;
+  const MAX_RECONNECT_ATTEMPTS = 5;
+
+  const isCurrentMatchArchived = computed(() => currentMatch.value?.status === 'archived_in_d1');
+
+
+  // --- Actions for Current Match ---
 
   async function fetchCurrentMatchState() {
     isLoading.value = true;
     error.value = null;
     try {
-      const response = await fetch(`${API_URL_PREFIX}/state`);
+      const response = await fetch(`${API_BASE_URL}/api/match/state`);
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({ message: response.statusText }));
-        throw new Error(`获取比赛状态失败: ${errData.message || response.statusText}`);
+        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        throw new Error(errorData.message || `HTTP error ${response.status}`);
       }
       const data: MatchState = await response.json();
       currentMatch.value = data;
     } catch (e: any) {
       console.error('Error fetching match state:', e);
-      error.value = e.message;
-      currentMatch.value = null; // Or set to a default error state
+      error.value = `获取比赛状态失败: ${e.message}`;
     } finally {
       isLoading.value = false;
     }
   }
 
-  async function updateMatch(matchDetails: Omit<MatchState, 'matchId'>) {
+  async function updateMatch(payload: Omit<MatchState, 'matchId'>) {
+     if (isCurrentMatchArchived.value) {
+        error.value = "比赛已归档，无法更新。";
+        return false; // Indicate failure
+     }
+
     isLoading.value = true;
     error.value = null;
     try {
-      const response = await fetch(`${API_URL_PREFIX}/update`, {
+      const response = await fetch(`${API_BASE_URL}/api/match/update`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(matchDetails),
+        body: JSON.stringify(payload),
       });
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({ message: response.statusText }));
-        throw new Error(`更新比赛失败: ${errData.error || errData.message || response.statusText}`);
+        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        throw new Error(errorData.error || errorData.message || `HTTP error ${response.status}`);
       }
-      const data: { success: boolean, data: MatchState } = await response.json();
+      const data = await response.json();
       if (data.success) {
-        currentMatch.value = data.data; // Update store with response from POST
-                                        // WebSocket will also send this, but this is faster for admin UI
+        // State will be updated by WebSocket, no need to set currentMatch here
+        // currentMatch.value = data.data; // If not using WS, uncomment this
+        return true; // Indicate success
       } else {
-        throw new Error('更新操作未成功');
+        throw new Error(data.error || '更新失败，未知错误。');
       }
     } catch (e: any) {
-      console.error('Error updating match:', e);
-      error.value = e.message;
-      // Optionally re-fetch state if update fails or rely on current data
-      // await fetchCurrentMatchState(); 
+      console.error('Error updating match state:', e);
+      error.value = `更新比赛状态失败: ${e.message}`;
+      return false; // Indicate failure
     } finally {
       isLoading.value = false;
     }
   }
+
+  // --- WebSocket Actions ---
 
   function connectWebSocket() {
     if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
@@ -82,62 +88,148 @@ export const useMatchStore = defineStore('match', () => {
       return;
     }
 
-    console.log('Attempting to connect WebSocket to:', WS_URL);
-    socket = new WebSocket(WS_URL);
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${wsProtocol}//${window.location.host}/api/match/websocket`;
+
+    socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
+      console.log('WebSocket connected');
       isConnected.value = true;
-      error.value = null;
-      console.log('WebSocket connection established.');
+      error.value = null; // Clear connection error on success
+      reconnectAttempts = 0; // Reset attempts
     };
 
     socket.onmessage = (event) => {
       try {
         const data: MatchState = JSON.parse(event.data as string);
         currentMatch.value = data;
-        console.log('WebSocket message received:', data);
+        console.log('Received state via WebSocket:', data);
       } catch (e) {
         console.error('Error parsing WebSocket message:', e);
-        error.value = '无法解析实时数据';
+        // Handle parsing error, maybe don't update state if invalid
       }
+    };
+
+    socket.onerror = (e) => {
+      console.error('WebSocket error:', e);
+      isConnected.value = false;
+      // Error is often followed by close, handle reconnect in onclose
     };
 
     socket.onclose = (event) => {
+      console.log('WebSocket disconnected:', event.reason, event.code);
       isConnected.value = false;
-      console.log('WebSocket connection closed.', event.code, event.reason);
-      // Optional: implement reconnection logic
-      if (event.code !== 1000) { // 1000 is normal closure
-        console.log('Attempting to reconnect WebSocket in 3 seconds...');
-        setTimeout(connectWebSocket, 3000);
+      // Attempt reconnect unless it was a normal closure (code 1000)
+      if (event.code !== 1000) {
+        handleReconnect();
       }
-    };
-
-    socket.onerror = (err) => {
-      isConnected.value = false;
-      error.value = 'WebSocket 连接错误';
-      console.error('WebSocket error:', err);
-      // socket.close(); // onclose will be called
     };
   }
 
   function disconnectWebSocket() {
-    if (socket) {
-      socket.close(1000, "User disconnected"); // Normal closure
-      socket = null;
-      isConnected.value = false;
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.close(1000, "Client disconnecting"); // Normal closure
+    }
+    socket = null;
+    isConnected.value = false;
+  }
+
+  function handleReconnect() {
+    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      reconnectAttempts++;
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000); // Exponential backoff
+      error.value = `WebSocket 连接已断开。将在 ${delay / 1000} 秒后尝试重连 (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`;
+      setTimeout(() => {
+        // Check if a connection is still needed and not already connecting/open
+        if (!socket || (socket.readyState !== WebSocket.OPEN && socket.readyState !== WebSocket.CONNECTING)) {
+             connectWebSocket();
+        }
+      }, delay);
+    } else {
+      error.value = '无法连接到比赛服务器。请稍后刷新页面或联系管理员。';
     }
   }
 
-  // Expose state and actions
+
+  // --- Actions for Archiving ---
+
+  async function archiveCurrentMatch() {
+    if (isCurrentMatchArchived.value) {
+        error.value = "比赛已经归档。";
+        return false;
+    }
+    if (!currentMatch.value) {
+         error.value = "没有当前比赛数据可归档。";
+         return false;
+    }
+
+    isLoadingArchive.value = true;
+    error.value = null; // Clear general error, use specific archive error if needed
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/match/archive`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // body: JSON.stringify({}), // Optional: send a body if your DO expects one
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        throw new Error(errorData.message || `HTTP error ${response.status}`);
+      }
+      const data = await response.json();
+      if (data.success) {
+        // The WebSocket should update currentMatch.value to status 'archived_in_d1'
+        // Optionally, refetch current state or archived list immediately
+        // fetchCurrentMatchState(); // WS should handle this
+        fetchArchivedMatches(); // Refresh the list of archived matches
+        return true; // Indicate success
+      } else {
+        throw new Error(data.message || '归档失败，未知错误。');
+      }
+    } catch (e: any) {
+      console.error('Error archiving match:', e);
+      error.value = `归档比赛失败: ${e.message}`; // Use general error for simplicity
+      return false; // Indicate failure
+    } finally {
+      isLoadingArchive.value = false;
+    }
+  }
+
+  async function fetchArchivedMatches() {
+    isLoadingArchivedList.value = true;
+    error.value = null; // Clear general error
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/archived_matches`);
+        if (!response.ok) {
+            throw new Error(`HTTP error ${response.status}`);
+        }
+        archivedMatches.value = await response.json();
+    } catch (e: any) {
+        console.error("Error fetching archived matches:", e);
+        error.value = `获取归档列表失败: ${e.message}`; // Use general error
+    } finally {
+        isLoadingArchivedList.value = false;
+    }
+  }
+
+
   return {
     currentMatch,
     isLoading,
     error,
     isConnected,
-    matchDataForForm,
+    archivedMatches,
+    isLoadingArchivedList,
+    isLoadingArchive,
+    isCurrentMatchArchived, // Expose computed property
+
     fetchCurrentMatchState,
     updateMatch,
     connectWebSocket,
     disconnectWebSocket,
+    archiveCurrentMatch,
+    fetchArchivedMatches,
   };
 });
