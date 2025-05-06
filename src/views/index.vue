@@ -97,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, reactive } from 'vue';
+import { ref, onMounted, watch, reactive, onUnmounted } from 'vue';
 import { useMatchStore } from '@/stores/matchStore';
 import type { MatchState } from '@/types/match';
 // Assuming defaultMatchFormData is not strictly needed if initializing from store.currentMatch
