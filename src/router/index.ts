@@ -3,7 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { useKindeAuth } from '../composables/useKindeAuth'; // Adjust path if needed
 
 // Import Views
-import IndexPage from '../views/IndexPage.vue'; // Your existing Index/Registration page
+import IndexPage from '../views/index.vue'; // Your existing Index/Registration page
 import KindeCallback from '../views/KindeCallback.vue'; // Your existing Kinde callback page
 import LivePage from '../views/LivePage.vue'; // New Live page
 import AdminDashboard from '../views/AdminDashboard.vue'; // New Admin Dashboard (Placeholder)
