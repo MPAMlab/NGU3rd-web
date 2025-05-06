@@ -2,6 +2,13 @@
     <div class="admin-page">
       <h1>比赛管理后台</h1>
 
+      <div class="navigation-links">
+          <router-link to="/admin/teams" class="nav-button">队伍管理</router-link>
+          <router-link to="/admin/schedule" class="nav-button">赛程管理</router-link>
+          <!-- <router-link to="/admin/members" class="nav-button">队员管理 (全局)</router-link> -->
+      </div>
+
+
       <div v-if="store.isLoading && !store.currentMatch" class="loading">正在加载数据...</div>
       <div v-if="store.error" class="error-message">错误: {{ store.error }}</div>
       <div v-if="store.actionMessage" class="submit-message success">{{ store.actionMessage }}</div>
@@ -9,8 +16,12 @@
 
       <form @submit.prevent="handleSubmit" v-if="!store.isLoading && store.currentMatch && formData">
         <h2>当前比赛信息 (ID: {{ store.currentMatch.matchId }})</h2>
+        <div v-if="store.currentMatch.tournamentMatchId">
+            <p>关联赛程 ID: <strong>{{ store.currentMatch.tournamentMatchId }}</strong></p>
+            <!-- Optional: Fetch and display more details about the linked tournament match -->
+        </div>
         <div v-if="store.isCurrentMatchArchived" class="status-message warning">
-            当前比赛已整体归档，无法编辑。请开始新比赛。
+            当前比赛已整体归档，无法编辑。请从赛程管理启动新比赛。
         </div>
 
         <div class="form-grid">
@@ -38,13 +49,27 @@
               <input type="text" id="teamA_name" v-model="formData.teamA_name" required :disabled="store.isCurrentMatchArchived" />
             </div>
             <div class="form-group">
-              <label for="teamA_player">选手:</label>
-              <input type="text" id="teamA_player" v-model="formData.teamA_player" required :disabled="store.isCurrentMatchArchived" />
+              <label for="teamA_player">当前选手:</label>
+              <!-- Player name is now derived from DO state, make it read-only -->
+              <input type="text" id="teamA_player" :value="formData.teamA_player" disabled />
             </div>
             <div class="form-group">
               <label for="teamA_score">得分:</label>
               <input type="number" id="teamA_score" v-model.number="formData.teamA_score" min="0" required :disabled="store.isCurrentMatchArchived" />
             </div>
+             <!-- Optional: Display full member list and current order -->
+             <div v-if="store.currentMatch?.teamA_members?.length">
+                 <h4>队伍A 队员列表 (按ID排序):</h4>
+                 <ul>
+                     <li v-for="member in store.currentMatch.teamA_members" :key="member.id">
+                         ID: {{ member.id }}, 昵称: {{ member.nickname }}
+                     </li>
+                 </ul>
+                 <h4>队伍A 出场顺序 (成员ID):</h4>
+                 <p>{{ store.currentMatch.teamA_player_order_ids?.join(', ') || '-' }}</p>
+                 <h4>队伍A 当前出场索引:</h4>
+                 <p>{{ store.currentMatch.current_player_index_a }}</p>
+             </div>
           </fieldset>
 
           <fieldset class="team-fieldset">
@@ -54,13 +79,27 @@
               <input type="text" id="teamB_name" v-model="formData.teamB_name" required :disabled="store.isCurrentMatchArchived" />
             </div>
             <div class="form-group">
-              <label for="teamB_player">选手:</label>
-              <input type="text" id="teamB_player" v-model="formData.teamB_player" required :disabled="store.isCurrentMatchArchived" />
+              <label for="teamB_player">当前选手:</label>
+               <!-- Player name is now derived from DO state, make it read-only -->
+              <input type="text" id="teamB_player" :value="formData.teamB_player" disabled />
             </div>
             <div class="form-group">
               <label for="teamB_score">得分:</label>
               <input type="number" id="teamB_score" v-model.number="formData.teamB_score" min="0" required :disabled="store.isCurrentMatchArchived" />
             </div>
+             <!-- Optional: Display full member list and current order -->
+             <div v-if="store.currentMatch?.teamB_members?.length">
+                 <h4>队伍B 队员列表 (按ID排序):</h4>
+                 <ul>
+                     <li v-for="member in store.currentMatch.teamB_members" :key="member.id">
+                         ID: {{ member.id }}, 昵称: {{ member.nickname }}
+                     </li>
+                 </ul>
+                 <h4>队伍B 出场顺序 (成员ID):</h4>
+                 <p>{{ store.currentMatch.teamB_player_order_ids?.join(', ') || '-' }}</p>
+                 <h4>队伍B 当前出场索引:</h4>
+                 <p>{{ store.currentMatch.current_player_index_b }}</p>
+             </div>
           </fieldset>
         </div>
 
@@ -79,20 +118,20 @@
              <button type="button" @click="handleArchiveMatch" :disabled="store.isLoadingAction || store.isCurrentMatchArchived">
               {{ store.isLoadingAction && !store.actionMessage ? '归档比赛中...' : (store.isCurrentMatchArchived ? '已归档整场比赛' : '归档整场比赛') }}
             </button>
-             <button type="button" @click="handleNewMatch" :disabled="store.isLoadingAction || !store.isCurrentMatchArchived">
+             <!-- Removed '开始新比赛' button here, it should be done from Schedule Management -->
+             <!-- <button type="button" @click="handleNewMatch" :disabled="store.isLoadingAction || !store.isCurrentMatchArchived">
               {{ store.isLoadingAction && !store.actionMessage ? '开始新比赛中...' : '开始新比赛' }}
-            </button>
+            </button> -->
          </div>
 
 
       </form>
        <div v-else-if="!store.isLoading && !store.currentMatch" class="status-message">
-          暂无比赛数据。请尝试开始新比赛。
-           <div class="button-group mt-4">
-                <button type="button" @click="handleNewMatch" :disabled="store.isLoadingAction">
-                    {{ store.isLoadingAction ? '开始新比赛中...' : '开始新比赛' }}
-                </button>
-           </div>
+          暂无比赛数据。请从赛程管理页面启动一场比赛。
+           <!-- Optional: Add a link to Schedule Management -->
+            <div class="button-group mt-4">
+                <router-link to="/admin/schedule" class="nav-button">前往赛程管理</router-link>
+            </div>
         </div>
 
 
@@ -126,6 +165,7 @@
           <ul v-else class="archived-list">
               <li v-for="archivedMatch in store.archivedMatches" :key="archivedMatch.id" class="archived-item">
                   <strong>比赛 ID:</strong> {{ archivedMatch.match_do_id }} <br>
+                   <span v-if="archivedMatch.tournament_match_id"><strong>赛程 ID:</strong> {{ archivedMatch.tournament_match_id }} <br></span>
                    <span v-if="archivedMatch.match_name"><strong>名称:</strong> {{ archivedMatch.match_name }} <br></span>
                   <strong>最终轮次:</strong> {{ archivedMatch.final_round }} <br>
                   <strong>最终比分:</strong> {{ archivedMatch.team_a_name }} {{ archivedMatch.team_a_score }} : {{ archivedMatch.team_b_score }} {{ archivedMatch.team_b_name }} <br>
@@ -212,10 +252,11 @@
 import { ref, onMounted, watch, reactive, onUnmounted } from 'vue';
 import { useMatchStore } from '@/stores/matchStore';
 import type { MatchState, RoundArchive } from '@/types/match';
+import { useRouter } from 'vue-router'; // Import useRouter if using Vue Router
 
 const store = useMatchStore();
 // Initialize formData as an empty object, will be populated by the watch
-const formData = reactive<Omit<MatchState, 'matchId'>>({
+const formData = reactive<Omit<MatchState, 'matchId' | 'tournamentMatchId' | 'teamA_members' | 'teamB_members' | 'teamA_player_order_ids' | 'teamB_player_order_ids' | 'current_player_index_a' | 'current_player_index_b'>>({
     round: 1,
     teamA_name: '',
     teamA_score: 0,
@@ -225,10 +266,6 @@ const formData = reactive<Omit<MatchState, 'matchId'>>({
     teamB_player: '',
     status: 'pending',
 });
-
-// submitMessage and messageType are now handled by store.actionMessage and store.error
-// const submitMessage = ref('');
-// const messageType = ref<'success' | 'error'>('success');
 
 // Fetch initial state and archived lists when component is mounted
 onMounted(async () => {
@@ -240,9 +277,8 @@ onMounted(async () => {
 // Watch for changes in store.currentMatch to update the form
 watch(() => store.currentMatch, (newMatchData) => {
   if (newMatchData) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { matchId, ...dataForForm } = newMatchData;
-    // Use Object.assign to update reactive formData
+    // Use Object.assign to update reactive formData, excluding properties not in formData type
+    const { matchId, tournamentMatchId, teamA_members, teamB_members, teamA_player_order_ids, teamB_player_order_ids, current_player_index_a, current_player_index_b, ...dataForForm } = newMatchData;
     Object.assign(formData, dataForForm);
     // When currentMatch changes (e.g., new match started), refresh archived rounds for the new ID
     store.fetchArchivedRounds(newMatchData.matchId);
@@ -257,9 +293,17 @@ watch(() => store.currentMatch, (newMatchData) => {
 }, { immediate: true, deep: true }); // immediate: true runs the watcher once on mount
 
 async function handleSubmit() {
-  // submitMessage.value = ''; // Handled by store
-  // Type assertion because formData is Omit<MatchState, 'matchId'>
-  const success = await store.updateMatch(formData as Partial<Omit<MatchState, 'matchId'>>); // Use Partial here
+  // Type assertion because formData is Omit<MatchState, ...>
+  // We only send the fields that are allowed to be updated via this endpoint
+  const updatePayload = {
+      teamA_name: formData.teamA_name,
+      teamA_score: formData.teamA_score,
+      teamB_name: formData.teamB_name,
+      teamB_score: formData.teamB_score,
+      status: formData.status, // Status is allowed to be updated here (except to archived_in_d1)
+      // round, teamA_player, teamB_player are excluded by type and logic
+  };
+  const success = await store.updateMatch(updatePayload);
   // Feedback is now handled by store.actionMessage or store.error
 }
 
@@ -281,11 +325,7 @@ async function handleArchiveMatch() {
     // Feedback handled by store.actionMessage/error
 }
 
-async function handleNewMatch() {
-    // Confirmation is handled in the store action
-    await store.newMatch();
-    // Feedback handled by store.actionMessage/error
-}
+// Removed handleNewMatch as it's now handled via Schedule Management
 
 async function handleSaveEditedRound() {
     if (store.editingRound) {
@@ -337,6 +377,29 @@ h2 { /* Style for section titles */
     border-bottom: 1px solid #eee;
     padding-bottom: 10px;
 }
+
+.navigation-links {
+    text-align: center;
+    margin-bottom: 30px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.nav-button {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+.nav-button:hover {
+    background-color: #0056b3;
+}
+
 
 .form-grid {
   display: grid;
@@ -446,13 +509,13 @@ h2 { /* Style for section titles */
     background-color: #c82333;
 }
 
-/* Style for New Match button */
-.button-group.mt-4 button:nth-of-type(2) {
-    background-color: #28a745; /* Green/Success */
+/* Style for New Match button (if kept) */
+/* .button-group.mt-4 button:nth-of-type(2) {
+    background-color: #28a745;
 }
 .button-group.mt-4 button:nth-of-type(2):hover:not(:disabled) {
     background-color: #218838;
-}
+} */
 
 
 button:disabled {

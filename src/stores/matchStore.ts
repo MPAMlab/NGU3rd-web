@@ -1,27 +1,44 @@
 // src/stores/matchStore.ts
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { MatchState, RoundArchive, MatchArchiveSummary } from '@/types/match'; // Adjust path if needed
+import type { MatchState, RoundArchive, MatchArchiveSummary, Team, Member, TournamentMatch, BulkTeamRow, BulkMemberRow } from '@/types/match'; // Adjust path if needed
 
 const API_BASE_URL = ''; // Assuming requests are to the same origin as the frontend
 
 export const useMatchStore = defineStore('match', () => {
+  // --- State for Current Match ---
   const currentMatch = ref<MatchState | null>(null);
   const isLoading = ref(false); // For fetching initial current match
   const error = ref<string | null>(null); // General error message
   const isConnected = ref(false); // WebSocket connection status
 
+  // --- State for Archived Data ---
   const archivedRounds = ref<RoundArchive[]>([]);
   const isLoadingArchivedRounds = ref(false);
 
   const archivedMatches = ref<MatchArchiveSummary[]>([]);
   const isLoadingArchivedMatches = ref(false);
 
-  const isLoadingAction = ref(false); // General loading for actions (archive/next/new/update)
-  const actionMessage = ref<string | null>(null); // Message after a successful action
-
   const editingRound = ref<RoundArchive | null>(null); // State to hold the round being edited
   const isLoadingEditRound = ref(false); // Loading state for editing save action
+
+  // --- State for Tournament Management ---
+  const teams = ref<Team[]>([]);
+  const isLoadingTeams = ref(false);
+  const members = ref<Member[]>([]); // Store all members, filter by team_code in UI if needed
+  const isLoadingMembers = ref(false);
+  const tournamentMatches = ref<TournamentMatch[]>([]); // Note: This will hold flattened data from the join query
+  const isLoadingTournamentMatches = ref(false);
+
+  // --- General Action State ---
+  const isLoadingAction = ref(false); // General loading for actions (archive/next/new/update/create team/create match etc.)
+  const actionMessage = ref<string | null>(null); // Message after a successful action
+
+  // --- Bulk Import State ---
+  const isLoadingBulkImport = ref(false);
+  const bulkImportError = ref<string | null>(null);
+  const bulkImportMessage = ref<string | null>(null);
+
 
   let socket: WebSocket | null = null;
   let reconnectAttempts = 0;
@@ -59,29 +76,33 @@ export const useMatchStore = defineStore('match', () => {
     }
   }
 
-  async function updateMatch(payload: Partial<Omit<MatchState, 'matchId'>>) {
-     if (isCurrentMatchArchived.value) {
-        error.value = "比赛已归档，无法更新。";
-        return false; // Indicate failure
-     }
+  // Corrected updateMatch function
+  async function updateMatch(payload: Partial<Omit<MatchState, 'matchId' | 'tournamentMatchId' | 'round' | 'teamA_members' | 'teamB_members' | 'teamA_player_order_ids' | 'teamB_player_order_ids' | 'current_player_index_a' | 'current_player_index_b' | 'teamA_player' | 'teamB_player'>>) {
      if (!currentMatch.value) {
          error.value = "没有当前比赛数据可更新。";
          return false;
      }
+     if (isCurrentMatchArchived.value) {
+        error.value = "比赛已归档，无法更新。";
+        return false; // Indicate failure
+     }
+
 
     isLoadingAction.value = true; // Use action loading for updates too
     error.value = null; // Clear general error
     actionMessage.value = null; // Clear previous action message
     try {
-      // Prevent updating round or status to archived_in_d1 via this endpoint
+      // Prevent updating core fields via this endpoint
       const updatePayload = { ...payload };
-      // Decide if you allow round changes via update or only via next-round
-      // For now, disallow changing round directly via update
-      delete updatePayload.round;
-      // Disallow setting archived_in_d1 status via update
-       if (updatePayload.status === 'archived_in_d1') {
-           delete updatePayload.status;
-       }
+      // The following properties are already excluded by the Omit type in the function signature,
+      // so attempting to delete them here is a type error. Remove these lines.
+      // delete updatePayload.round; // REMOVED
+      // delete updatePayload.teamA_player; // REMOVED
+      // delete updatePayload.teamB_player; // REMOVED
+
+      // Status changes via specific actions (archive, new-match), so prevent updating it here.
+      // This property *is* allowed by the Omit type, so deleting it is correct.
+      delete updatePayload.status; // KEEP THIS LINE
 
 
       const response = await fetch(`${API_BASE_URL}/api/match/update`, {
@@ -113,8 +134,8 @@ export const useMatchStore = defineStore('match', () => {
   }
 
   // --- WebSocket Actions ---
-
-  function connectWebSocket() {
+  // (Keep the existing WebSocket logic as is)
+   function connectWebSocket() {
     if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
       console.log('WebSocket already connected or connecting.');
       return;
@@ -141,6 +162,10 @@ export const useMatchStore = defineStore('match', () => {
         if (data.status === 'archived_in_d1') {
              fetchArchivedMatches(); // Refresh the list of overall archived matches
              // archivedRounds list is already tied to currentMatch via watch
+             // If this match was from a schedule, also refresh tournament matches list
+             if (data.tournamentMatchId) {
+                 fetchTournamentMatches();
+             }
         }
         // If a new match starts (status changes from archived_in_d1 to pending/live/etc.)
         // the watch on currentMatch will handle fetching new archived rounds.
@@ -192,7 +217,7 @@ export const useMatchStore = defineStore('match', () => {
   }
 
 
-  // --- New Actions for Round/Match Archiving and New Match ---
+  // --- Actions for Round/Match Archiving and New Match ---
 
   async function archiveCurrentRound() {
     if (!currentMatch.value) {
@@ -220,7 +245,9 @@ export const useMatchStore = defineStore('match', () => {
       if (data.success) {
         actionMessage.value = data.message || '当前轮次归档成功！';
         // Refresh the list of archived rounds for this match
-        fetchArchivedRounds(currentMatch.value.matchId);
+        if (currentMatch.value) { // Ensure currentMatch is not null before fetching rounds
+             fetchArchivedRounds(currentMatch.value.matchId);
+        }
         return true;
       } else {
         throw new Error(data.message || '归档轮次失败，未知错误。');
@@ -248,17 +275,6 @@ export const useMatchStore = defineStore('match', () => {
      //    error.value = "比赛已结束，请先归档整场比赛。";
      //    return false;
      // }
-
-    // Optional: Auto-archive current round before advancing
-    // The DO handles the auto-archive call internally now, so no need to call it here
-    // const archiveResult = await archiveCurrentRound();
-    // if (!archiveResult.success) {
-    //      console.warn("Failed to auto-archive current round before advancing:", archiveResult.message);
-    //      // Decide if you want to stop here or proceed anyway
-    //      // error.value = "自动归档当前轮次失败，无法进入下一轮。";
-    //      // return false;
-    // }
-
 
     isLoadingAction.value = true;
     error.value = null;
@@ -322,6 +338,10 @@ export const useMatchStore = defineStore('match', () => {
         // currentMatch status will be updated by WebSocket to 'archived_in_d1'
         fetchArchivedMatches(); // Refresh the list of archived matches
         // archivedRounds list is already tied to currentMatch via watch
+        // If this match was from a schedule, also refresh tournament matches list
+        if (currentMatch.value?.tournamentMatchId) { // Use optional chaining as currentMatch might be null by now if WS updated fast
+            fetchTournamentMatches();
+        }
         return true;
       } else {
         throw new Error(data.message || '归档整场比赛失败，未知错误。');
@@ -335,16 +355,15 @@ export const useMatchStore = defineStore('match', () => {
     }
   }
 
+  // This action is now for starting an *unscheduled* new match (less common)
   async function newMatch() {
      if (!currentMatch.value) {
-         // If there's no current match data, we can potentially start a new one directly
-         // This handles the case where the DO state was cleared or never initialized
-         console.log("No current match data found, attempting to start a new one.");
+         console.log("No current match data found, attempting to start a new unscheduled one.");
      } else if (!isCurrentMatchArchived.value) {
         error.value = "当前比赛必须先归档才能开始新比赛。";
         return false;
     }
-     if (!confirm("确定要开始一场新比赛吗？此操作将清空当前比赛的实时状态。")) {
+     if (!confirm("确定要开始一场新的非赛程比赛吗？此操作将清空当前比赛的实时状态。")) {
         return false; // User cancelled
     }
 
@@ -406,7 +425,7 @@ export const useMatchStore = defineStore('match', () => {
 
   async function fetchArchivedMatches() {
     isLoadingArchivedMatches.value = true;
-    // error.value = null; // Decide if fetching archived lists should clear general error
+    // error.value = null; // Decide if fetching lists clears general error
     try {
         const response = await fetch(`${API_BASE_URL}/api/archived_matches`);
         if (!response.ok) {
@@ -422,7 +441,7 @@ export const useMatchStore = defineStore('match', () => {
   }
 
 
-  // --- New Actions for Round Editing ---
+  // --- Actions for Round Editing ---
 
   function startEditingRound(round: RoundArchive) {
       editingRound.value = { ...round }; // Create a copy to avoid modifying the list directly
@@ -485,6 +504,420 @@ export const useMatchStore = defineStore('match', () => {
       }
   }
 
+  // --- New Actions for Tournament Management ---
+
+  async function fetchTeams() {
+      isLoadingTeams.value = true;
+      // error.value = null; // Decide if fetching lists clears general error
+      try {
+          const response = await fetch(`${API_BASE_URL}/api/teams`);
+          if (!response.ok) {
+              throw new Error(`HTTP error ${response.status}`);
+          }
+          teams.value = await response.json();
+      } catch (e: any) {
+          console.error("Error fetching teams:", e);
+          // error.value = `获取队伍列表失败: ${e.message}`;
+      } finally {
+          isLoadingTeams.value = false;
+      }
+  }
+
+  async function createTeam(teamData: Omit<Team, 'id' | 'created_at' | 'current_health' | 'has_revive_mirror' | 'status'>) {
+      isLoadingAction.value = true;
+      error.value = null;
+      actionMessage.value = null;
+      try {
+          const response = await fetch(`${API_BASE_URL}/api/teams`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(teamData),
+          });
+          if (!response.ok) {
+              const errorData = await response.json().catch(() => ({ message: response.statusText }));
+              throw new Error(errorData.error || errorData.message || `HTTP error ${response.status}`);
+          }
+          const data = await response.json();
+          if (data.success) {
+              actionMessage.value = data.message || '队伍创建成功！';
+              fetchTeams(); // Refresh list
+              return true;
+          } else {
+              throw new Error(data.message || '创建队伍失败，未知错误。');
+          }
+      } catch (e: any) {
+          console.error('Error creating team:', e);
+          error.value = `创建队伍失败: ${e.message}`;
+          return false;
+      } finally {
+          isLoadingAction.value = false;
+      }
+  }
+
+   async function updateTeam(teamId: number, updates: Partial<Omit<Team, 'id' | 'code' | 'created_at'>>) {
+       isLoadingAction.value = true;
+       error.value = null;
+       actionMessage.value = null;
+       try {
+           const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}`, {
+               method: 'PUT',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify(updates),
+           });
+           if (!response.ok) {
+               const errorData = await response.json().catch(() => ({ message: response.statusText }));
+               throw new Error(errorData.error || errorData.message || `HTTP error ${response.status}`);
+           }
+           const data = await response.json();
+           if (data.success) {
+               actionMessage.value = data.message || '队伍更新成功！';
+               fetchTeams(); // Refresh list
+               return true;
+           } else {
+               throw new Error(data.message || '更新队伍失败，未知错误。');
+           }
+       } catch (e: any) {
+           console.error('Error updating team:', e);
+           error.value = `更新队伍失败: ${e.message}`;
+           return false;
+       } finally {
+           isLoadingAction.value = false;
+       }
+   }
+
+    async function deleteTeam(teamId: number) {
+        if (!confirm("确定要删除这支队伍吗？此操作不可逆。")) {
+            return false;
+        }
+        isLoadingAction.value = true;
+        error.value = null;
+        actionMessage.value = null;
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}`, {
+                method: 'DELETE',
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: response.statusText }));
+                throw new Error(errorData.error || errorData.message || `HTTP error ${response.status}`);
+            }
+            const data = await response.json();
+            if (data.success) {
+                actionMessage.value = data.message || '队伍删除成功！';
+                fetchTeams(); // Refresh list
+                return true;
+            } else {
+                throw new Error(data.message || '删除队伍失败，未知错误。');
+            }
+        } catch (e: any) {
+            console.error('Error deleting team:', e);
+            error.value = `删除队伍失败: ${e.message}`;
+            return false;
+        } finally {
+            isLoadingAction.value = false;
+        }
+    }
+
+    // Bulk Import Teams
+    async function bulkCreateTeams(teamsData: BulkTeamRow[]) {
+        isLoadingBulkImport.value = true;
+        bulkImportError.value = null;
+        bulkImportMessage.value = null;
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/teams/bulk`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(teamsData),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) { // Status 200 or 201
+                 bulkImportMessage.value = data.message || '批量导入队伍成功！';
+                 fetchTeams(); // Refresh list
+                 return true;
+            } else if (response.status === 207) { // Multi-Status
+                 bulkImportMessage.value = data.message || '批量导入队伍部分成功。';
+                 bulkImportError.value = data.errors ? `错误详情: ${JSON.stringify(data.errors)}` : '部分导入失败。';
+                 fetchTeams(); // Refresh list to show successful imports
+                 return false;
+            }
+            else { // Other error status
+                throw new Error(data.error || data.message || `HTTP error ${response.status}`);
+            }
+        } catch (e: any) {
+            console.error('Error bulk importing teams:', e);
+            bulkImportError.value = `批量导入队伍失败: ${e.message}`;
+            return false;
+        } finally {
+            isLoadingBulkImport.value = false;
+        }
+    }
+
+
+    // Actions for Members
+    async function fetchMembers() {
+        isLoadingMembers.value = true;
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/members`);
+            if (!response.ok) {
+                 throw new Error(`HTTP error ${response.status}`);
+            }
+            members.value = await response.json();
+        } catch (e: any) {
+            console.error("Error fetching members:", e);
+        } finally {
+            isLoadingMembers.value = false;
+        }
+    }
+
+    async function fetchMembersByTeamCode(teamCode: string) {
+         if (!teamCode) return [];
+         // This action doesn't update the global members list, just fetches for a specific team
+         // You might want a separate state property for members of the currently viewed team
+         // For now, let's just return the data.
+         try {
+             const response = await fetch(`${API_BASE_URL}/api/teams/${teamCode}/members`);
+             if (!response.ok) {
+                  throw new Error(`HTTP error ${response.status}`);
+             }
+             return await response.json() as Member[];
+         } catch (e: any) {
+             console.error(`Error fetching members for team ${teamCode}:`, e);
+             // Handle error display in the component that calls this
+             return [];
+         }
+    }
+
+     // Add createMember, updateMember, deleteMember actions similarly...
+     // Example createMember:
+     async function createMember(memberData: Omit<Member, 'id' | 'joined_at' | 'updated_at'>) {
+         isLoadingAction.value = true;
+         error.value = null;
+         actionMessage.value = null;
+         try {
+             const response = await fetch(`${API_BASE_URL}/api/members`, {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify(memberData),
+             });
+             if (!response.ok) {
+                 const errorData = await response.json().catch(() => ({ message: response.statusText }));
+                 throw new Error(errorData.error || errorData.message || `HTTP error ${response.status}`);
+             }
+             const data = await response.json();
+             if (data.success) {
+                 actionMessage.value = data.message || '队员创建成功！';
+                 // Decide if you refresh the global members list or just the team's list in the modal
+                 // fetchMembers(); // Refresh global list
+                 return true;
+             } else {
+                 throw new Error(data.message || '创建队员失败，未知错误。');
+             }
+         } catch (e: any) {
+             console.error('Error creating member:', e);
+             error.value = `创建队员失败: ${e.message}`;
+             return false;
+         } finally {
+             isLoadingAction.value = false;
+         }
+     }
+
+     // Example deleteMember:
+     async function deleteMember(memberId: number) {
+         if (!confirm("确定要删除这名队员吗？此操作不可逆。")) {
+             return false;
+         }
+         isLoadingAction.value = true;
+         error.value = null;
+         actionMessage.value = null;
+         try {
+             const response = await fetch(`${API_BASE_URL}/api/members/${memberId}`, {
+                 method: 'DELETE',
+             });
+             if (!response.ok) {
+                 const errorData = await response.json().catch(() => ({ message: response.statusText }));
+                 throw new Error(errorData.error || errorData.message || `HTTP error ${response.status}`);
+             }
+             const data = await response.json();
+             if (data.success) {
+                 actionMessage.value = data.message || '队员删除成功！';
+                 // Decide if you refresh the global members list or just the team's list in the modal
+                 // fetchMembers(); // Refresh global list
+                 return true;
+             } else {
+                 throw new Error(data.message || '删除队员失败，未知错误。');
+             }
+         } catch (e: any) {
+             console.error('Error deleting member:', e);
+             error.value = `删除队员失败: ${e.message}`;
+             return false;
+         } finally {
+             isLoadingAction.value = false;
+         }
+     }
+
+
+    // Bulk Import Members
+    async function bulkCreateMembers(membersData: BulkMemberRow[]) {
+        isLoadingBulkImport.value = true;
+        bulkImportError.value = null;
+        bulkImportMessage.value = null;
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/members/bulk`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(membersData),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) { // Status 200 or 201
+                 bulkImportMessage.value = data.message || '批量导入队员成功！';
+                 fetchMembers(); // Refresh global list
+                 // If you have a team members modal open, you'd need to refresh that too
+                 return true;
+            } else if (response.status === 207) { // Multi-Status
+                 bulkImportMessage.value = data.message || '批量导入队员部分成功。';
+                 bulkImportError.value = data.errors ? `错误详情: ${JSON.stringify(data.errors)}` : '部分导入失败。';
+                 fetchMembers(); // Refresh global list to show successful imports
+                 return false;
+            }
+            else { // Other error status
+                throw new Error(data.error || data.message || `HTTP error ${response.status}`);
+            }
+        } catch (e: any) {
+            console.error('Error bulk importing members:', e);
+            bulkImportError.value = `批量导入队员失败: ${e.message}`;
+            return false;
+        } finally {
+            isLoadingBulkImport.value = false;
+        }
+    }
+
+
+  async function fetchTournamentMatches() {
+      isLoadingTournamentMatches.value = true;
+      // error.value = null; // Decide if fetching lists clears general error
+      try {
+          const response = await fetch(`${API_BASE_URL}/api/tournament_matches`);
+          if (!response.ok) {
+              throw new Error(`HTTP error ${response.status}`);
+          }
+          tournamentMatches.value = await response.json();
+      } catch (e: any) {
+          console.error("Error fetching tournament matches:", e);
+          // error.value = `获取赛程列表失败: ${e.message}`;
+      } finally {
+          isLoadingTournamentMatches.value = false;
+      }
+  }
+
+  async function createTournamentMatch(matchData: Omit<TournamentMatch, 'id' | 'match_do_id' | 'status' | 'winner_team_id' | 'created_at' | 'team1_code' | 'team1_name' | 'team2_code' | 'team2_name' | 'winner_team_code' | 'winner_team_name'>) {
+       isLoadingAction.value = true;
+       error.value = null;
+       actionMessage.value = null;
+       try {
+           const response = await fetch(`${API_BASE_URL}/api/tournament_matches`, {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify(matchData),
+           });
+           if (!response.ok) {
+               const errorData = await response.json().catch(() => ({ message: response.statusText }));
+               throw new Error(errorData.error || errorData.message || `HTTP error ${response.status}`);
+           }
+           const data = await response.json();
+           if (data.success) {
+               actionMessage.value = data.message || '赛程创建成功！';
+               fetchTournamentMatches(); // Refresh list
+               return true;
+           } else {
+               throw new Error(data.message || '创建赛程失败，未知错误。');
+           }
+       } catch (e: any) {
+           console.error('Error creating tournament match:', e);
+           error.value = `创建赛程失败: ${e.message}`;
+           return false;
+       } finally {
+           isLoadingAction.value = false;
+       }
+   }
+
+   // Add updateTournamentMatch action similarly...
+    // Example deleteTournamentMatch:
+    async function deleteTournamentMatch(tournamentMatchId: number) {
+        if (!confirm("确定要删除这场赛程比赛吗？此操作不可逆。")) {
+            return false;
+        }
+        isLoadingAction.value = true;
+        error.value = null;
+        actionMessage.value = null;
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/tournament_matches/${tournamentMatchId}`, {
+                method: 'DELETE',
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: response.statusText }));
+                throw new Error(errorData.error || errorData.message || `HTTP error ${response.status}`);
+            }
+            const data = await response.json();
+            if (data.success) {
+                actionMessage.value = data.message || '赛程删除成功！';
+                fetchTournamentMatches(); // Refresh list
+                return true;
+            } else {
+                throw new Error(data.message || '删除赛程失败，未知错误。');
+            }
+        } catch (e: any) {
+            console.error('Error deleting tournament match:', e);
+            error.value = `删除赛程失败: ${e.message}`;
+            return false;
+        } finally {
+            isLoadingAction.value = false;
+        }
+    }
+
+
+   // Action to start a live match from a scheduled tournament match
+   async function startScheduledMatch(tournamentMatchId: number) {
+       if (currentMatch.value && !isCurrentMatchArchived.value) {
+           error.value = "当前已有正在进行的比赛，请先归档。";
+           return false;
+       }
+        if (!confirm("确定要开始这场赛程比赛吗？此操作将清空当前实时比赛状态并加载赛程信息。")) {
+           return false; // User cancelled
+       }
+
+       isLoadingAction.value = true;
+       error.value = null;
+       actionMessage.value = null;
+       try {
+           const response = await fetch(`${API_BASE_URL}/api/tournament_matches/${tournamentMatchId}/start_live`, {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+           });
+           if (!response.ok) {
+               const errorData = await response.json().catch(() => ({ message: response.statusText }));
+               throw new Error(errorData.error || errorData.message || `HTTP error ${response.status}`);
+           }
+           const data = await response.json();
+           if (data.success) {
+               actionMessage.value = data.message || '已成功从赛程启动比赛！';
+               // currentMatch will be updated by WebSocket
+               fetchTournamentMatches(); // Refresh tournament matches list to show status change
+               return true;
+           } else {
+               throw new Error(data.message || '从赛程启动比赛失败，未知错误。');
+           }
+       } catch (e: any) {
+           console.error('Error starting scheduled match:', e);
+           error.value = `从赛程启动比赛失败: ${e.message}`;
+           return false;
+       } finally {
+           isLoadingAction.value = false;
+       }
+   }
+
 
   return {
     // --- State & Computed ---
@@ -496,11 +929,24 @@ export const useMatchStore = defineStore('match', () => {
     isLoadingArchivedRounds,
     archivedMatches,
     isLoadingArchivedMatches,
-    isLoadingAction,
-    actionMessage,
     editingRound,
     isLoadingEditRound,
     isCurrentMatchArchived,
+
+    teams, // Expose teams state
+    isLoadingTeams,
+    members, // Expose members state (global list)
+    isLoadingMembers,
+    tournamentMatches, // Expose tournament matches state
+    isLoadingTournamentMatches,
+
+    isLoadingAction,
+    actionMessage,
+
+    isLoadingBulkImport, // Expose bulk import state
+    bulkImportError,
+    bulkImportMessage,
+
 
     // --- Actions ---
     fetchCurrentMatchState,
@@ -511,7 +957,7 @@ export const useMatchStore = defineStore('match', () => {
     archiveCurrentRound,
     nextRound,
     archiveMatch,
-    newMatch,
+    newMatch, // Keep for unscheduled matches if needed
 
     fetchArchivedRounds,
     fetchArchivedMatches,
@@ -519,5 +965,26 @@ export const useMatchStore = defineStore('match', () => {
     startEditingRound,
     cancelEditingRound,
     saveEditedRound,
+
+    // New Tournament Management Actions
+    fetchTeams,
+    createTeam,
+    updateTeam,
+    deleteTeam,
+    bulkCreateTeams, // Added bulk import action
+
+    fetchMembers,
+    fetchMembersByTeamCode, // Added action to fetch members for a specific team
+    createMember, // Added
+    deleteMember, // Added
+    // updateMember, // Implement update member if needed
+    bulkCreateMembers, // Added bulk import action
+
+    fetchTournamentMatches,
+    createTournamentMatch,
+    // updateTournamentMatch, // Implement this
+    deleteTournamentMatch,
+
+    startScheduledMatch, // New action to start from schedule
   };
 });
