@@ -7,8 +7,8 @@ const API_BASE_URL = ''; // Assuming requests are to the same origin as the fron
 
 export const useMatchStore = defineStore('match', () => {
   const currentMatch = ref<MatchState | null>(null);
-  const isLoading = ref(false); // For fetching/updating current match
-  const error = ref<string | null>(null);
+  const isLoading = ref(false); // For fetching initial current match
+  const error = ref<string | null>(null); // General error message
   const isConnected = ref(false); // WebSocket connection status
 
   const archivedRounds = ref<RoundArchive[]>([]);
@@ -17,8 +17,11 @@ export const useMatchStore = defineStore('match', () => {
   const archivedMatches = ref<MatchArchiveSummary[]>([]);
   const isLoadingArchivedMatches = ref(false);
 
-  const isLoadingAction = ref(false); // General loading for actions (archive/next/new)
-  const actionMessage = ref<string | null>(null); // Message after an action
+  const isLoadingAction = ref(false); // General loading for actions (archive/next/new/update)
+  const actionMessage = ref<string | null>(null); // Message after a successful action
+
+  const editingRound = ref<RoundArchive | null>(null); // State to hold the round being edited
+  const isLoadingEditRound = ref(false); // Loading state for editing save action
 
   let socket: WebSocket | null = null;
   let reconnectAttempts = 0;
@@ -32,7 +35,7 @@ export const useMatchStore = defineStore('match', () => {
 
   async function fetchCurrentMatchState() {
     isLoading.value = true;
-    error.value = null;
+    error.value = null; // Clear general error on new fetch
     try {
       const response = await fetch(`${API_BASE_URL}/api/match/state`);
       if (!response.ok) {
@@ -41,9 +44,12 @@ export const useMatchStore = defineStore('match', () => {
       }
       const data: MatchState = await response.json();
       currentMatch.value = data;
+      console.log('Fetched initial match state:', data);
       // After fetching current match, also fetch its archived rounds
       if (data && data.matchId) {
           fetchArchivedRounds(data.matchId);
+      } else {
+          archivedRounds.value = []; // Clear rounds if no current match data
       }
     } catch (e: any) {
       console.error('Error fetching match state:', e);
@@ -64,17 +70,17 @@ export const useMatchStore = defineStore('match', () => {
      }
 
     isLoadingAction.value = true; // Use action loading for updates too
-    error.value = null;
-    actionMessage.value = null;
+    error.value = null; // Clear general error
+    actionMessage.value = null; // Clear previous action message
     try {
       // Prevent updating round or status to archived_in_d1 via this endpoint
       const updatePayload = { ...payload };
-      if (updatePayload.round !== undefined && updatePayload.round !== currentMatch.value.round) {
-           // Disallow changing round directly via update
-           delete updatePayload.round;
-      }
+      // Decide if you allow round changes via update or only via next-round
+      // For now, disallow changing round directly via update
+      delete updatePayload.round;
+      // Disallow setting archived_in_d1 status via update
        if (updatePayload.status === 'archived_in_d1') {
-           delete updatePayload.status; // Status to archived_in_d1 only via archiveMatch
+           delete updatePayload.status;
        }
 
 
@@ -107,8 +113,8 @@ export const useMatchStore = defineStore('match', () => {
   }
 
   // --- WebSocket Actions ---
-  // (Keep the existing WebSocket logic as is)
-   function connectWebSocket() {
+
+  function connectWebSocket() {
     if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
       console.log('WebSocket already connected or connecting.');
       return;
@@ -133,9 +139,12 @@ export const useMatchStore = defineStore('match', () => {
         console.log('Received state via WebSocket:', data);
         // If the match becomes archived via WS, refresh archived lists
         if (data.status === 'archived_in_d1') {
-             fetchArchivedMatches();
-             // fetchArchivedRounds(data.matchId); // Rounds are already fetched for the current match
+             fetchArchivedMatches(); // Refresh the list of overall archived matches
+             // archivedRounds list is already tied to currentMatch via watch
         }
+        // If a new match starts (status changes from archived_in_d1 to pending/live/etc.)
+        // the watch on currentMatch will handle fetching new archived rounds.
+
       } catch (e) {
         console.error('Error parsing WebSocket message:', e);
         // Handle parsing error, maybe don't update state if invalid
@@ -210,7 +219,8 @@ export const useMatchStore = defineStore('match', () => {
       const data = await response.json();
       if (data.success) {
         actionMessage.value = data.message || '当前轮次归档成功！';
-        fetchArchivedRounds(currentMatch.value.matchId); // Refresh the list of archived rounds for this match
+        // Refresh the list of archived rounds for this match
+        fetchArchivedRounds(currentMatch.value.matchId);
         return true;
       } else {
         throw new Error(data.message || '归档轮次失败，未知错误。');
@@ -233,15 +243,14 @@ export const useMatchStore = defineStore('match', () => {
         error.value = "比赛已整体归档，无法进入下一轮。";
         return false;
     }
-     if (currentMatch.value.status === 'finished') {
-        // Optional: Prevent advancing if status is 'finished'
-        // error.value = "比赛已结束，请先归档整场比赛。";
-        // return false;
-        // Or allow advancing after 'finished' to start a new round
-     }
-
+     // Optional: Prevent advancing if status is 'finished' - depends on workflow
+     // if (currentMatch.value.status === 'finished') {
+     //    error.value = "比赛已结束，请先归档整场比赛。";
+     //    return false;
+     // }
 
     // Optional: Auto-archive current round before advancing
+    // The DO handles the auto-archive call internally now, so no need to call it here
     // const archiveResult = await archiveCurrentRound();
     // if (!archiveResult.success) {
     //      console.warn("Failed to auto-archive current round before advancing:", archiveResult.message);
@@ -266,8 +275,7 @@ export const useMatchStore = defineStore('match', () => {
       const data = await response.json();
       if (data.success) {
         actionMessage.value = data.message || '已进入下一轮！';
-        // currentMatch will be updated by WebSocket
-        // fetchArchivedRounds(currentMatch.value.matchId); // Rounds are fetched when currentMatch updates
+        // currentMatch will be updated by WebSocket, which triggers fetchArchivedRounds via watch
         return true;
       } else {
         throw new Error(data.message || '进入下一轮失败，未知错误。');
@@ -313,7 +321,7 @@ export const useMatchStore = defineStore('match', () => {
         actionMessage.value = data.message || `比赛归档成功！记录 ID: ${data.d1RecordId}`;
         // currentMatch status will be updated by WebSocket to 'archived_in_d1'
         fetchArchivedMatches(); // Refresh the list of archived matches
-        // fetchArchivedRounds(currentMatch.value.matchId); // Rounds are already fetched
+        // archivedRounds list is already tied to currentMatch via watch
         return true;
       } else {
         throw new Error(data.message || '归档整场比赛失败，未知错误。');
@@ -329,10 +337,10 @@ export const useMatchStore = defineStore('match', () => {
 
   async function newMatch() {
      if (!currentMatch.value) {
-         error.value = "没有当前比赛数据可开始新比赛。";
-         return false;
-    }
-     if (!isCurrentMatchArchived.value) {
+         // If there's no current match data, we can potentially start a new one directly
+         // This handles the case where the DO state was cleared or never initialized
+         console.log("No current match data found, attempting to start a new one.");
+     } else if (!isCurrentMatchArchived.value) {
         error.value = "当前比赛必须先归档才能开始新比赛。";
         return false;
     }
@@ -356,8 +364,8 @@ export const useMatchStore = defineStore('match', () => {
       if (data.success) {
         actionMessage.value = data.message || '已成功开始新比赛！';
         // currentMatch will be reset by WebSocket
-        archivedRounds.value = []; // Clear archived rounds list as it's for the previous match
-        // archivedMatches list is separate
+        // The watch on currentMatch will clear archivedRounds
+        fetchArchivedMatches(); // Refresh archived matches list in case the old one wasn't listed yet
         return true;
       } else {
         throw new Error(data.message || '开始新比赛失败，未知错误。');
@@ -414,20 +422,87 @@ export const useMatchStore = defineStore('match', () => {
   }
 
 
+  // --- New Actions for Round Editing ---
+
+  function startEditingRound(round: RoundArchive) {
+      editingRound.value = { ...round }; // Create a copy to avoid modifying the list directly
+      error.value = null; // Clear errors when starting edit
+      actionMessage.value = null; // Clear action messages
+  }
+
+  function cancelEditingRound() {
+      editingRound.value = null;
+      error.value = null;
+      actionMessage.value = null;
+  }
+
+  async function saveEditedRound(round: RoundArchive) {
+      if (!round || round.id === undefined) {
+          error.value = "无效的归档轮次数据。";
+          return false;
+      }
+
+      isLoadingEditRound.value = true; // Use specific loading for edit save
+      error.value = null; // Clear general error
+      actionMessage.value = null; // Clear previous action message
+      try {
+          const response = await fetch(`${API_BASE_URL}/api/archived_rounds/${round.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(round), // Send the edited data
+          });
+
+          if (!response.ok) {
+              const errorData = await response.json().catch(() => ({ message: response.statusText }));
+              throw new Error(errorData.message || `HTTP error ${response.status}`);
+          }
+
+          const data = await response.json();
+          if (data.success) {
+              actionMessage.value = data.message || '归档轮次更新成功！';
+              cancelEditingRound(); // Close the edit form
+              // Find and update the item in the archivedRounds list with the record returned by the server
+              const index = archivedRounds.value.findIndex(r => r.id === round.id);
+              if (index !== -1 && data.updatedRecord) {
+                  archivedRounds.value[index] = data.updatedRecord;
+              } else {
+                  // If server didn't return updated record or item not found, refetch the list
+                  if (currentMatch.value) {
+                      fetchArchivedRounds(currentMatch.value.matchId);
+                  }
+              }
+              return true;
+          } else {
+              throw new Error(data.message || '更新归档轮次失败，未知错误。');
+          }
+
+      } catch (e: any) {
+          console.error('Error saving edited round:', e);
+          error.value = `更新归档轮次失败: ${e.message}`;
+          return false;
+      } finally {
+          isLoadingEditRound.value = false;
+      }
+  }
+
+
   return {
+    // --- State & Computed ---
     currentMatch,
-    isLoading, // For initial fetch
-    error, // General error
+    isLoading,
+    error,
     isConnected,
     archivedRounds,
     isLoadingArchivedRounds,
     archivedMatches,
     isLoadingArchivedMatches,
-    isLoadingAction, // For specific actions
-    actionMessage, // Message after action success
+    isLoadingAction,
+    actionMessage,
+    editingRound,
+    isLoadingEditRound,
+    isCurrentMatchArchived,
 
-    isCurrentMatchArchived, // Computed property
-
+    // --- Actions ---
     fetchCurrentMatchState,
     updateMatch,
     connectWebSocket,
@@ -438,7 +513,11 @@ export const useMatchStore = defineStore('match', () => {
     archiveMatch,
     newMatch,
 
-    fetchArchivedRounds, // Exposed for potential manual refresh
-    fetchArchivedMatches, // Exposed for potential manual refresh
+    fetchArchivedRounds,
+    fetchArchivedMatches,
+
+    startEditingRound,
+    cancelEditingRound,
+    saveEditedRound,
   };
 });

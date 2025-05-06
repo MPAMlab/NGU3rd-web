@@ -9,43 +9,45 @@ export interface MatchState {
     teamB_name: string;
     teamB_score: number;
     teamB_player: string;
-    status: 'pending' | 'live' | 'finished' | 'paused' | 'archived_in_d1'; // 'archived_in_d1' now means the whole match is archived
+    status: 'pending' | 'live' | 'finished' | 'paused' | 'archived_in_d1';
   }
   
   // Type for a single archived round record
   export interface RoundArchive {
-      id: number; // D1 auto-increment ID
-      match_do_id: string;
-      round_number: number;
-      team_a_name: string;
-      team_a_score: number;
-      team_a_player: string;
-      team_b_name: string;
-      team_b_score: number;
-      team_b_player: string;
-      status: string; // Status of the match when this round was archived
-      archived_at: string; // ISO date string
-      raw_data?: string; // Optional: raw JSON
-      // is_editable?: number; // If you add this field
-  }
+    id: number; // D1 auto-increment ID
+    match_do_id: string;
+    round_number: number;
+    team_a_name: string;
+    team_a_score: number;
+    team_a_player: string;
+    team_b_name: string;
+    team_b_score: number;
+    team_b_player: string;
+    status: string;
+    archived_at: string;
+    raw_data?: string;
+    winner_team_name?: string; // Added winner field
+    // is_editable?: number;
+}
   
   
   // Type for a single archived match summary record
-  export interface MatchArchiveSummary {
-    id: number; // D1 auto-increment ID
-    match_do_id: string;
-    match_name?: string; // Optional
-    final_round?: number;
-    team_a_name?: string;
-    team_a_score?: number;
-    team_a_player?: string;
-    team_b_name?: string;
-    team_b_score?: number;
-    team_b_player?: string;
-    status: string;
-    archived_at: string;
-    raw_data?: string; // Optional
-  }
+export interface MatchArchiveSummary {
+  id: number; // D1 auto-increment ID
+  match_do_id: string;
+  match_name?: string;
+  final_round?: number;
+  team_a_name?: string;
+  team_a_score?: number;
+  team_a_player?: string;
+  team_b_name?: string;
+  team_b_score?: number;
+  team_b_player?: string;
+  status: string;
+  archived_at: string;
+  raw_data?: string;
+  winner_team_name?: string; // Added winner field
+}
   
   // Keep your default form data if needed, but we'll initialize from store data
   // export const defaultMatchFormData: Omit<MatchState, 'matchId'> = {

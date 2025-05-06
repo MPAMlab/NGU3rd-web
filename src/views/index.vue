@@ -106,10 +106,11 @@
                   <strong>轮次:</strong> {{ archivedRound.round_number }} <br>
                   <strong>队伍:</strong> {{ archivedRound.team_a_name }} vs {{ archivedRound.team_b_name }} <br>
                   <strong>比分:</strong> {{ archivedRound.team_a_score }} : {{ archivedRound.team_b_score }} <br>
+                  <span v-if="archivedRound.winner_team_name"><strong>赢家:</strong> {{ archivedRound.winner_team_name }} <br></span>
                   <strong>状态:</strong> {{ archivedRound.status }} <br>
                   <strong>归档时间:</strong> {{ new Date(archivedRound.archived_at).toLocaleString() }}
-                  <!-- Add Edit button here if implementing editing -->
-                  <!-- <button @click="editRound(archivedRound)">编辑</button> -->
+                  <!-- Add Edit button -->
+                  <button @click="store.startEditingRound(archivedRound)" class="edit-button">编辑</button>
               </li>
           </ul>
            <button type="button" @click="store.fetchArchivedRounds(store.currentMatch.matchId)" :disabled="store.isLoadingArchivedRounds">
@@ -128,6 +129,7 @@
                    <span v-if="archivedMatch.match_name"><strong>名称:</strong> {{ archivedMatch.match_name }} <br></span>
                   <strong>最终轮次:</strong> {{ archivedMatch.final_round }} <br>
                   <strong>最终比分:</strong> {{ archivedMatch.team_a_name }} {{ archivedMatch.team_a_score }} : {{ archivedMatch.team_b_score }} {{ archivedMatch.team_b_name }} <br>
+                   <span v-if="archivedMatch.winner_team_name"><strong>赢家:</strong> {{ archivedMatch.winner_team_name }} <br></span>
                   <strong>状态:</strong> {{ archivedMatch.status }} <br>
                   <strong>归档时间:</strong> {{ new Date(archivedMatch.archived_at).toLocaleString() }}
                   <!-- Add button to view archived rounds for this match if needed -->
@@ -139,16 +141,77 @@
           </button>
       </div>
 
+      <!-- Edit Archived Round Modal/Form -->
+      <div v-if="store.editingRound" class="modal-overlay">
+          <div class="modal-content">
+              <h3>编辑归档轮次 {{ store.editingRound.round_number }} (ID: {{ store.editingRound.id }})</h3>
+               <div v-if="store.error" class="error-message">{{ store.error }}</div>
+               <div v-if="store.actionMessage" class="submit-message success">{{ store.actionMessage }}</div>
+
+              <form @submit.prevent="handleSaveEditedRound">
+                  <div class="form-grid">
+                      <div class="form-group">
+                          <label>队伍A 名称:</label>
+                          <input type="text" v-model="store.editingRound.team_a_name" required />
+                      </div>
+                       <div class="form-group">
+                          <label>队伍A 选手:</label>
+                          <input type="text" v-model="store.editingRound.team_a_player" required />
+                      </div>
+                      <div class="form-group">
+                          <label>队伍A 得分:</label>
+                          <input type="number" v-model.number="store.editingRound.team_a_score" min="0" required />
+                      </div>
+
+                       <div class="form-group">
+                          <label>队伍B 名称:</label>
+                          <input type="text" v-model="store.editingRound.team_b_name" required />
+                      </div>
+                       <div class="form-group">
+                          <label>队伍B 选手:</label>
+                          <input type="text" v-model="store.editingRound.team_b_player" required />
+                      </div>
+                      <div class="form-group">
+                          <label>队伍B 得分:</label>
+                          <input type="number" v-model.number="store.editingRound.team_b_score" min="0" required />
+                      </div>
+
+                       <div class="form-group">
+                          <label>状态:</label>
+                           <select v-model="store.editingRound.status">
+                              <option value="pending">准备中</option>
+                              <option value="live">进行中</option>
+                              <option value="paused">已暂停</option>
+                              <option value="finished">已结束</option>
+                              <!-- Archived status is for the whole match, not a round -->
+                           </select>
+                      </div>
+                       <div class="form-group">
+                          <label>赢家 (自动计算):</label>
+                          <input type="text" :value="determineWinnerForEdit(store.editingRound)" disabled />
+                      </div>
+                  </div>
+
+                  <div class="button-group">
+                      <button type="submit" :disabled="store.isLoadingEditRound">
+                          {{ store.isLoadingEditRound ? '保存中...' : '保存修改' }}
+                      </button>
+                      <button type="button" @click="store.cancelEditingRound()" :disabled="store.isLoadingEditRound">
+                          取消
+                      </button>
+                  </div>
+              </form>
+          </div>
+      </div>
+
 
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, reactive, onUnmounted } from 'vue'; // Import onUnmounted
+import { ref, onMounted, watch, reactive, onUnmounted } from 'vue';
 import { useMatchStore } from '@/stores/matchStore';
-import type { MatchState } from '@/types/match';
-// Assuming defaultMatchFormData is not strictly needed if initializing from store.currentMatch
-// import { defaultMatchFormData } from '@/types/match';
+import type { MatchState, RoundArchive } from '@/types/match';
 
 const store = useMatchStore();
 // Initialize formData as an empty object, will be populated by the watch
@@ -196,15 +259,8 @@ watch(() => store.currentMatch, (newMatchData) => {
 async function handleSubmit() {
   // submitMessage.value = ''; // Handled by store
   // Type assertion because formData is Omit<MatchState, 'matchId'>
-  const success = await store.updateMatch(formData as Omit<MatchState, 'matchId'>);
+  const success = await store.updateMatch(formData as Partial<Omit<MatchState, 'matchId'>>); // Use Partial here
   // Feedback is now handled by store.actionMessage or store.error
-  // if (success) {
-  //   submitMessage.value = '比赛信息更新成功!';
-  //   messageType.value = 'success';
-  // } else {
-  //   submitMessage.value = `更新失败: ${store.error}`;
-  //   messageType.value = 'error';
-  // }
 }
 
 async function handleArchiveRound() {
@@ -229,6 +285,24 @@ async function handleNewMatch() {
     // Confirmation is handled in the store action
     await store.newMatch();
     // Feedback handled by store.actionMessage/error
+}
+
+async function handleSaveEditedRound() {
+    if (store.editingRound) {
+        await store.saveEditedRound(store.editingRound);
+        // Feedback handled by store.actionMessage/error
+    }
+}
+
+// Helper to determine winner for display in the edit modal
+function determineWinnerForEdit(round: RoundArchive): string {
+    if (round.team_a_score > round.team_b_score) {
+        return round.team_a_name || '队伍A';
+    } else if (round.team_b_score > round.team_a_score) {
+        return round.team_b_name || '队伍B';
+    } else {
+        return '平局';
+    }
 }
 
 
@@ -442,11 +516,30 @@ button:disabled {
     margin-bottom: 10px;
     font-size: 0.95em;
     line-height: 1.6;
+    position: relative; /* Needed for absolute positioning of edit button */
 }
 
 .archived-item strong {
     color: #007bff;
 }
+
+.archived-item .edit-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 5px 10px;
+    background-color: #6c757d; /* Secondary grey */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8em;
+    transition: background-color 0.2s;
+}
+.archived-item .edit-button:hover {
+    background-color: #5a6268;
+}
+
 
 /* Style for refresh buttons below lists */
 .archived-rounds-section > button,
@@ -467,5 +560,65 @@ button:disabled {
     background-color: #5a6268;
 }
 
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000; /* Ensure it's on top */
+}
+
+.modal-content {
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh; /* Limit height */
+    overflow-y: auto; /* Add scroll if content overflows */
+}
+
+.modal-content h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #333;
+    text-align: center;
+}
+
+.modal-content .form-grid {
+    grid-template-columns: 1fr 1fr; /* Two columns for modal form */
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.modal-content .button-group {
+    margin-top: 20px;
+}
+
+.modal-content .button-group button {
+    max-width: 150px; /* Smaller buttons in modal */
+}
+
+.modal-content .button-group button[type="submit"] {
+    background-color: #28a745; /* Green for save */
+}
+.modal-content .button-group button[type="submit"]:hover:not(:disabled) {
+    background-color: #218838;
+}
+
+.modal-content .button-group button:nth-of-type(2) {
+    background-color: #6c757d; /* Grey for cancel */
+}
+.modal-content .button-group button:nth-of-type(2):hover:not(:disabled) {
+    background-color: #5a6268;
+}
 
 </style>

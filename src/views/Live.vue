@@ -51,7 +51,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'; // Import onUnmounted
+import { onMounted, onUnmounted } from 'vue';
 import { useMatchStore } from '@/stores/matchStore';
 import type { MatchState } from '@/types/match';
 
