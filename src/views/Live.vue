@@ -6,6 +6,7 @@
         <div v-if="store.error && !store.currentMatch" class="status-message error">
           加载数据失败: {{ store.error }}
         </div>
+        <!-- Show WS warning only if not archived -->
         <div v-if="!store.isConnected && store.currentMatch && !store.isCurrentMatchArchived" class="status-message warning">
           ⚠️ WebSocket 未连接，数据可能不是最新的。
         </div>
@@ -22,7 +23,7 @@
 
           <!-- Message for archived state -->
           <div v-if="store.isCurrentMatchArchived" class="status-message success archived-message">
-             比赛已结束并归档。最终比分如下：
+             比赛已结束并整体归档。最终比分如下：
           </div>
 
           <div class="teams-container">
@@ -50,7 +51,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue';
+import { onMounted, onUnmounted } from 'vue'; // Import onUnmounted
 import { useMatchStore } from '@/stores/matchStore';
 import type { MatchState } from '@/types/match';
 
@@ -76,7 +77,7 @@ function getStatusText(status: MatchState['status'] | undefined) {
     case 'pending': return '准备中';
     case 'finished': return '已结束';
     case 'paused': return '已暂停';
-    case 'archived_in_d1': return '已归档'; // Added archived status text
+    case 'archived_in_d1': return '已归档 (整场)'; // Updated text
     default: return '未知状态';
   }
 }
