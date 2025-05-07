@@ -2,72 +2,119 @@
     <div class="live-page-container">
       <div class="scoreboard">
         <h1>比赛直播</h1>
-        <div v-if="store.isLoading && !store.currentMatch" class="status-message">正在加载初始数据...</div>
-        <div v-if="store.error && !store.currentMatch" class="status-message error">
-          加载数据失败: {{ store.error }}
-        </div>
-        <!-- Show WS warning only if not archived -->
-        <div v-if="!store.isConnected && store.currentMatch && !store.isCurrentMatchArchived" class="status-message warning">
-          ⚠️ WebSocket 未连接，数据可能不是最新的。
-        </div>
-         <div v-if="store.isConnected && !store.currentMatch" class="status-message">
-          等待数据...
-        </div>
+        <!-- Display the DO ID being viewed -->
+        <p v-if="matchDOId">比赛 ID: <strong>{{ matchDOId }}</strong></p>
+        <p v-else class="status-message warning">请通过包含比赛ID的链接访问直播页面。</p>
 
 
-        <template v-if="store.currentMatch">
-          <h2 id="roundInfo">第 {{ store.currentMatch.round }} 轮</h2>
-          <div id="matchStatus" :class="['status-tag', store.currentMatch.status]">
-            {{ getStatusText(store.currentMatch.status) }}
-          </div>
-
-          <!-- Message for archived state -->
-          <div v-if="store.isCurrentMatchArchived" class="status-message success archived-message">
-             比赛已结束并整体归档。最终比分如下：
-          </div>
-
-          <div class="teams-container">
-            <div class="team" id="teamA">
-              <h3 id="teamA_name">{{ store.currentMatch.teamA_name }}</h3>
-              <p class="player" id="teamA_player">{{ store.currentMatch.teamA_player }}</p>
-              <p class="score" id="teamA_score">{{ store.currentMatch.teamA_score }}</p>
+        <div v-if="matchDOId"> <!-- Only show loading/error if an ID is provided -->
+            <div v-if="store.isLoading && !store.currentMatch" class="status-message">正在加载初始数据...</div>
+            <div v-if="store.error && !store.currentMatch" class="status-message error">
+              加载数据失败: {{ store.error }}
             </div>
-            <div class="vs-separator">VS</div>
-            <div class="team" id="teamB">
-              <h3 id="teamB_name">{{ store.currentMatch.teamB_name }}</h3>
-              <p class="player" id="teamB_player">{{ store.currentMatch.teamB_player }}</p>
-              <p class="score" id="teamB_score">{{ store.currentMatch.teamB_score }}</p>
+            <!-- Show WS warning only if not archived -->
+            <div v-if="!store.isConnected && store.currentMatch && !store.isCurrentMatchArchived" class="status-message warning">
+              ⚠️ WebSocket 未连接，数据可能不是最新的。
             </div>
-          </div>
-        </template>
-        <div v-else-if="!store.isLoading && !store.error" class="status-message">
-          暂无比赛数据。
-        </div>
-        <div id="connectionStatus" :class="{ 'connected': store.isConnected, 'disconnected': !store.isConnected }">
-          {{ store.isConnected ? '● 已连接到服务器' : '○ 连接已断开' }}
+             <div v-if="store.isConnected && !store.currentMatch" class="status-message">
+              等待数据...
+            </div>
+
+
+            <template v-if="store.currentMatch">
+              <h2 id="roundInfo">第 {{ store.currentMatch.round }} 轮</h2>
+              <div id="matchStatus" :class="['status-tag', store.currentMatch.status]">
+                {{ getStatusText(store.currentMatch.status) }}
+              </div>
+
+              <!-- Message for archived state -->
+              <div v-if="store.isCurrentMatchArchived" class="status-message success archived-message">
+                 比赛已结束并整体归档。最终比分如下：
+              </div>
+
+              <div class="teams-container">
+                <div class="team" id="teamA">
+                  <h3 id="teamA_name">{{ store.currentMatch.teamA_name }}</h3>
+                  <p class="player" id="teamA_player">{{ store.currentMatch.teamA_player }}</p>
+                  <p class="score" id="teamA_score">{{ store.currentMatch.teamA_score }}</p>
+                </div>
+                <div class="vs-separator">VS</div>
+                <div class="team" id="teamB">
+                  <h3 id="teamB_name">{{ store.currentMatch.teamB_name }}</h3>
+                  <p class="player" id="teamB_player">{{ store.currentMatch.teamB_player }}</p>
+                  <p class="score" id="teamB_score">{{ store.currentMatch.teamB_score }}</p>
+                </div>
+              </div>
+            </template>
+            <div v-else-if="!store.isLoading && !store.error" class="status-message">
+              暂无比赛数据。
+            </div>
+            <div id="connectionStatus" :class="{ 'connected': store.isConnected, 'disconnected': !store.isConnected }">
+              {{ store.isConnected ? '● 已连接到服务器' : '○ 连接已断开' }}
+            </div>
         </div>
       </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue';
+import { onMounted, onUnmounted, watch } from 'vue';
 import { useMatchStore } from '@/stores/matchStore';
 import type { MatchState } from '@/types/match';
+import { useRoute } from 'vue-router'; // Import useRoute
 
 const store = useMatchStore();
+const route = useRoute(); // Get the current route object
 
-onMounted(() => {
-  // Fetch initial state in case WebSocket connects after some data is already set
-  // or if WebSocket fails, we at least have a snapshot.
-  if (!store.currentMatch) {
-    store.fetchCurrentMatchState();
+// Get the matchDOId from the route parameters (defined in router/index.ts)
+// Use defineProps to receive it as a prop if props: true is set in the router
+const props = defineProps<{
+    matchDOId?: string;
+}>();
+
+// Use the prop directly
+const matchDOId = props.matchDOId;
+
+
+onMounted(async () => {
+  // Only fetch/connect if matchDOId is available from the route
+  if (matchDOId) {
+    // Pass the DO ID to the store actions
+    await store.fetchCurrentMatchState(matchDOId);
+    store.connectWebSocket(matchDOId);
   }
-  store.connectWebSocket();
 });
 
+// Watch for changes in the route's matchDOId (useful if navigating between live matches)
+watch(() => props.matchDOId, async (newMatchDOId, oldMatchDOId) => {
+    console.log(`Live route matchDOId changed from ${oldMatchDOId} to ${newMatchDOId}`);
+    // Disconnect old WebSocket if it exists and was for a different ID
+    if (oldMatchDOId && oldMatchDOId !== newMatchDOId) {
+        store.disconnectWebSocket(oldMatchDOId);
+    }
+
+    // If a new valid matchDOId is present, fetch state and connect WS
+    if (newMatchDOId) {
+        // Clear previous state immediately to show loading for the new match
+        store.currentMatch = null;
+        store.archivedRounds = []; // Clear rounds as they belong to the old match
+        // Pass the new DO ID to the store actions
+        await store.fetchCurrentMatchState(newMatchDOId);
+        store.connectWebSocket(newMatchDOId);
+    } else {
+        // If the new ID is null/undefined, clear current match state and disconnect WS
+        store.disconnectWebSocket(); // Disconnect any active WS
+        store.currentMatch = null;
+        store.archivedRounds = [];
+    }
+}, { immediate: true }); // immediate: true runs the watcher once on mount
+
+
 onUnmounted(() => {
-  store.disconnectWebSocket();
+  // Disconnect the specific WebSocket connection if one exists
+  if (matchDOId) {
+      store.disconnectWebSocket(matchDOId);
+  }
 });
 
 function getStatusText(status: MatchState['status'] | undefined) {

@@ -110,7 +110,32 @@
                         <td>
                             <!-- <button @click="startEditingTournamentMatch(match)" class="small-button">编辑</button> -->
                             <button @click="handleDeleteTournamentMatch(match.id)" class="small-button delete-button" :disabled="match.match_do_id !== null">删除</button>
-                            <button @click="handleStartScheduledMatch(match.id)" class="small-button" :disabled="match.status !== 'scheduled' || (store.currentMatch !== null && !store.isCurrentMatchArchived)">开始比赛</button>
+                            <!-- Button to start the match -->
+                            <button
+                                v-if="match.status === 'scheduled'"
+                                @click="handleStartScheduledMatch(match.id)"
+                                class="small-button"
+                                :disabled="store.isLoadingAction || (store.currentMatch !== null && !store.isCurrentMatchArchived)"
+                            >
+                                开始比赛
+                            </button>
+                             <!-- Link to manage/view live/completed match -->
+                             <router-link
+                                v-if="match.match_do_id" 
+                                :to="{ name: 'admin-live-match', params: { matchDOId: match.match_do_id } }"
+                                class="small-button"
+                            >
+                                管理/查看
+                            </router-link>
+
+                             <!-- Link to view live stream -->
+                             <router-link
+                                v-if="match.match_do_id"
+                                :to="{ name: 'live-match', params: { matchDOId: match.match_do_id } }"
+                                class="small-button"
+                            >
+                                直播
+                            </router-link>
                         </td>
                     </tr>
                 </tbody>
@@ -130,8 +155,11 @@ import { useMatchStore } from '@/stores/matchStore';
 // Import the new types
 import type { TournamentMatch, BulkTeamRow, CreateTournamentMatchPayload, BulkTournamentMatchRow } from '@/types/match';
 import { parse } from 'csv-parse/browser/esm/sync';
+import { useRouter } from 'vue-router'; // Import useRouter
 
 const store = useMatchStore();
+const router = useRouter(); // Get the router instance
+
 
 // --- State for Add Tournament Match Form ---
 // Use the new type for form state
@@ -157,7 +185,9 @@ onMounted(async () => {
     await store.fetchTeams(); // Wait for teams to be fetched
     console.log('Teams in store:', JSON.parse(JSON.stringify(store.teams))); // Deep copy for logging
     store.fetchTournamentMatches();
-    store.fetchCurrentMatchState();
+    // No need to fetch current match state here anymore,
+    // as this page doesn't manage a live match directly.
+    // store.fetchCurrentMatchState();
 });
 
 
@@ -254,7 +284,14 @@ async function handleDeleteTournamentMatch(matchId: number) {
 }
 
 async function handleStartScheduledMatch(matchId: number) {
-    await store.startScheduledMatch(matchId);
+    // Call the store action to start the match
+    const result = await store.startScheduledMatch(matchId);
+
+    // If successful, navigate to the specific match management page
+    if (result.success && result.matchDOId) {
+        router.push({ name: 'admin-live-match', params: { matchDOId: result.matchDOId } });
+    }
+    // Error message is handled by the store
 }
 
 function getMatchStatusText(status: TournamentMatch['status']) {

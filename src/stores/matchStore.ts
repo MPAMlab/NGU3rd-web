@@ -14,11 +14,9 @@ export const useMatchStore = defineStore('match', () => {
   const isConnected = ref(false); // WebSocket connection status
 
   // --- State for Archived Data ---
-  // Corrected declarations: remove .value here
   const archivedRounds = ref<RoundArchive[]>([]);
   const isLoadingArchivedRounds = ref(false);
 
-  // Corrected declarations: remove .value here
   const archivedMatches = ref<MatchArchiveSummary[]>([]);
   const isLoadingArchivedMatches = ref(false);
 
@@ -26,13 +24,10 @@ export const useMatchStore = defineStore('match', () => {
   const isLoadingEditRound = ref(false); // Loading state for editing save action
 
   // --- State for Tournament Management ---
-  // Corrected declarations: remove .value here
   const teams = ref<Team[]>([]);
   const isLoadingTeams = ref(false);
-  // Corrected declarations: remove .value here
   const members = ref<Member[]>([]); // Store all members, filter by team_code in UI if needed
   const isLoadingMembers = ref(false);
-  // Corrected declarations: remove .value here
   const tournamentMatches = ref<TournamentMatch[]>([]); // Note: This will hold flattened data from the join query
   const isLoadingTournamentMatches = ref(false);
 
@@ -47,23 +42,38 @@ export const useMatchStore = defineStore('match', () => {
 
 
   let socket: WebSocket | null = null;
+  let currentMatchDOId: string | null = null; // Store the DO ID the store is currently connected to
   let reconnectAttempts = 0;
-  const MAX_RECONNECT_ATTEMPTS = 5; // Corrected spelling
+  const MAX_RECONNECT_ATTEMPTS = 5;
 
 
   // Computed property to check if the current match DO instance is archived
   const isCurrentMatchArchived = computed(() => currentMatch.value?.status === 'archived_in_d1');
 
 
-  // --- Actions for Current Match ---
+  // --- Actions for Current Match (Require matchDOId) ---
 
-  async function fetchCurrentMatchState() {
+  // Modified to accept matchDOId
+  async function fetchCurrentMatchState(matchDOId: string) {
+    if (!matchDOId) {
+        console.warn("fetchCurrentMatchState called without matchDOId");
+        currentMatch.value = null; // Clear state if no ID
+        archivedRounds.value = []; // Clear rounds
+        return;
+    }
     isLoading.value = true;
     error.value = null; // Clear general error on new fetch
     try {
-      const response = await fetch(`${API_BASE_URL}/api/match/state`);
+      // Use the new API path with the specific DO ID
+      const response = await fetch(`${API_BASE_URL}/api/live-match/${matchDOId}/state`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        // If 404, maybe the DO doesn't exist or is truly gone
+        if (response.status === 404) {
+             currentMatch.value = null; // Clear state
+             archivedRounds.value = []; // Clear rounds
+             throw new Error(`比赛 (ID: ${matchDOId}) 未找到或已失效。`);
+        }
         throw new Error(errorData.message || `HTTP error ${response.status}`);
       }
       const data: MatchState = await response.json();
@@ -71,25 +81,32 @@ export const useMatchStore = defineStore('match', () => {
       console.log('Fetched initial match state:', data);
       // After fetching current match, also fetch its archived rounds
       if (data && data.matchId) {
-          fetchArchivedRounds(data.matchId);
+          fetchArchivedRounds(data.matchId); // Pass the DO ID
       } else {
-          archivedRounds.value = []; // Clear rounds if no current match data - Use .value
+          archivedRounds.value = []; // Clear rounds list - Use .value
       }
     } catch (e: any) {
       console.error('Error fetching match state:', e);
       error.value = `获取比赛状态失败: ${e.message}`;
+      currentMatch.value = null; // Clear state on error
+      archivedRounds.value = []; // Clear rounds on error
     } finally {
       isLoading.value = false;
     }
   }
 
-  // Corrected updateMatch function
-  async function updateMatch(payload: Partial<Omit<MatchState, 'matchId' | 'tournamentMatchId' | 'round' | 'teamA_members' | 'teamB_members' | 'teamA_player_order_ids' | 'teamB_player_order_ids' | 'current_player_index_a' | 'current_player_index_b' | 'teamA_player' | 'teamB_player'>>) {
-     if (!currentMatch.value) {
-         error.value = "没有当前比赛数据可更新。";
+  // Modified to accept matchDOId and only send allowed updates
+  async function updateMatch(matchDOId: string, payload: Partial<Pick<MatchState, 'teamA_name' | 'teamA_score' | 'teamB_name' | 'teamB_score' | 'status'>>) {
+     if (!matchDOId) {
+         error.value = "无法更新比赛状态，缺少比赛ID。";
          return false;
      }
-     if (isCurrentMatchArchived.value) {
+     if (currentMatch.value?.matchId !== matchDOId) {
+          console.warn("updateMatch called for a different DO ID than the current state.");
+          // Decide how to handle this - maybe fetch the correct state first?
+          // For now, proceed with the update for the requested ID.
+     }
+     if (currentMatch.value?.status === 'archived_in_d1') { // Check status of the *current* loaded match
         error.value = "比赛已归档，无法更新。";
         return false; // Indicate failure
      }
@@ -99,20 +116,18 @@ export const useMatchStore = defineStore('match', () => {
     error.value = null; // Clear general error
     actionMessage.value = null; // Clear previous action message
     try {
-      // Prevent updating core fields via this endpoint
-      const updatePayload = { ...payload };
-      // The following properties are already excluded by the Omit type in the function signature,
-      // so attempting to delete them here is a type error. Remove these lines.
-      // delete updatePayload.round; // REMOVED
-      // delete updatePayload.teamA_player; // REMOVED
-      // delete updatePayload.teamB_player; // REMOVED
+      // Only send the fields that are allowed to be updated via this endpoint
+      const updatePayload = {
+          teamA_name: payload.teamA_name,
+          teamA_score: payload.teamA_score,
+          teamB_name: payload.teamB_name,
+          teamB_score: payload.teamB_score,
+          status: payload.status, // Status is allowed to be updated here (except to archived_in_d1)
+      };
+      // Note: round, teamA_player, teamB_player, member lists, player order, etc. are managed by the DO's internal logic.
 
-      // Status changes via specific actions (archive, new-match), so prevent updating it here.
-      // This property *is* allowed by the Omit type, so deleting it is correct.
-      delete updatePayload.status; // KEEP THIS LINE
-
-
-      const response = await fetch(`${API_BASE_URL}/api/match/update`, {
+      // Use the new API path with the specific DO ID
+      const response = await fetch(`${API_BASE_URL}/api/live-match/${matchDOId}/update`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -140,42 +155,68 @@ export const useMatchStore = defineStore('match', () => {
     }
   }
 
-  // --- WebSocket Actions ---
-  // (Keep the existing WebSocket logic as is)
-   function connectWebSocket() {
-    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
-      console.log('WebSocket already connected or connecting.');
+  // --- WebSocket Actions (Require matchDOId) ---
+  // Modified to accept matchDOId
+   function connectWebSocket(matchDOId: string) {
+    if (!matchDOId) {
+        console.warn("connectWebSocket called without matchDOId");
+        disconnectWebSocket(); // Ensure any existing connection is closed
+        return;
+    }
+
+    // If already connected to the *same* DO, do nothing
+    if (socket && isConnected.value && currentMatchDOId === matchDOId) {
+      console.log(`WebSocket already connected to ${matchDOId}.`);
       return;
     }
 
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProtocol}//${window.location.host}/api/match/websocket`;
+    // If connected to a *different* DO, disconnect first
+    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+        console.log(`Disconnecting from previous WebSocket (${currentMatchDOId}) to connect to ${matchDOId}.`);
+        disconnectWebSocket();
+    }
 
+    currentMatchDOId = matchDOId; // Store the ID we are trying to connect to
+    reconnectAttempts = 0; // Reset attempts for the new ID
+
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // Use the new API path with the specific DO ID
+    const wsUrl = `${wsProtocol}//${window.location.host}/api/live-match/${matchDOId}/websocket`;
+
+    console.log(`Attempting to connect WebSocket to ${wsUrl}`);
     socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
-      console.log('WebSocket connected');
+      console.log(`WebSocket connected to ${matchDOId}`);
       isConnected.value = true;
       error.value = null; // Clear connection error on success
       reconnectAttempts = 0; // Reset attempts
+      // Fetch state immediately after connecting to ensure we have the latest
+      // This also handles the case where the DO might have state before WS connects
+      fetchCurrentMatchState(matchDOId);
     };
 
     socket.onmessage = (event) => {
       try {
         const data: MatchState = JSON.parse(event.data as string);
-        currentMatch.value = data;
-        console.log('Received state via WebSocket:', data);
-        // If the match becomes archived via WS, refresh archived lists
-        if (data.status === 'archived_in_d1') {
-             fetchArchivedMatches(); // Refresh the list of overall archived matches
-             // archivedRounds list is already tied to currentMatch via watch
-             // If this match was from a schedule, also refresh tournament matches list
-             if (data.tournamentMatchId) {
-                 fetchTournamentMatches();
+        // Only update state if the message is for the current match DO ID
+        if (data.matchId === currentMatchDOId) {
+             currentMatch.value = data;
+             console.log('Received state via WebSocket:', data);
+             // If the match becomes archived via WS, refresh archived lists
+             if (data.status === 'archived_in_d1') {
+                  fetchArchivedMatches(); // Refresh the list of overall archived matches
+                  // archivedRounds list is already tied to currentMatch via watch in component
+                  // If this match was from a schedule, also refresh tournament matches list
+                  if (data.tournamentMatchId) {
+                      fetchTournamentMatches();
+                  }
              }
+             // If a new match starts (status changes from archived_in_d1 to pending/live/etc.)
+             // the watch on currentMatch in the component will handle fetching new archived rounds.
+        } else {
+            console.warn(`Received WS message for unexpected DO ID: ${data.matchId}. Expected: ${currentMatchDOId}`);
         }
-        // If a new match starts (status changes from archived_in_d1 to pending/live/etc.)
-        // the watch on currentMatch will handle fetching new archived rounds.
 
       } catch (e) {
         console.error('Error parsing WebSocket message:', e);
@@ -184,54 +225,73 @@ export const useMatchStore = defineStore('match', () => {
     };
 
     socket.onerror = (e) => {
-      console.error('WebSocket error:', e);
+      console.error(`WebSocket error for ${currentMatchDOId}:`, e);
       isConnected.value = false;
       // Error is often followed by close, handle reconnect in onclose
     };
 
     socket.onclose = (event) => {
-      console.log('WebSocket disconnected:', event.reason, event.code);
+      console.log(`WebSocket disconnected from ${currentMatchDOId}:`, event.reason, event.code);
       isConnected.value = false;
       // Attempt reconnect unless it was a normal closure (code 1000)
-      if (event.code !== 1000) {
+      // Only attempt reconnect if we still have a DO ID to connect to
+      if (event.code !== 1000 && currentMatchDOId) {
         handleReconnect();
+      } else {
+         // If disconnected normally or no DO ID, clear state
+         currentMatch.value = null;
+         archivedRounds.value = [];
+         currentMatchDOId = null; // Clear the stored ID
       }
     };
   }
 
-  function disconnectWebSocket() {
-    if (socket && socket.readyState === WebSocket.OPEN) {
+  // Modified to disconnect the specific socket
+  function disconnectWebSocket(matchDOId?: string) {
+    // Only disconnect if the provided ID matches the current one, or if no ID is provided (force disconnect)
+    if (socket && (matchDOId === undefined || currentMatchDOId === matchDOId) && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+      console.log(`Disconnecting WebSocket from ${currentMatchDOId || 'unknown DO'}`);
       socket.close(1000, "Client disconnecting"); // Normal closure
     }
+    // Clear state regardless of whether a specific ID was provided or matched
     socket = null;
     isConnected.value = false;
+    currentMatch.value = null; // Clear current match state
+    archivedRounds.value = []; // Clear archived rounds for the old match
+    currentMatchDOId = null; // Clear the stored ID
   }
 
   function handleReconnect() {
-    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) { // Corrected spelling
+    // Only attempt reconnect if we still have a DO ID to connect to
+    if (currentMatchDOId && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
       reconnectAttempts++;
       const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000); // Exponential backoff
-      error.value = `WebSocket 连接已断开。将在 ${delay / 1000} 秒后尝试重连 (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`;
+      error.value = `WebSocket 连接已断开 (ID: ${currentMatchDOId})。将在 ${delay / 1000} 秒后尝试重连 (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`;
       setTimeout(() => {
-        // Check if a connection is still needed and not already connecting/open
-        if (!socket || (socket.readyState !== WebSocket.OPEN && socket.readyState !== WebSocket.CONNECTING)) {
-             connectWebSocket();
+        // Check if a connection is still needed for the *same* ID and not already connecting/open
+        if (currentMatchDOId && (!socket || (socket.readyState !== WebSocket.OPEN && socket.readyState !== WebSocket.CONNECTING))) {
+             connectWebSocket(currentMatchDOId); // Attempt to reconnect to the stored ID
         }
       }, delay);
-    } else {
-      error.value = '无法连接到比赛服务器。请稍后刷新页面或联系管理员。';
+    } else if (currentMatchDOId) { // If attempts exhausted for a specific ID
+      error.value = `无法连接到比赛服务器 (ID: ${currentMatchDOId})。请稍后刷新页面或联系管理员。`;
+      currentMatch.value = null; // Clear state
+      archivedRounds.value = []; // Clear rounds
+      currentMatchDOId = null; // Clear the stored ID
     }
+    // If currentMatchDOId is null, no reconnect is needed/attempted
   }
 
 
-  // --- Actions for Round/Match Archiving and New Match ---
+  // --- Actions for Round/Match Archiving and New Match (Require matchDOId) ---
 
-  async function archiveCurrentRound() {
-    if (!currentMatch.value) {
-         error.value = "没有当前比赛数据可归档轮次。";
+  // Modified to accept matchDOId
+  async function archiveCurrentRound(matchDOId: string) {
+    if (!matchDOId) {
+         error.value = "无法归档轮次，缺少比赛ID。";
          return false;
     }
-     if (isCurrentMatchArchived.value) {
+     if (currentMatch.value?.status === 'archived_in_d1') { // Check status of the *current* loaded match
         error.value = "比赛已整体归档，无法归档轮次。";
         return false;
     }
@@ -240,7 +300,8 @@ export const useMatchStore = defineStore('match', () => {
     error.value = null;
     actionMessage.value = null;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/match/archive-round`, {
+      // Use the new API path with the specific DO ID
+      const response = await fetch(`${API_BASE_URL}/api/live-match/${matchDOId}/internal/archive-round`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -252,9 +313,7 @@ export const useMatchStore = defineStore('match', () => {
       if (data.success) {
         actionMessage.value = data.message || '当前轮次归档成功！';
         // Refresh the list of archived rounds for this match
-        if (currentMatch.value) { // Ensure currentMatch is not null before fetching rounds
-             fetchArchivedRounds(currentMatch.value.matchId);
-        }
+        fetchArchivedRounds(matchDOId); // Pass the DO ID
         return true;
       } else {
         throw new Error(data.message || '归档轮次失败，未知错误。');
@@ -268,17 +327,18 @@ export const useMatchStore = defineStore('match', () => {
     }
   }
 
-  async function nextRound() {
-     if (!currentMatch.value) {
-         error.value = "没有当前比赛数据可进入下一轮。";
+  // Modified to accept matchDOId
+  async function nextRound(matchDOId: string) {
+     if (!matchDOId) {
+         error.value = "无法进入下一轮，缺少比赛ID。";
          return false;
     }
-     if (isCurrentMatchArchived.value) {
+     if (currentMatch.value?.status === 'archived_in_d1') { // Check status of the *current* loaded match
         error.value = "比赛已整体归档，无法进入下一轮。";
         return false;
     }
      // Optional: Prevent advancing if status is 'finished' - depends on workflow
-     // if (currentMatch.value.status === 'finished') {
+     // if (currentMatch.value?.status === 'finished') {
      //    error.value = "比赛已结束，请先归档整场比赛。";
      //    return false;
      // }
@@ -287,7 +347,8 @@ export const useMatchStore = defineStore('match', () => {
     error.value = null;
     actionMessage.value = null;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/match/next-round`, {
+      // Use the new API path with the specific DO ID
+      const response = await fetch(`${API_BASE_URL}/api/live-match/${matchDOId}/internal/next-round`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -298,7 +359,7 @@ export const useMatchStore = defineStore('match', () => {
       const data = await response.json();
       if (data.success) {
         actionMessage.value = data.message || '已进入下一轮！';
-        // currentMatch will be updated by WebSocket, which triggers fetchArchivedRounds via watch
+        // currentMatch will be updated by WebSocket, which triggers fetchArchivedRounds via watch in component
         return true;
       } else {
         throw new Error(data.message || '进入下一轮失败，未知错误。');
@@ -312,13 +373,13 @@ export const useMatchStore = defineStore('match', () => {
     }
   }
 
-
-  async function archiveMatch() {
-    if (!currentMatch.value) {
-         error.value = "没有当前比赛数据可归档整场比赛。";
+  // Modified to accept matchDOId
+  async function archiveMatch(matchDOId: string) {
+    if (!matchDOId) {
+         error.value = "无法归档整场比赛，缺少比赛ID。";
          return false;
     }
-    if (isCurrentMatchArchived.value) {
+    if (currentMatch.value?.status === 'archived_in_d1') { // Check status of the *current* loaded match
         actionMessage.value = "比赛已经归档。"; // Use action message for non-error feedback
         return true; // Consider it a success if it's already archived
     }
@@ -331,7 +392,8 @@ export const useMatchStore = defineStore('match', () => {
     error.value = null;
     actionMessage.value = null;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/match/archive-match`, {
+      // Use the new API path with the specific DO ID
+      const response = await fetch(`${API_BASE_URL}/api/live-match/${matchDOId}/internal/archive-match`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -344,11 +406,13 @@ export const useMatchStore = defineStore('match', () => {
         actionMessage.value = data.message || `比赛归档成功！记录 ID: ${data.d1RecordId}`;
         // currentMatch status will be updated by WebSocket to 'archived_in_d1'
         fetchArchivedMatches(); // Refresh the list of archived matches
-        // archivedRounds list is already tied to currentMatch via watch
+        // archivedRounds list is already tied to currentMatch via watch in component
         // If this match was from a schedule, also refresh tournament matches list
         if (currentMatch.value?.tournamentMatchId) { // Use optional chaining as currentMatch might be null by now if WS updated fast
             fetchTournamentMatches();
         }
+        // After archiving, disconnect the WebSocket as the match is no longer live
+        disconnectWebSocket(matchDOId);
         return true;
       } else {
         throw new Error(data.message || '归档整场比赛失败，未知错误。');
@@ -363,11 +427,17 @@ export const useMatchStore = defineStore('match', () => {
   }
 
   // This action is now for starting an *unscheduled* new match (less common)
+  // Keep this action if you still need the singleton unscheduled match feature
+  // If not, you can remove it and the corresponding worker endpoint.
+  // For now, let's keep it but clarify its purpose.
   async function newMatch() {
-     if (!currentMatch.value) {
-         console.log("No current match data found, attempting to start a new unscheduled one.");
-     } else if (!isCurrentMatchArchived.value) {
-        error.value = "当前比赛必须先归档才能开始新比赛。";
+     // This action starts a new match on the *singleton* DO.
+     // It's separate from starting a scheduled match.
+     // If you only want scheduled matches, you can remove this.
+     console.warn("Calling newMatch for the singleton DO. Consider removing this if only scheduled matches are needed.");
+
+     if (currentMatch.value && !isCurrentMatchArchived.value) {
+        error.value = "当前已有正在进行的比赛，请先归档。";
         return false;
     }
      if (!confirm("确定要开始一场新的非赛程比赛吗？此操作将清空当前比赛的实时状态。")) {
@@ -378,6 +448,7 @@ export const useMatchStore = defineStore('match', () => {
     error.value = null;
     actionMessage.value = null;
     try {
+      // This still hits the singleton endpoint
       const response = await fetch(`${API_BASE_URL}/api/match/new-match`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -392,6 +463,8 @@ export const useMatchStore = defineStore('match', () => {
         // currentMatch will be reset by WebSocket
         // The watch on currentMatch will clear archivedRounds
         fetchArchivedMatches(); // Refresh archived matches list in case the old one wasn't listed yet
+        // The WebSocket connection should automatically reconnect to the singleton if it was disconnected
+        // If you removed the singleton routes, this action should also be removed.
         return true;
       } else {
         throw new Error(data.message || '开始新比赛失败，未知错误。');
@@ -406,6 +479,7 @@ export const useMatchStore = defineStore('match', () => {
   }
 
 
+  // Modified to accept matchDoId in the URL path
   async function fetchArchivedRounds(matchDoId: string) {
     if (!matchDoId) {
         archivedRounds.value = []; // Clear if no match ID - Use .value
@@ -414,17 +488,22 @@ export const useMatchStore = defineStore('match', () => {
     isLoadingArchivedRounds.value = true;
     // error.value = null; // Decide if fetching archived lists should clear general error
     try {
-        // Note: The worker currently fetches rounds for the *singleton* DO ID.
-        // If you implement unique DO IDs per match, you'd need to pass the ID here
-        // and modify the worker endpoint /api/archived_rounds/:match_do_id
-        const response = await fetch(`${API_BASE_URL}/api/archived_rounds`); // Worker fetches for singleton ID
+        // Use the new API path with the specific DO ID
+        const response = await fetch(`${API_BASE_URL}/api/archived_rounds/${matchDoId}`);
         if (!response.ok) {
+             // If 404, maybe no rounds are archived yet for this match
+             if (response.status === 404) {
+                 archivedRounds.value = []; // No rounds found
+                 console.log(`No archived rounds found for DO ID: ${matchDoId}`);
+                 return; // Success, but empty list
+             }
             throw new Error(`HTTP error ${response.status}`);
         }
         archivedRounds.value = await response.json(); // Use .value
     } catch (e: any) {
-        console.error("Error fetching archived rounds:", e);
+        console.error(`Error fetching archived rounds for ${matchDoId}:`, e);
         // error.value = `获取归档轮次列表失败: ${e.message}`; // Decide if fetching archived lists should set general error
+        archivedRounds.value = []; // Clear on error
     } finally {
         isLoadingArchivedRounds.value = false;
     }
@@ -434,6 +513,7 @@ export const useMatchStore = defineStore('match', () => {
     isLoadingArchivedMatches.value = true;
     // error.value = null; // Decide if fetching lists clears general error
     try {
+        // This endpoint lists *all* archived matches, so no DO ID is needed here
         const response = await fetch(`${API_BASE_URL}/api/archived_matches`);
         if (!response.ok) {
             throw new Error(`HTTP error ${response.status}`);
@@ -472,6 +552,7 @@ export const useMatchStore = defineStore('match', () => {
       error.value = null; // Clear general error
       actionMessage.value = null; // Clear previous action message
       try {
+          // This endpoint updates a specific round archive by its D1 ID
           const response = await fetch(`${API_BASE_URL}/api/archived_rounds/${round.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
@@ -493,8 +574,12 @@ export const useMatchStore = defineStore('match', () => {
                   archivedRounds.value[index] = data.updatedRecord; // Use .value
               } else {
                   // If server didn't return updated record or item not found, refetch the list
+                  // Need the current match DO ID to refetch rounds
                   if (currentMatch.value) {
                       fetchArchivedRounds(currentMatch.value.matchId);
+                  } else {
+                      // If no current match, maybe refetch all archived matches to see if summary changed?
+                      fetchArchivedMatches();
                   }
               }
               return true;
@@ -511,8 +596,7 @@ export const useMatchStore = defineStore('match', () => {
       }
   }
 
-  // --- New Actions for Tournament Management ---
-
+  // --- Tournament Management Actions (Keep as is) ---
   async function fetchTeams() {
     isLoadingTeams.value = true;
     try {
@@ -949,13 +1033,18 @@ export const useMatchStore = defineStore('match', () => {
 
 
    // Action to start a live match from a scheduled tournament match
+   // This action is called from ScheduleManagement.vue
    async function startScheduledMatch(tournamentMatchId: number) {
+       // Check if the singleton DO is currently active (if singleton routes are still enabled)
+       // Or check if *any* DO is currently connected/managed by the store (less reliable)
+       // A better check might be to query the tournament_matches table for any match with status 'live'
+       // For simplicity now, let's just check if currentMatch is loaded and not archived
        if (currentMatch.value && !isCurrentMatchArchived.value) {
            error.value = "当前已有正在进行的比赛，请先归档。";
-           return false;
+           return { success: false, matchDOId: null, error: error.value }; // Return failure with error
        }
         if (!confirm("确定要开始这场赛程比赛吗？此操作将清空当前实时比赛状态并加载赛程信息。")) {
-           return false; // User cancelled
+           return { success: false, matchDOId: null, error: "用户取消操作。" }; // Return failure
        }
 
        isLoadingAction.value = true;
@@ -973,16 +1062,16 @@ export const useMatchStore = defineStore('match', () => {
            const data = await response.json();
            if (data.success) {
                actionMessage.value = data.message || '已成功从赛程启动比赛！';
-               // currentMatch will be updated by WebSocket
                fetchTournamentMatches(); // Refresh tournament matches list to show status change
-               return true;
+               // The worker returns the new matchDOId
+               return { success: true, matchDOId: data.matchDOId, tournamentMatchId: data.tournamentMatchId }; // Return success with the new DO ID
            } else {
                throw new Error(data.message || '从赛程启动比赛失败，未知错误。');
            }
        } catch (e: any) {
            console.error('Error starting scheduled match:', e);
            error.value = `从赛程启动比赛失败: ${e.message}`;
-           return false;
+           return { success: false, matchDOId: null, error: error.value }; // Return failure with error
        } finally {
            isLoadingAction.value = false;
        }
@@ -1018,44 +1107,42 @@ export const useMatchStore = defineStore('match', () => {
     bulkImportMessage,
 
 
-    // --- Actions ---
-    fetchCurrentMatchState,
-    updateMatch,
-    connectWebSocket,
-    disconnectWebSocket,
+    // --- Actions (Modified to accept matchDOId where applicable) ---
+    fetchCurrentMatchState, // Needs matchDOId
+    updateMatch, // Needs matchDOId
+    connectWebSocket, // Needs matchDOId
+    disconnectWebSocket, // Can take optional matchDOId
 
-    archiveCurrentRound,
-    nextRound,
-    archiveMatch,
-    newMatch, // Keep for unscheduled matches if needed
+    archiveCurrentRound, // Needs matchDOId
+    nextRound, // Needs matchDOId
+    archiveMatch, // Needs matchDOId
+    newMatch, // (Optional) For singleton unscheduled match
 
-    fetchArchivedRounds,
-    fetchArchivedMatches,
+    fetchArchivedRounds, // Needs matchDOId
+    fetchArchivedMatches, // Global list, no matchDOId needed
 
     startEditingRound,
     cancelEditingRound,
-    saveEditedRound,
+    saveEditedRound, // Uses round.id internally
 
-    // New Tournament Management Actions
+    // Tournament Management Actions (No matchDOId needed)
     fetchTeams,
     createTeam,
     updateTeam,
     deleteTeam,
-    bulkCreateTeams, // Added bulk import action
+    bulkCreateTeams,
 
     fetchMembers,
-    fetchMembersByTeamCode, // Added action to fetch members for a specific team
-    createMember, // Added
-    deleteMember, // Added
-    // updateMember, // Implement update member if needed
-    bulkCreateMembers, // Added bulk import action
+    fetchMembersByTeamCode,
+    createMember,
+    deleteMember,
+    bulkCreateMembers,
 
     fetchTournamentMatches,
-    createTournamentMatch, // Updated signature
-    // updateTournamentMatch, // Implement this
+    createTournamentMatch,
     deleteTournamentMatch,
-    bulkCreateTournamentMatches, // Updated signature
+    bulkCreateTournamentMatches,
 
-    startScheduledMatch, // New action to start from schedule
+    startScheduledMatch, // Called from ScheduleManagement, returns matchDOId
   };
 });
