@@ -56,6 +56,19 @@ export interface TournamentMatch {
     // team2_member1?: string; team2_member2?: string; team2_member3?: string;
 }
 
+// --- New Type for Tournament Match Form Data / Create Payload ---
+// This type allows team_id to be null for form state before submission
+export interface CreateTournamentMatchPayload {
+    tournament_round: string;
+    match_number_in_round: number;
+    team1_id: number | null; // Allow null in form state
+    team2_id: number | null; // Allow null in form state
+    team1_player_order?: string | null;
+    team2_player_order?: string | null;
+    scheduled_time?: string | null;
+    // Note: status, match_do_id, winner_team_id, created_at are not part of the creation payload
+}
+
 
 // Represents the real-time state stored in the Durable Object
 export interface MatchState {
@@ -143,4 +156,16 @@ export interface BulkMemberRow {
     avatar_url?: string;
     kinde_user_id?: string;
     is_admin?: string; // CSV is string, need parsing to number/boolean
+}
+
+// Expected structure for a row in the Tournament Match Bulk Import CSV
+// Similar to CreateTournamentMatchPayload, but values come as strings from CSV parsing
+export interface BulkTournamentMatchRow {
+    tournament_round: string;
+    match_number_in_round: string; // Comes as string from CSV
+    team1_id: string; // Comes as string from CSV
+    team2_id: string; // Comes as string from CSV
+    team1_player_order?: string; // Comes as string from CSV
+    team2_player_order?: string; // Comes as string from CSV
+    scheduled_time?: string; // Comes as string from CSV
 }

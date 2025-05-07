@@ -123,19 +123,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue'; // No need for watch here unless debugging
+import { ref, onMounted, reactive } from 'vue';
 import { useMatchStore } from '@/stores/matchStore';
-import type { TournamentMatch, BulkTeamRow } from '@/types/match';
-import { parse } from 'csv-parse/browser/esm/sync'; // Import CSV parser
+// Import the new types
+import type { TournamentMatch, BulkTeamRow, CreateTournamentMatchPayload, BulkTournamentMatchRow } from '@/types/match';
+import { parse } from 'csv-parse/browser/esm/sync';
 
 const store = useMatchStore();
 
 // --- State for Add Tournament Match Form ---
-const newMatch = reactive<Omit<TournamentMatch, 'id' | 'match_do_id' | 'status' | 'winner_team_id' | 'created_at' | 'team1_code' | 'team1_name' | 'team2_code' | 'team2_name' | 'winner_team_code' | 'winner_team_name'>>({
+// Use the new type for form state
+const newMatch = reactive<CreateTournamentMatchPayload>({
     tournament_round: '',
     match_number_in_round: 1,
-    team1_id: null as number | null, // Explicitly type as number or null
-    team2_id: null as number | null, // Explicitly type as number or null
+    team1_id: null, // Now explicitly allowed to be null
+    team2_id: null, // Now explicitly allowed to be null
     team1_player_order: '1,2,3',
     team2_player_order: '1,2,3',
     scheduled_time: null,
@@ -176,26 +178,19 @@ async function handleAddTournamentMatch() {
     store.error = null;
     store.actionMessage = null;
 
-    // Corrected validation order: Check if IDs are selected (not null) first
+    // Validation remains the same
     if (!newMatch.tournament_round || newMatch.match_number_in_round === undefined || newMatch.team1_id === null || newMatch.team2_id === null) {
         store.error = "请填写所有必填项 (轮次名称, 比赛编号, 队伍A, 队伍B)。";
         return;
     }
-     // Then check if the selected IDs are the same
      if (newMatch.team1_id === newMatch.team2_id) {
          store.error = "队伍A和队伍B不能是同一支队伍。";
          return;
      }
 
-    const success = await store.createTournamentMatch({
-        tournament_round: newMatch.tournament_round,
-        match_number_in_round: newMatch.match_number_in_round,
-        team1_id: newMatch.team1_id,
-        team2_id: newMatch.team2_id,
-        team1_player_order: newMatch.team1_player_order || '1,2,3', // Default if empty
-        team2_player_order: newMatch.team2_player_order || '1,2,3', // Default if empty
-        scheduled_time: newMatch.scheduled_time || null,
-    });
+    // Pass newMatch directly. The store action now accepts CreateTournamentMatchPayload
+    // and performs the non-null check internally before sending to the API.
+    const success = await store.createTournamentMatch(newMatch);
 
     if (success) {
         // Reset form
@@ -255,58 +250,74 @@ async function handleBulkImportSchedule() {
         try {
             const csvString = e.target?.result as string;
             // Parse CSV string into an array of objects
+            // Use the new BulkTournamentMatchRow type for parsing result
             const records = parse(csvString, {
                 columns: true, // Use the first row as headers
                 skip_empty_lines: true,
                 trim: true,
-            }) as Omit<TournamentMatch, 'id' | 'match_do_id' | 'status' | 'winner_team_id' | 'created_at' | 'team1_code' | 'team1_name' | 'team2_code' | 'team2_name' | 'winner_team_code' | 'winner_team_name'>[]; // Assert type
+            }) as BulkTournamentMatchRow[]; // Assert type
 
             console.log("Parsed Schedule CSV:", records);
 
-            // Basic validation and type conversion before sending to API
-            const processedRecords = records.map(r => ({
-                 ...r,
-                 // Ensure number type, handle potential NaN from empty/invalid input
-                 match_number_in_round: Number(r.match_number_in_round),
-                 team1_id: Number(r.team1_id),
-                 team2_id: Number(r.team2_id),
-                 // Ensure player order is string or null
-                 team1_player_order: r.team1_player_order === '' ? null : r.team1_player_order,
-                 team2_player_order: r.team2_player_order === '' ? null : r.team2_player_order,
-                 // Ensure scheduled_time is string or null
-                 scheduled_time: r.scheduled_time === '' ? null : r.scheduled_time,
-            }));
+            // Process records: convert types and perform client-side validation
+            const processedRecords: CreateTournamentMatchPayload[] = [];
+            const validationErrors: string[] = [];
+            const roundMatchNumbers = new Set<string>(); // To check for duplicates in input file
 
-             // Perform client-side validation checks
-             const validationErrors: string[] = [];
-             const roundMatchNumbers = new Set<string>();
-             // Team ID existence check will be done on the backend for efficiency
+            records.forEach((r, index) => {
+                 const rowNumber = index + 2; // CSV rows are 1-based, plus header row
 
-             processedRecords.forEach((match, index) => {
-                 // Check for basic required fields and valid numbers
-                 if (!match.tournament_round || isNaN(match.match_number_in_round) || match.match_number_in_round < 1 || isNaN(match.team1_id) || match.team1_id === null || isNaN(match.team2_id) || match.team2_id === null) {
-                      validationErrors.push(`Row ${index + 2}: Missing or invalid required fields (round, number, team1_id, team2_id).`);
-                 } else {
-                     // Check if team IDs are the same
-                     if (match.team1_id === match.team2_id) {
-                         validationErrors.push(`Row ${index + 2}: Teams A and B cannot be the same.`);
-                     }
-                     // Check for duplicate round+number in the input file itself
-                     const key = `${match.tournament_round}-${match.match_number_in_round}`;
-                     if (roundMatchNumbers.has(key)) {
-                         validationErrors.push(`Row ${index + 2}: Duplicate match (Round '${match.tournament_round}', Number ${match.match_number_in_round}) found in input.`);
-                     }
-                     roundMatchNumbers.add(key);
+                 // Convert potential string values to appropriate types
+                 const matchNumber = Number(r.match_number_in_round);
+                 const team1Id = Number(r.team1_id);
+                 const team2Id = Number(r.team2_id);
+
+                 // Client-side validation for required fields and valid numbers
+                 if (!r.tournament_round || isNaN(matchNumber) || matchNumber < 1 || isNaN(team1Id) || isNaN(team2Id)) {
+                      validationErrors.push(`行 ${rowNumber}: 缺少或无效的必填字段 (round, number, team1_id, team2_id)。`);
+                      return; // Skip this row
                  }
-             });
 
+                 // Check if team IDs are the same
+                 if (team1Id === team2Id) {
+                     validationErrors.push(`行 ${rowNumber}: 队伍A和队伍B不能是同一支队伍。`);
+                     return; // Skip this row
+                 }
+
+                 // Check for duplicate round+number in the input file itself
+                 const key = `${r.tournament_round}-${matchNumber}`;
+                 if (roundMatchNumbers.has(key)) {
+                     validationErrors.push(`行 ${rowNumber}: 输入文件中存在重复赛程 (轮次 '${r.tournament_round}', 编号 ${matchNumber})。`);
+                     return; // Skip this row
+                 }
+                 roundMatchNumbers.add(key);
+
+                 // If validation passes, add to processed records
+                 processedRecords.push({
+                     tournament_round: r.tournament_round,
+                     match_number_in_round: matchNumber,
+                     team1_id: team1Id, // These are numbers now
+                     team2_id: team2Id, // These are numbers now
+                     team1_player_order: r.team1_player_order === '' ? null : r.team1_player_order,
+                     team2_player_order: r.team2_player_order === '' ? null : r.team2_player_order,
+                     scheduled_time: r.scheduled_time === '' ? null : r.scheduled_time,
+                 });
+            });
+
+             // Report all client-side validation errors
              if (validationErrors.length > 0) {
                  store.bulkImportError = `CSV 文件验证失败: ${validationErrors.join('; ')}`;
+                 // Do NOT proceed with import if client-side validation fails
                  return;
              }
 
+             if (processedRecords.length === 0) {
+                  store.bulkImportError = "没有有效的赛程数据可导入。";
+                  return;
+             }
 
-            // Call the store action for bulk creation
+            // Call the store action for bulk creation with the processed records
+            // The store action now expects CreateTournamentMatchPayload[]
             const success = await store.bulkCreateTournamentMatches(processedRecords);
 
             // Refresh the list regardless of full success to show partial imports

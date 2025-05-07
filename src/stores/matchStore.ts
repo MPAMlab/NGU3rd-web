@@ -1,7 +1,8 @@
 // src/stores/matchStore.ts
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { MatchState, RoundArchive, MatchArchiveSummary, Team, Member, TournamentMatch, BulkTeamRow, BulkMemberRow } from '@/types/match'; // Adjust path if needed
+// Import the new type
+import type { MatchState, RoundArchive, MatchArchiveSummary, Team, Member, TournamentMatch, BulkTeamRow, BulkMemberRow, CreateTournamentMatchPayload, BulkTournamentMatchRow } from '@/types/match'; // Adjust path if needed
 
 const API_BASE_URL = ''; // Assuming requests are to the same origin as the frontend
 
@@ -13,9 +14,11 @@ export const useMatchStore = defineStore('match', () => {
   const isConnected = ref(false); // WebSocket connection status
 
   // --- State for Archived Data ---
+  // Corrected declarations: remove .value here
   const archivedRounds = ref<RoundArchive[]>([]);
   const isLoadingArchivedRounds = ref(false);
 
+  // Corrected declarations: remove .value here
   const archivedMatches = ref<MatchArchiveSummary[]>([]);
   const isLoadingArchivedMatches = ref(false);
 
@@ -23,10 +26,13 @@ export const useMatchStore = defineStore('match', () => {
   const isLoadingEditRound = ref(false); // Loading state for editing save action
 
   // --- State for Tournament Management ---
+  // Corrected declarations: remove .value here
   const teams = ref<Team[]>([]);
   const isLoadingTeams = ref(false);
+  // Corrected declarations: remove .value here
   const members = ref<Member[]>([]); // Store all members, filter by team_code in UI if needed
   const isLoadingMembers = ref(false);
+  // Corrected declarations: remove .value here
   const tournamentMatches = ref<TournamentMatch[]>([]); // Note: This will hold flattened data from the join query
   const isLoadingTournamentMatches = ref(false);
 
@@ -42,7 +48,8 @@ export const useMatchStore = defineStore('match', () => {
 
   let socket: WebSocket | null = null;
   let reconnectAttempts = 0;
-  const MAX_RECONNECT_ATTEMPTS = 5;
+  const MAX_RECONNECT_ATTEMPTS = 5; // Corrected spelling
+
 
   // Computed property to check if the current match DO instance is archived
   const isCurrentMatchArchived = computed(() => currentMatch.value?.status === 'archived_in_d1');
@@ -66,7 +73,7 @@ export const useMatchStore = defineStore('match', () => {
       if (data && data.matchId) {
           fetchArchivedRounds(data.matchId);
       } else {
-          archivedRounds.value = []; // Clear rounds if no current match data
+          archivedRounds.value = []; // Clear rounds if no current match data - Use .value
       }
     } catch (e: any) {
       console.error('Error fetching match state:', e);
@@ -201,7 +208,7 @@ export const useMatchStore = defineStore('match', () => {
   }
 
   function handleReconnect() {
-    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) { // Corrected spelling
       reconnectAttempts++;
       const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000); // Exponential backoff
       error.value = `WebSocket 连接已断开。将在 ${delay / 1000} 秒后尝试重连 (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`;
@@ -401,7 +408,7 @@ export const useMatchStore = defineStore('match', () => {
 
   async function fetchArchivedRounds(matchDoId: string) {
     if (!matchDoId) {
-        archivedRounds.value = []; // Clear if no match ID
+        archivedRounds.value = []; // Clear if no match ID - Use .value
         return;
     }
     isLoadingArchivedRounds.value = true;
@@ -414,7 +421,7 @@ export const useMatchStore = defineStore('match', () => {
         if (!response.ok) {
             throw new Error(`HTTP error ${response.status}`);
         }
-        archivedRounds.value = await response.json();
+        archivedRounds.value = await response.json(); // Use .value
     } catch (e: any) {
         console.error("Error fetching archived rounds:", e);
         // error.value = `获取归档轮次列表失败: ${e.message}`; // Decide if fetching archived lists should set general error
@@ -431,7 +438,7 @@ export const useMatchStore = defineStore('match', () => {
         if (!response.ok) {
             throw new Error(`HTTP error ${response.status}`);
         }
-        archivedMatches.value = await response.json();
+        archivedMatches.value = await response.json(); // Use .value
     } catch (e: any) {
         console.error("Error fetching archived matches:", e);
         // error.value = `获取归档比赛列表失败: ${e.message}`; // Decide if fetching archived lists should set general error
@@ -481,9 +488,9 @@ export const useMatchStore = defineStore('match', () => {
               actionMessage.value = data.message || '归档轮次更新成功！';
               cancelEditingRound(); // Close the edit form
               // Find and update the item in the archivedRounds list with the record returned by the server
-              const index = archivedRounds.value.findIndex(r => r.id === round.id);
+              const index = archivedRounds.value.findIndex(r => r.id === round.id); // Use .value
               if (index !== -1 && data.updatedRecord) {
-                  archivedRounds.value[index] = data.updatedRecord;
+                  archivedRounds.value[index] = data.updatedRecord; // Use .value
               } else {
                   // If server didn't return updated record or item not found, refetch the list
                   if (currentMatch.value) {
@@ -514,7 +521,7 @@ export const useMatchStore = defineStore('match', () => {
           if (!response.ok) {
               throw new Error(`HTTP error ${response.status}`);
           }
-          teams.value = await response.json();
+          teams.value = await response.json(); // Use .value
       } catch (e: any) {
           console.error("Error fetching teams:", e);
           // error.value = `获取队伍列表失败: ${e.message}`;
@@ -662,7 +669,7 @@ export const useMatchStore = defineStore('match', () => {
             if (!response.ok) {
                  throw new Error(`HTTP error ${response.status}`);
             }
-            members.value = await response.json();
+            members.value = await response.json(); // Use .value
         } catch (e: any) {
             console.error("Error fetching members:", e);
         } finally {
@@ -808,7 +815,7 @@ export const useMatchStore = defineStore('match', () => {
           if (!response.ok) {
               throw new Error(`HTTP error ${response.status}`);
           }
-          tournamentMatches.value = await response.json();
+          tournamentMatches.value = await response.json(); // Use .value
       } catch (e: any) {
           console.error("Error fetching tournament matches:", e);
           // error.value = `获取赛程列表失败: ${e.message}`;
@@ -817,15 +824,27 @@ export const useMatchStore = defineStore('match', () => {
       }
   }
 
-  async function createTournamentMatch(matchData: Omit<TournamentMatch, 'id' | 'match_do_id' | 'status' | 'winner_team_id' | 'created_at' | 'team1_code' | 'team1_name' | 'team2_code' | 'team2_name' | 'winner_team_code' | 'winner_team_name'>) {
+  // Update the parameter type to the new interface
+  async function createTournamentMatch(matchData: CreateTournamentMatchPayload) {
        isLoadingAction.value = true;
        error.value = null;
        actionMessage.value = null;
        try {
+           // Perform runtime check here before sending to API
+           if (matchData.team1_id === null || matchData.team2_id === null) {
+               // This should ideally be caught by client-side validation before calling the store
+               // But as a safeguard, throw an error or return false
+               console.error("Attempted to create match with null team IDs");
+               error.value = "队伍ID不能为空。"; // Set error message
+               return false; // Indicate failure
+           }
+
            const response = await fetch(`${API_BASE_URL}/api/tournament_matches`, {
                method: 'POST',
                headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify(matchData),
+               // Cast the payload to the expected API type (which is TournamentMatch without some fields)
+               // We know team1_id and team2_id are not null here due to the check above
+               body: JSON.stringify(matchData as Omit<TournamentMatch, 'id' | 'match_do_id' | 'status' | 'winner_team_id' | 'created_at' | 'team1_code' | 'team1_name' | 'team2_code' | 'team2_name' | 'winner_team_code' | 'winner_team_name'>),
            });
            if (!response.ok) {
                const errorData = await response.json().catch(() => ({ message: response.statusText }));
@@ -882,16 +901,26 @@ export const useMatchStore = defineStore('match', () => {
         }
     }
 
-    // Bulk Import Tournament Matches
-    async function bulkCreateTournamentMatches(matchesData: Omit<TournamentMatch, 'id' | 'match_do_id' | 'status' | 'winner_team_id' | 'created_at' | 'team1_code' | 'team1_name' | 'team2_code' | 'team2_name' | 'winner_team_code' | 'winner_team_name'>[]) {
+    // Update the parameter type to the new interface array
+    async function bulkCreateTournamentMatches(matchesData: CreateTournamentMatchPayload[]) {
         isLoadingBulkImport.value = true;
         bulkImportError.value = null;
         bulkImportMessage.value = null;
         try {
+             // Perform runtime check for null IDs in the array before sending
+             const invalidMatches = matchesData.filter(m => m.team1_id === null || m.team2_id === null);
+             if (invalidMatches.length > 0) {
+                  console.error("Attempted bulk create with null team IDs:", invalidMatches);
+                  bulkImportError.value = "批量导入数据中包含队伍ID为空的赛程。";
+                  return false;
+             }
+
+
             const response = await fetch(`${API_BASE_URL}/api/tournament_matches/bulk`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(matchesData),
+                 // Cast the payload array to the expected API type array
+                body: JSON.stringify(matchesData as Omit<TournamentMatch, 'id' | 'match_do_id' | 'status' | 'winner_team_id' | 'created_at' | 'team1_code' | 'team1_name' | 'team2_code' | 'team2_name' | 'winner_team_code' | 'winner_team_name'>[]),
             });
 
             const data = await response.json();
@@ -966,19 +995,19 @@ export const useMatchStore = defineStore('match', () => {
     isLoading,
     error,
     isConnected,
-    archivedRounds,
+    archivedRounds, // Return the ref itself
     isLoadingArchivedRounds,
-    archivedMatches,
+    archivedMatches, // Return the ref itself
     isLoadingArchivedMatches,
     editingRound,
     isLoadingEditRound,
     isCurrentMatchArchived,
 
-    teams, // Expose teams state
+    teams, // Return the ref itself
     isLoadingTeams,
-    members, // Expose members state (global list)
+    members, // Return the ref itself
     isLoadingMembers,
-    tournamentMatches, // Expose tournament matches state
+    tournamentMatches, // Return the ref itself
     isLoadingTournamentMatches,
 
     isLoadingAction,
@@ -1022,10 +1051,10 @@ export const useMatchStore = defineStore('match', () => {
     bulkCreateMembers, // Added bulk import action
 
     fetchTournamentMatches,
-    createTournamentMatch,
+    createTournamentMatch, // Updated signature
     // updateTournamentMatch, // Implement this
     deleteTournamentMatch,
-    bulkCreateTournamentMatches, // Added bulk import action for schedule
+    bulkCreateTournamentMatches, // Updated signature
 
     startScheduledMatch, // New action to start from schedule
   };
