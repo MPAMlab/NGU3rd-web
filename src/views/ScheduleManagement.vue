@@ -24,16 +24,18 @@
                     </div>
                     <div class="form-group">
                         <label for="newTeam1">队伍A:</label>
-                        <select id="newTeam1" v-model.number="newMatch.team1_id" required>
+                        <!-- 使用 :value 和 @change 来更稳定地控制 select 的值 -->
+                        <select id="newTeam1" :value="newMatch.team1_id" @change="updateTeam1Id($event)" required>
                             <option :value="null" disabled>请选择队伍</option>
-                            <option v-for="team in store.teams" :key="team.id" :value="team.id">{{ team.name }} ({{ team.code }})</option>
+                            <option v-for="team in store.teams" :key="team.id" :value="Number(team.id)">{{ team.name }} ({{ team.code }})</option>
                         </select>
                     </div>
                      <div class="form-group">
                         <label for="newTeam2">队伍B:</label>
-                        <select id="newTeam2" v-model.number="newMatch.team2_id" required>
+                         <!-- 使用 :value 和 @change 来更稳定地控制 select 的值 -->
+                        <select id="newTeam2" :value="newMatch.team2_id" @change="updateTeam2Id($event)" required>
                             <option :value="null" disabled>请选择队伍</option>
-                            <option v-for="team in store.teams" :key="team.id" :value="team.id">{{ team.name }} ({{ team.code }})</option>
+                            <option v-for="team in store.teams" :key="team.id" :value="Number(team.id)">{{ team.name }} ({{ team.code }})</option>
                         </select>
                     </div>
                      <div class="form-group">
@@ -121,9 +123,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue';
+import { ref, onMounted, reactive } from 'vue'; // No need for watch here unless debugging
 import { useMatchStore } from '@/stores/matchStore';
-import type { TournamentMatch, BulkTeamRow } from '@/types/match'; // Import BulkTeamRow for CSV parsing example
+import type { TournamentMatch, BulkTeamRow } from '@/types/match';
 import { parse } from 'csv-parse/browser/esm/sync'; // Import CSV parser
 
 const store = useMatchStore();
@@ -132,8 +134,8 @@ const store = useMatchStore();
 const newMatch = reactive<Omit<TournamentMatch, 'id' | 'match_do_id' | 'status' | 'winner_team_id' | 'created_at' | 'team1_code' | 'team1_name' | 'team2_code' | 'team2_name' | 'winner_team_code' | 'winner_team_name'>>({
     tournament_round: '',
     match_number_in_round: 1,
-    team1_id: null as any, // Use null as initial value for select
-    team2_id: null as any, // Use null as initial value for select
+    team1_id: null as number | null, // Explicitly type as number or null
+    team2_id: null as number | null, // Explicitly type as number or null
     team1_player_order: '1,2,3',
     team2_player_order: '1,2,3',
     scheduled_time: null,
@@ -153,19 +155,33 @@ onMounted(() => {
     store.fetchCurrentMatchState(); // Need current match state to disable 'Start Match' button
 });
 
+// --- Event Handlers for Selects (using :value and @change) ---
+function updateTeam1Id(event: Event) {
+    const target = event.target as HTMLSelectElement;
+    // Convert the value to number. If the value is the string "null" (from the disabled option), set to null.
+    newMatch.team1_id = target.value === 'null' ? null : Number(target.value);
+     console.log('Team 1 ID updated to:', newMatch.team1_id); // Debugging line
+}
+
+function updateTeam2Id(event: Event) {
+    const target = event.target as HTMLSelectElement;
+     // Convert the value to number. If the value is the string "null" (from the disabled option), set to null.
+    newMatch.team2_id = target.value === 'null' ? null : Number(target.value);
+     console.log('Team 2 ID updated to:', newMatch.team2_id); // Debugging line
+}
+
+
 // --- Tournament Match Actions ---
 async function handleAddTournamentMatch() {
-    // Clear previous messages
     store.error = null;
     store.actionMessage = null;
 
-    // Corrected validation order:
-    // 1. Check for required fields first (including that team IDs are not null)
+    // Corrected validation order: Check if IDs are selected (not null) first
     if (!newMatch.tournament_round || newMatch.match_number_in_round === undefined || newMatch.team1_id === null || newMatch.team2_id === null) {
         store.error = "请填写所有必填项 (轮次名称, 比赛编号, 队伍A, 队伍B)。";
         return;
     }
-     // 2. Now that we know both team IDs are not null, check if they are the same
+     // Then check if the selected IDs are the same
      if (newMatch.team1_id === newMatch.team2_id) {
          store.error = "队伍A和队伍B不能是同一支队伍。";
          return;
@@ -186,8 +202,8 @@ async function handleAddTournamentMatch() {
         Object.assign(newMatch, {
             tournament_round: '',
             match_number_in_round: 1,
-            team1_id: null,
-            team2_id: null,
+            team1_id: null, // Reset to null
+            team2_id: null, // Reset to null
             team1_player_order: '1,2,3',
             team2_player_order: '1,2,3',
             scheduled_time: null,
@@ -250,9 +266,10 @@ async function handleBulkImportSchedule() {
             // Basic validation and type conversion before sending to API
             const processedRecords = records.map(r => ({
                  ...r,
-                 match_number_in_round: Number(r.match_number_in_round), // Ensure number type
-                 team1_id: Number(r.team1_id), // Ensure number type
-                 team2_id: Number(r.team2_id), // Ensure number type
+                 // Ensure number type, handle potential NaN from empty/invalid input
+                 match_number_in_round: Number(r.match_number_in_round),
+                 team1_id: Number(r.team1_id),
+                 team2_id: Number(r.team2_id),
                  // Ensure player order is string or null
                  team1_player_order: r.team1_player_order === '' ? null : r.team1_player_order,
                  team2_player_order: r.team2_player_order === '' ? null : r.team2_player_order,
@@ -260,29 +277,26 @@ async function handleBulkImportSchedule() {
                  scheduled_time: r.scheduled_time === '' ? null : r.scheduled_time,
             }));
 
-             // Perform validation checks that the backend also does
+             // Perform client-side validation checks
              const validationErrors: string[] = [];
              const roundMatchNumbers = new Set<string>();
-             const teamIds = new Set<number>();
+             // Team ID existence check will be done on the backend for efficiency
 
              processedRecords.forEach((match, index) => {
-                 // Check required fields and valid numbers
+                 // Check for basic required fields and valid numbers
                  if (!match.tournament_round || isNaN(match.match_number_in_round) || match.match_number_in_round < 1 || isNaN(match.team1_id) || match.team1_id === null || isNaN(match.team2_id) || match.team2_id === null) {
                       validationErrors.push(`Row ${index + 2}: Missing or invalid required fields (round, number, team1_id, team2_id).`);
                  } else {
-                     // Check team IDs are different
+                     // Check if team IDs are the same
                      if (match.team1_id === match.team2_id) {
                          validationErrors.push(`Row ${index + 2}: Teams A and B cannot be the same.`);
                      }
-                     // Check for duplicate round+number in input file
+                     // Check for duplicate round+number in the input file itself
                      const key = `${match.tournament_round}-${match.match_number_in_round}`;
                      if (roundMatchNumbers.has(key)) {
                          validationErrors.push(`Row ${index + 2}: Duplicate match (Round '${match.tournament_round}', Number ${match.match_number_in_round}) found in input.`);
                      }
                      roundMatchNumbers.add(key);
-                     // Collect team IDs for existence check later
-                     teamIds.add(match.team1_id);
-                     teamIds.add(match.team2_id);
                  }
              });
 
@@ -290,6 +304,7 @@ async function handleBulkImportSchedule() {
                  store.bulkImportError = `CSV 文件验证失败: ${validationErrors.join('; ')}`;
                  return;
              }
+
 
             // Call the store action for bulk creation
             const success = await store.bulkCreateTournamentMatches(processedRecords);
@@ -302,17 +317,18 @@ async function handleBulkImportSchedule() {
             console.error("Error reading or parsing CSV:", error);
             store.bulkImportError = `处理 CSV 文件失败: ${error.message}`;
         } finally {
-             scheduleFile.value = null; // Clear the file input
+             scheduleFile.value = null; // Clear the file input state
+             // Also clear the actual file input element value
              const fileInput = document.querySelector('#bulkScheduleFileInput') as HTMLInputElement;
-             if (fileInput) fileInput.value = ''; // Reset file input element
+             if (fileInput) fileInput.value = '';
         }
     };
     reader.onerror = (e) => {
         console.error("FileReader error:", e);
         store.bulkImportError = "读取文件失败。";
-         scheduleFile.value = null; // Clear the file input
+         scheduleFile.value = null;
          const fileInput = document.querySelector('#bulkScheduleFileInput') as HTMLInputElement;
-         if (fileInput) fileInput.value = ''; // Reset file input element
+         if (fileInput) fileInput.value = '';
     };
     reader.readAsText(scheduleFile.value); // Read as text for CSV
 }
