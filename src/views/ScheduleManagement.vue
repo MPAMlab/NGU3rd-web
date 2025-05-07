@@ -25,17 +25,19 @@
                     <div class="form-group">
                         <label for="newTeam1">队伍A:</label>
                         <!-- 使用 :value 和 @change 来更稳定地控制 select 的值 -->
+                        <!-- 确保 option value 是数字 -->
                         <select id="newTeam1" :value="newMatch.team1_id" @change="updateTeam1Id($event)" required>
                             <option :value="null" disabled>请选择队伍</option>
-                            <option v-for="team in store.teams" :key="team.id" :value="Number(team.id)">{{ team.name }} ({{ team.code }})</option>
+                            <option v-for="team in store.teams" :key="team.id" :value="team.id">{{ team.name }} ({{ team.code }})</option>
                         </select>
                     </div>
                      <div class="form-group">
                         <label for="newTeam2">队伍B:</label>
                          <!-- 使用 :value 和 @change 来更稳定地控制 select 的值 -->
+                         <!-- 确保 option value 是数字 -->
                         <select id="newTeam2" :value="newMatch.team2_id" @change="updateTeam2Id($event)" required>
                             <option :value="null" disabled>请选择队伍</option>
-                            <option v-for="team in store.teams" :key="team.id" :value="Number(team.id)">{{ team.name }} ({{ team.code }})</option>
+                            <option v-for="team in store.teams" :key="team.id" :value="team.id">{{ team.name }} ({{ team.code }})</option>
                         </select>
                     </div>
                      <div class="form-group">
@@ -152,7 +154,7 @@ const scheduleFile = ref<File | null>(null);
 
 // --- Lifecycle ---
 onMounted(() => {
-    store.fetchTournamentMatches();
+    store.fetchTournamentMatches(); // Check the 500 error source here
     store.fetchTeams(); // Need teams for the dropdowns
     store.fetchCurrentMatchState(); // Need current match state to disable 'Start Match' button
 });
@@ -160,27 +162,64 @@ onMounted(() => {
 // --- Event Handlers for Selects (using :value and @change) ---
 function updateTeam1Id(event: Event) {
     const target = event.target as HTMLSelectElement;
-    // Convert the value to number. If the value is the string "null" (from the disabled option), set to null.
-    newMatch.team1_id = target.value === 'null' ? null : Number(target.value);
+    const value = target.value;
+    const numericValue = Number(value);
+
+    // Handle the "null" option explicitly
+    if (value === 'null') {
+        newMatch.team1_id = null;
+    }
+    // Check if the numeric conversion resulted in a valid number (not NaN)
+    else if (!isNaN(numericValue)) {
+        newMatch.team1_id = numericValue;
+    }
+    // If it's not "null" and not a valid number, treat as invalid/null
+    else {
+        console.error("Invalid team ID selected:", value);
+        newMatch.team1_id = null; // Treat invalid selection as null
+        // Optionally provide user feedback
+        store.error = "选择的队伍A无效，请重新选择。";
+    }
      console.log('Team 1 ID updated to:', newMatch.team1_id); // Debugging line
 }
 
 function updateTeam2Id(event: Event) {
     const target = event.target as HTMLSelectElement;
-     // Convert the value to number. If the value is the string "null" (from the disabled option), set to null.
-    newMatch.team2_id = target.value === 'null' ? null : Number(target.value);
+    const value = target.value;
+    const numericValue = Number(value);
+
+    // Handle the "null" option explicitly
+    if (value === 'null') {
+        newMatch.team2_id = null;
+    }
+    // Check if the numeric conversion resulted in a valid number (not NaN)
+    else if (!isNaN(numericValue)) {
+        newMatch.team2_id = numericValue;
+    }
+    // If it's not "null" and not a valid number, treat as invalid/null
+    else {
+        console.error("Invalid team ID selected:", value);
+        newMatch.team2_id = null; // Treat invalid selection as null
+        // Optionally provide user feedback
+        store.error = "选择的队伍B无效，请重新选择。";
+    }
      console.log('Team 2 ID updated to:', newMatch.team2_id); // Debugging line
 }
 
 
 // --- Tournament Match Actions ---
 async function handleAddTournamentMatch() {
-    store.error = null;
+    store.error = null; // Clear previous errors
     store.actionMessage = null;
 
-    // Validation remains the same
-    if (!newMatch.tournament_round || newMatch.match_number_in_round === undefined || newMatch.team1_id === null || newMatch.team2_id === null) {
-        store.error = "请填写所有必填项 (轮次名称, 比赛编号, 队伍A, 队伍B)。";
+    // Enhanced validation: Check for null AND NaN
+    if (
+        !newMatch.tournament_round ||
+        newMatch.match_number_in_round === undefined ||
+        newMatch.team1_id === null || isNaN(newMatch.team1_id) || // Check for null or NaN
+        newMatch.team2_id === null || isNaN(newMatch.team2_id)    // Check for null or NaN
+    ) {
+        store.error = "请填写所有必填项 (轮次名称, 比赛编号, 队伍A, 队伍B)，并确保队伍选择有效。";
         return;
     }
      if (newMatch.team1_id === newMatch.team2_id) {
@@ -312,7 +351,7 @@ async function handleBulkImportSchedule() {
              }
 
              if (processedRecords.length === 0) {
-                  store.bulkImportError = "没有有效的赛程数据可导入。";
+                  store.bulkImportError = store.bulkImportError || "没有有效的赛程数据可导入。";
                   return;
              }
 
