@@ -62,7 +62,7 @@
              <h2>批量导入赛程</h2>
              <p>请上传 CSV 文件，包含 `tournament_round`, `match_number_in_round`, `team1_id`, `team2_id`, `team1_player_order`, `team2_player_order`, `scheduled_time` 等列。</p>
              <p>注意: `team1_id` 和 `team2_id` 必须是队伍的数据库 ID。</p>
-             <input type="file" @change="handleScheduleFileChange" accept=".csv" />
+             <input type="file" id="bulkScheduleFileInput" @change="handleScheduleFileChange" accept=".csv" />
              <div class="button-group">
                  <button @click="handleBulkImportSchedule" :disabled="!scheduleFile || store.isLoadingBulkImport">
                      {{ store.isLoadingBulkImport ? '导入中...' : '开始批量导入赛程' }}
@@ -155,6 +155,11 @@ onMounted(() => {
 
 // --- Tournament Match Actions ---
 async function handleAddTournamentMatch() {
+    // Clear previous messages
+    store.error = null;
+    store.actionMessage = null;
+
+    // Corrected validation order
     if (!newMatch.tournament_round || newMatch.match_number_in_round === undefined || newMatch.team1_id === null || newMatch.team2_id === null) {
         store.error = "请填写所有必填项 (轮次名称, 比赛编号, 队伍A, 队伍B)。";
         return;
@@ -240,14 +245,8 @@ async function handleBulkImportSchedule() {
 
             console.log("Parsed Schedule CSV:", records);
 
-            // Basic validation before sending to API
-            const validRecords = records.filter(r =>
-                 r.tournament_round &&
-                 r.match_number_in_round !== undefined && !isNaN(Number(r.match_number_in_round)) && Number(r.match_number_in_round) >= 1 &&
-                 r.team1_id !== undefined && !isNaN(Number(r.team1_id)) &&
-                 r.team2_id !== undefined && !isNaN(Number(r.team2_id)) &&
-                 Number(r.team1_id) !== Number(r.team2_id) // Teams must be different
-            ).map(r => ({
+            // Basic validation and type conversion before sending to API
+            const processedRecords = records.map(r => ({
                  ...r,
                  match_number_in_round: Number(r.match_number_in_round), // Ensure number type
                  team1_id: Number(r.team1_id), // Ensure number type
@@ -259,19 +258,39 @@ async function handleBulkImportSchedule() {
                  scheduled_time: r.scheduled_time === '' ? null : r.scheduled_time,
             }));
 
+             // Perform validation checks that the backend also does
+             const validationErrors: string[] = [];
+             const roundMatchNumbers = new Set<string>();
+             const teamIds = new Set<number>();
 
-            if (validRecords.length !== records.length) {
-                 store.bulkImportError = `CSV 文件中包含无效行。请确保每行都有轮次名称、有效比赛编号、有效队伍ID，且队伍ID不同。有效行数: ${validRecords.length}/${records.length}`;
-                 // Optionally show which rows are invalid
+             processedRecords.forEach((match, index) => {
+                 if (!match.tournament_round || isNaN(match.match_number_in_round) || match.match_number_in_round < 1 || isNaN(match.team1_id) || match.team1_id === null || isNaN(match.team2_id) || match.team2_id === null) {
+                      validationErrors.push(`Row ${index + 2}: Missing or invalid required fields (round, number, team1_id, team2_id).`);
+                 } else {
+                     if (match.team1_id === match.team2_id) {
+                         validationErrors.push(`Row ${index + 2}: Teams A and B cannot be the same.`);
+                     }
+                     const key = `${match.tournament_round}-${match.match_number_in_round}`;
+                     if (roundMatchNumbers.has(key)) {
+                         validationErrors.push(`Row ${index + 2}: Duplicate match (Round '${match.tournament_round}', Number ${match.match_number_in_round}) found in input.`);
+                     }
+                     roundMatchNumbers.add(key);
+                     teamIds.add(match.team1_id);
+                     teamIds.add(match.team2_id);
+                 }
+             });
+
+             if (validationErrors.length > 0) {
+                 store.bulkImportError = `CSV 文件验证失败: ${validationErrors.join('; ')}`;
                  return;
-            }
+             }
+
 
             // Call the store action for bulk creation
-            // Note: Need to implement bulkCreateTournamentMatches in the store and worker
-            // For now, we'll just log the valid records.
-            // await store.bulkCreateTournamentMatches(validRecords);
-             store.bulkImportMessage = `CSV 解析成功，找到 ${validRecords.length} 条有效赛程记录。批量导入 API 尚未实现。`;
-             console.log("Valid Schedule Records for Bulk Import:", validRecords);
+            const success = await store.bulkCreateTournamentMatches(processedRecords);
+
+            // Refresh the list regardless of full success to show partial imports
+            store.fetchTournamentMatches();
 
 
         } catch (error: any) {
@@ -279,7 +298,7 @@ async function handleBulkImportSchedule() {
             store.bulkImportError = `处理 CSV 文件失败: ${error.message}`;
         } finally {
              scheduleFile.value = null; // Clear the file input
-             const fileInput = document.querySelector('#bulkScheduleFileInput') as HTMLInputElement; // Need to add ID in template
+             const fileInput = document.querySelector('#bulkScheduleFileInput') as HTMLInputElement;
              if (fileInput) fileInput.value = ''; // Reset file input element
         }
     };

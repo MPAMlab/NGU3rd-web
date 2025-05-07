@@ -678,6 +678,11 @@ export const useMatchStore = defineStore('match', () => {
          try {
              const response = await fetch(`${API_BASE_URL}/api/teams/${teamCode}/members`);
              if (!response.ok) {
+                  // Check if the error is 404 (team not found) or something else
+                  if (response.status === 404) {
+                       console.warn(`Team code ${teamCode} not found when fetching members.`);
+                       return []; // Return empty array if team doesn't exist
+                  }
                   throw new Error(`HTTP error ${response.status}`);
              }
              return await response.json() as Member[];
@@ -877,6 +882,42 @@ export const useMatchStore = defineStore('match', () => {
         }
     }
 
+    // Bulk Import Tournament Matches
+    async function bulkCreateTournamentMatches(matchesData: Omit<TournamentMatch, 'id' | 'match_do_id' | 'status' | 'winner_team_id' | 'created_at' | 'team1_code' | 'team1_name' | 'team2_code' | 'team2_name' | 'winner_team_code' | 'winner_team_name'>[]) {
+        isLoadingBulkImport.value = true;
+        bulkImportError.value = null;
+        bulkImportMessage.value = null;
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/tournament_matches/bulk`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(matchesData),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) { // Status 200 or 201
+                 bulkImportMessage.value = data.message || '批量导入赛程成功！';
+                 fetchTournamentMatches(); // Refresh list
+                 return true;
+            } else if (response.status === 207) { // Multi-Status
+                 bulkImportMessage.value = data.message || '批量导入赛程部分成功。';
+                 bulkImportError.value = data.errors ? `错误详情: ${JSON.stringify(data.errors)}` : '部分导入失败。';
+                 fetchTournamentMatches(); // Refresh list to show successful imports
+                 return false;
+            }
+            else { // Other error status
+                throw new Error(data.error || data.message || `HTTP error ${response.status}`);
+            }
+        } catch (e: any) {
+            console.error('Error bulk importing tournament matches:', e);
+            bulkImportError.value = `批量导入赛程失败: ${e.message}`;
+            return false;
+        } finally {
+            isLoadingBulkImport.value = false;
+        }
+    }
+
 
    // Action to start a live match from a scheduled tournament match
    async function startScheduledMatch(tournamentMatchId: number) {
@@ -984,6 +1025,7 @@ export const useMatchStore = defineStore('match', () => {
     createTournamentMatch,
     // updateTournamentMatch, // Implement this
     deleteTournamentMatch,
+    bulkCreateTournamentMatches, // Added bulk import action for schedule
 
     startScheduledMatch, // New action to start from schedule
   };
