@@ -159,11 +159,13 @@ async function handleAddTournamentMatch() {
     store.error = null;
     store.actionMessage = null;
 
-    // Corrected validation order
+    // Corrected validation order:
+    // 1. Check for required fields first (including that team IDs are not null)
     if (!newMatch.tournament_round || newMatch.match_number_in_round === undefined || newMatch.team1_id === null || newMatch.team2_id === null) {
         store.error = "请填写所有必填项 (轮次名称, 比赛编号, 队伍A, 队伍B)。";
         return;
     }
+     // 2. Now that we know both team IDs are not null, check if they are the same
      if (newMatch.team1_id === newMatch.team2_id) {
          store.error = "队伍A和队伍B不能是同一支队伍。";
          return;
@@ -264,17 +266,21 @@ async function handleBulkImportSchedule() {
              const teamIds = new Set<number>();
 
              processedRecords.forEach((match, index) => {
+                 // Check required fields and valid numbers
                  if (!match.tournament_round || isNaN(match.match_number_in_round) || match.match_number_in_round < 1 || isNaN(match.team1_id) || match.team1_id === null || isNaN(match.team2_id) || match.team2_id === null) {
                       validationErrors.push(`Row ${index + 2}: Missing or invalid required fields (round, number, team1_id, team2_id).`);
                  } else {
+                     // Check team IDs are different
                      if (match.team1_id === match.team2_id) {
                          validationErrors.push(`Row ${index + 2}: Teams A and B cannot be the same.`);
                      }
+                     // Check for duplicate round+number in input file
                      const key = `${match.tournament_round}-${match.match_number_in_round}`;
                      if (roundMatchNumbers.has(key)) {
                          validationErrors.push(`Row ${index + 2}: Duplicate match (Round '${match.tournament_round}', Number ${match.match_number_in_round}) found in input.`);
                      }
                      roundMatchNumbers.add(key);
+                     // Collect team IDs for existence check later
                      teamIds.add(match.team1_id);
                      teamIds.add(match.team2_id);
                  }
@@ -284,7 +290,6 @@ async function handleBulkImportSchedule() {
                  store.bulkImportError = `CSV 文件验证失败: ${validationErrors.join('; ')}`;
                  return;
              }
-
 
             // Call the store action for bulk creation
             const success = await store.bulkCreateTournamentMatches(processedRecords);
