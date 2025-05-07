@@ -153,11 +153,13 @@ const scheduleFile = ref<File | null>(null);
 
 
 // --- Lifecycle ---
-onMounted(() => {
-    store.fetchTournamentMatches(); // Check the 500 error source here
-    store.fetchTeams(); // Need teams for the dropdowns
-    store.fetchCurrentMatchState(); // Need current match state to disable 'Start Match' button
+onMounted(async () => {
+    await store.fetchTeams(); // Wait for teams to be fetched
+    console.log('Teams in store:', JSON.parse(JSON.stringify(store.teams))); // Deep copy for logging
+    store.fetchTournamentMatches();
+    store.fetchCurrentMatchState();
 });
+
 
 // --- Event Handlers for Selects (using :value and @change) ---
 function updateTeam1Id(event: Event) {

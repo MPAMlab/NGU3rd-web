@@ -514,21 +514,21 @@ export const useMatchStore = defineStore('match', () => {
   // --- New Actions for Tournament Management ---
 
   async function fetchTeams() {
-      isLoadingTeams.value = true;
-      // error.value = null; // Decide if fetching lists clears general error
-      try {
-          const response = await fetch(`${API_BASE_URL}/api/teams`);
-          if (!response.ok) {
-              throw new Error(`HTTP error ${response.status}`);
-          }
-          teams.value = await response.json(); // Use .value
-      } catch (e: any) {
-          console.error("Error fetching teams:", e);
-          // error.value = `获取队伍列表失败: ${e.message}`;
-      } finally {
-          isLoadingTeams.value = false;
-      }
-  }
+    isLoadingTeams.value = true;
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/teams`);
+        if (!response.ok) {
+            throw new Error(`HTTP error ${response.status}`);
+        }
+        const fetchedTeams = await response.json();
+        teams.value = fetchedTeams;
+        console.log('Fetched teams in store action:', JSON.parse(JSON.stringify(fetchedTeams))); // Log here
+    } catch (e: any) {
+        console.error("Error fetching teams:", e);
+    } finally {
+        isLoadingTeams.value = false;
+    }
+}
 
   async function createTeam(teamData: Omit<Team, 'id' | 'created_at' | 'current_health' | 'has_revive_mirror' | 'status'>) {
       isLoadingAction.value = true;
