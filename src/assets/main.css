@@ -1,35 +1,313 @@
-@import './base.css';
+/* src/styles/main.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  font-weight: normal;
+
+/* Custom styles from prototypes */
+body {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    min-height: 100vh;
+    color: white; /* Default text color */
 }
 
-a,
-.green {
-  text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
-  transition: 0.4s;
-  padding: 3px;
+.glass {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
 }
 
-@media (hover: hover) {
-  a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
-  }
+.sidebar-item {
+    transition: all 0.3s ease;
+}
+.sidebar-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+.sidebar-item.router-link-active { /* Use router-link-active for Vue Router */
+    background: rgba(255, 255, 255, 0.1);
+    border-left: 3px solid #8b5cf6;
 }
 
-@media (min-width: 1024px) {
-  body {
+.element-fire { color: #ef4444; } /* red-500 */
+.element-wood { color: #10b981; } /* green-500 */
+.element-water { color: #3b82f6; } /* blue-500 */
+
+.bg-element-fire { background: linear-gradient(135deg, #ef4444, #f87171); }
+.bg-element-wood { background: linear-gradient(135deg, #10b981, #34d399); }
+.bg-element-water { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
+
+/* Card 3D (from user panel prototype - keep for potential future use or inspiration) */
+.card-3d {
+    transform-style: preserve-3d;
+    transition: all 0.3s ease;
+}
+.card-3d:hover {
+    transform: rotateY(10deg) rotateX(5deg);
+}
+.card-shine {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.1) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+.card-3d:hover .card-shine {
+    opacity: 1;
+}
+
+/* Live Display Specific Styles */
+.live-indicator {
+    animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+.health-bar {
+    height: 8px; /* Adjusted height for better visibility */
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.1);
+}
+.health-fill-team1 {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #60a5fa); /* blue-500 to blue-400 */
+    transition: width 0.5s ease-in-out;
+}
+.health-fill-team2 {
+    height: 100%;
+    background: linear-gradient(90deg, #ef4444, #f87171); /* red-500 to red-400 */
+    transition: width 0.5s ease-in-out;
+}
+.camera-feed-vertical {
+    aspect-ratio: 9/16; /* Vertical 16:9 */
+    background-color: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    width: 100%; /* Fill parent width */
+}
+.portrait-warning {
+    display: none; /* Hidden by default, shown by JS/CSS media query */
+}
+
+/* Media query for portrait orientation */
+@media (orientation: portrait) {
+    /* Hide main content in portrait */
+    .live-container, .results-overlay {
+        display: none !important;
+    }
+    /* Show warning in portrait */
+    .portrait-warning {
+        display: flex;
+        position: fixed;
+        inset: 0;
+        align-items: center;
+        justify-content: center;
+        background-color: #0f172a;
+        z-index: 50;
+        padding: 1.5rem;
+    }
+}
+
+/* Results Page Styles */
+.results-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 50;
+    display: none; /* Hidden by default */
+    opacity: 0; /* Start with opacity 0 for transition */
+    justify-content: center; /* Center content */
+    align-items: center; /* Center content */
+    padding: 20px;
+}
+.results-content {
+    max-width: 1600px; /* Allow wider container */
+    width: 90%;
+    margin: auto;
+    aspect-ratio: 16/9; /* Force 16:9 aspect ratio */
+    overflow: hidden; /* Hide overflow content */
     display: flex;
-    place-items: center;
-  }
-
-  #app {
-    padding: 0 2rem;
-  }
+    flex-direction: column;
+    justify-content: center; /* Center content vertically within the 16:9 box */
 }
+.winner-animation {
+    animation: scale-in 1s forwards;
+}
+@keyframes scale-in {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* View Transition (for Live/Results overlay) */
+.view-transition {
+    transition: opacity 0.5s ease-in-out;
+}
+
+/* OBS Capture Area - Attempting 16:9 ratio for main content */
+.obs-capture-area {
+    width: 100%;
+    max-height: 100vh; /* Max height is viewport height */
+    aspect-ratio: 16/9; /* Target 16:9 ratio */
+    margin: auto; /* Center the content block */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Hide potential overflow if screen is not 16:9 */
+}
+
+.main-content-flex {
+    flex: 1;
+    display: flex;
+    min-height: 0; /* Allow flex item to shrink below content size */
+}
+
+.current-player-badge {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background-color: #3b82f6; /* Example badge color */
+    border-radius: 50%;
+    margin-left: 8px;
+    flex-shrink: 0;
+}
+
+/* Admin Edit Round Specific Styles */
+.input-glass {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+}
+.input-glass:focus {
+   outline: none;
+   border-color: #8b5cf6;
+   box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.5);
+}
+select.input-glass option {
+   background: #1e293b; /* Dark background for dropdown options */
+   color: white;
+}
+
+.btn-primary {
+   background: linear-gradient(90deg, #8b5cf6, #c084fc);
+   padding: 10px 20px;
+   border-radius: 8px;
+   font-weight: 600;
+   transition: opacity 0.3s ease;
+}
+.btn-primary:hover {
+   opacity: 0.9;
+}
+.btn-primary:disabled {
+   opacity: 0.5;
+   cursor: not-allowed;
+}
+
+.btn-secondary {
+   background: rgba(255, 255, 255, 0.1);
+   padding: 10px 20px;
+   border-radius: 8px;
+   font-weight: 600;
+   transition: opacity 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.btn-secondary:hover {
+   opacity: 0.8;
+}
+
+.team-a {
+   background: linear-gradient(135deg, #6366f1, #4f46e5); /* indigo-500 to indigo-600 */
+}
+.team-b {
+   background: linear-gradient(135deg, #f43f5e, #e11d48); /* rose-500 to rose-600 */
+}
+.health-bar-bg {
+   background: rgba(0, 0, 0, 0.3);
+}
+.match-card {
+   transition: all 0.3s ease;
+}
+.match-card:hover {
+   transform: translateY(-4px);
+}
+.song-item {
+   transition: all 0.2s ease;
+}
+.song-item:hover {
+   background: rgba(255, 255, 255, 0.1);
+}
+.circle-pulse {
+   animation: pulse 2s infinite;
+}
+/* @keyframes pulse is already defined above */
+
+
+table {
+   width: 100%;
+   border-collapse: collapse;
+}
+th, td {
+   padding: 12px;
+   text-align: left;
+   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+th {
+   color: #cbd5e1; /* slate-300 */
+   font-weight: 500;
+   font-size: 0.9rem;
+}
+tbody tr:last-child td {
+   border-bottom: none;
+}
+tbody tr:hover {
+   background: rgba(255, 255, 255, 0.03);
+}
+
+.alert-danger {
+   background: rgba(239, 68, 68, 0.1); /* red-500 with alpha */
+   border: 1px solid rgba(239, 68, 68, 0.3);
+   color: #f87171; /* red-400 */
+   padding: 12px;
+   border-radius: 8px;
+   margin-bottom: 20px;
+}
+.alert-success {
+   background: rgba(16, 185, 129, 0.1); /* green-500 with alpha */
+   border: 1px solid rgba(16, 185, 129, 0.3);
+   color: #6ee7b7; /* green-300 */
+   padding: 12px;
+   border-radius: 8px;
+   margin-bottom: 20px;
+}
+
+.player-card.current {
+    border: 2px solid #8b5cf6; /* Highlight current player */
+    background: rgba(139, 92, 246, 0.1);
+}
+
+/* Vue Transition Styles */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
