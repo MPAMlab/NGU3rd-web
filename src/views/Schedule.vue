@@ -264,7 +264,6 @@
                              :value="member.id"
                          />
                      </el-select>
-                 </el-select>
                  </el-form-item>
              </el-form>
   
