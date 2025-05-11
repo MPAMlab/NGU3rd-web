@@ -1,18 +1,20 @@
-// src/main.ts
-import { createApp } from 'vue';
-import { createPinia } from 'pinia';
-import App from './App.vue';
-import router from './router';
-import './assets/main.css'; // Import Tailwind CSS
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import ElementPlus from 'element-plus'
+import 'element-plus/dist/index.css'
+import App from './App.vue'
+import router from './router'
+import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 
-// Kinde Vue SDK initialization (when ready)
-// import { createKinde } from '@kinde-oss/kinde-vue';
-// const kinde = createKinde({ /* Kinde config */ });
+const app = createApp(App)
 
-const app = createApp(App);
+// Register all Element Plus icons globally
+for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+  app.component(key, component)
+}
 
-app.use(createPinia());
-app.use(router);
-// app.use(kinde); // Use Kinde plugin when ready
+app.use(createPinia())
+app.use(router)
+app.use(ElementPlus)
 
-app.mount('#app');
+app.mount('#app')
