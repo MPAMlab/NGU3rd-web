@@ -9,7 +9,7 @@ const routes: Array<RouteRecordRaw> = [
   {
     path: '/teams',
     name: 'Teams',
-    component: () => import('./views/TeamsView.vue')
+    component: () => import('./views/Teams.vue')
   },
   {
     path: '/members',
