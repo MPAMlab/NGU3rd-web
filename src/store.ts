@@ -1,3 +1,4 @@
+// src/store.ts
 import { defineStore } from 'pinia'
 import * as api from './services/api' // Import API functions
 
@@ -45,13 +46,15 @@ export interface Song {
     title: string;
     category?: string | null;
     bpm?: string | null;
-    levels_json?: string | null;
+    levels_json?: string | null; // Raw JSON string from DB
     type?: string | null;
-    cover_filename?: string | null;
+    cover_filename?: string | null; // Filename in R2
     source_data_version?: string | null;
     created_at?: string;
-    parsedLevels?: SongLevel;
-    fullCoverUrl?: string; // Expected from backend
+
+    // Added properties expected from backend now
+    parsedLevels?: SongLevel; // Parsed levels_json
+    fullCoverUrl?: string; // Full URL to the cover image
 }
 
 export interface MemberSongPreference {
@@ -61,10 +64,12 @@ export interface MemberSongPreference {
     song_id: number;
     selected_difficulty: string;
     created_at?: string;
+
+    // Joined fields expected from backend
     song_title?: string;
     cover_filename?: string;
-    fullCoverUrl?: string; // Expected from backend
-    parsedLevels?: SongLevel; // Expected from backend
+    fullCoverUrl?: string;
+    parsedLevels?: SongLevel;
 }
 
 export interface MatchSong {
@@ -142,12 +147,15 @@ export interface MatchState {
     teamA_current_player_nickname?: string;
     teamB_current_player_nickname?: string;
     teamA_current_player_profession?: string | null;
-    teamB_current_player_profession?: string | null; 
+    teamB_current_player_profession?: string | null;
     teamA_mirror_available: boolean;
     teamB_mirror_available: boolean;
     match_song_list: MatchSong[];
     current_song: MatchSong | null;
     roundSummary: RoundSummary | null;
+    // teamA_members and teamB_members are passed during initialization but not typically part of the broadcasted state
+    teamA_members?: Member[];
+    teamB_members?: Member[];
 }
 
 
@@ -195,24 +203,54 @@ export interface RoundSummary {
 }
 
 export interface MatchHistoryRound {
-    id: number; tournament_match_id: number; match_do_id: string; round_number_in_match: number;
-    song_id: number | null; selected_difficulty: string | null; picker_team_id: number | null; picker_member_id: number | null;
-    team1_member_id: number | null; team2_member_id: number | null; team1_percentage: number | null; team2_percentage: number | null;
-    team1_damage_dealt: number | null; team2_damage_dealt: number | null; team1_health_change: number | null; team2_health_change: number | null;
-    team1_health_before: number | null; team2_health_before: number | null; team1_health_after: number | null; team2_health_after: number | null;
-    team1_mirror_triggered: number | null; team2_mirror_triggered: number | null; team1_effect_value: number | null; team2_effect_value: number | null;
-    is_tiebreaker_song: number | null; recorded_at: string; round_summary_json: string | null;
-    song_title?: string | null; cover_filename?: string | null; picker_team_name?: string | null; picker_member_nickname?: string | null;
-    team1_member_nickname?: string | null; team2_member_nickname?: string | null;
-    round_summary?: RoundSummary | null; // Parsed by frontend
-    fullCoverUrl?: string; // Constructed by frontend or backend
+    id: number;
+    tournament_match_id: number;
+    match_do_id: string;
+    round_number_in_match: number;
+    song_id: number | null;
+    selected_difficulty: string | null;
+    picker_team_id: number | null;
+    picker_member_id: number | null;
+    team1_member_id: number | null;
+    team2_member_id: number | null;
+    team1_percentage: number | null;
+    team2_percentage: number | null;
+    team1_damage_dealt: number | null;
+    team2_damage_dealt: number | null;
+    team1_health_change: number | null;
+    team2_health_change: number | null;
+    team1_health_before: number | null;
+    team2_health_before: number | null;
+    team1_health_after: number | null;
+    team2_health_after: number | null;
+    team1_mirror_triggered: number | null;
+    team2_mirror_triggered: number | null;
+    team1_effect_value: number | null;
+    team2_effect_value: number | null;
+    is_tiebreaker_song: number | null;
+    recorded_at: string;
+    round_summary_json: string | null;
+    song_title?: string | null;
+    cover_filename?: string | null;
+    picker_team_name?: string | null;
+    picker_member_nickname?: string | null;
+    team1_member_nickname?: string | null;
+    team2_member_nickname?: string | null;
+    round_summary?: RoundSummary | null;
+    fullCoverUrl?: string;
 }
 
 export interface MatchHistoryMatch {
-    id: number; round_name: string; scheduled_time: string | null; status: 'completed' | 'archived';
-    final_score_team1: number | null; final_score_team2: number | null;
-    team1_name?: string; team2_name?: string; winner_team_name?: string;
-    rounds: MatchHistoryRound[]; // Includes detailed round history
+    id: number;
+    round_name: string;
+    scheduled_time: string | null;
+    status: 'completed' | 'archived';
+    final_score_team1: number | null;
+    final_score_team2: number | null;
+    team1_name?: string;
+    team2_name?: string;
+    winner_team_name?: string;
+    rounds: MatchHistoryRound[];
 }
 
 // API Payloads (matching backend)
@@ -247,12 +285,38 @@ export interface SaveMemberSongPreferencePayload {
     selected_difficulty: string;
 }
 
+export type InternalProfession = 'attacker' | 'defender' | 'supporter' | null;
+
+
+// --- NEW TYPES FOR PAGINATION AND SONG FILTERS ---
+
+export interface PaginationInfo {
+    currentPage: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+}
+
+// Specific response data structure for GET /api/songs
+export interface SongsApiResponseData {
+    songs: Song[]; // Array of songs for the current page
+    pagination: PaginationInfo; // Pagination metadata
+}
+
+// Specific response data structure for GET /api/songs/filters
+export interface SongFiltersApiResponseData {
+    categories: string[];
+    types: string[];
+}
+
 
 // --- PINIA STORE STATE INTERFACE ---
 export interface AppState {
     teams: Team[];
     members: Member[];
-    songs: Song[];
+    songs: Song[]; // This will now hold songs for the *current page*
+    songPagination: PaginationInfo | null; // New: Pagination info for songs
+    songFilterOptions: { categories: string[], types: string[] }; // New: Filter options for songs
     tournamentMatches: TournamentMatch[];
     currentMatchState: MatchState | null;
     matchHistory: MatchHistoryMatch[];
@@ -261,6 +325,7 @@ export interface AppState {
         teams: boolean;
         members: boolean;
         songs: boolean;
+        songFilters: boolean; // New: Loading state for filter options
         tournamentMatches: boolean;
         currentMatch: boolean;
         matchHistory: boolean;
@@ -277,12 +342,16 @@ export const useAppStore = defineStore('app', {
         teams: [],
         members: [],
         songs: [],
+        songPagination: null, // Initialize new state
+        songFilterOptions: { categories: [], types: [] }, // Initialize new state
         tournamentMatches: [],
         currentMatchState: null,
         matchHistory: [],
         memberSongPreferences: [],
         isLoading: {
-            teams: false, members: false, songs: false, tournamentMatches: false,
+            teams: false, members: false, songs: false,
+            songFilters: false, // Initialize new loading state
+            tournamentMatches: false,
             currentMatch: false, matchHistory: false, memberSongPreferences: false,
         },
         error: null,
@@ -292,7 +361,13 @@ export const useAppStore = defineStore('app', {
     actions: {
         // --- Generic Loading and Error Handling ---
         setLoading(key: string, value: boolean) {
-            this.isLoading[key] = value;
+            // Ensure the key exists in isLoading or allow adding new keys
+            if (this.isLoading.hasOwnProperty(key)) {
+                 this.isLoading[key] = value;
+            } else {
+                 // If you want to allow dynamic keys, cast to any or define index signature
+                 (this.isLoading as any)[key] = value;
+            }
         },
         setError(message: string | null) {
             this.error = message;
@@ -307,7 +382,7 @@ export const useAppStore = defineStore('app', {
             this.setLoading('teams', true);
             this.clearError();
             try {
-                const response = await api.fetchTeams();
+                const response = await api.fetchTeams(); // Assuming api.fetchTeams returns ApiResponse<Team[]>
                 if (response.success && response.data) {
                     this.teams = response.data;
                 } else {
@@ -324,7 +399,7 @@ export const useAppStore = defineStore('app', {
             this.setLoading('members', true);
             this.clearError();
             try {
-                const response = await api.fetchMembers(teamCode);
+                const response = await api.fetchMembers(teamCode); // Assuming api.fetchMembers returns ApiResponse<Member[]>
                 if (response.success && response.data) {
                     this.members = response.data;
                 } else {
@@ -337,28 +412,82 @@ export const useAppStore = defineStore('app', {
             }
         },
 
-        async fetchSongs(params?: { category?: string; type?: string; search?: string }) {
+        /**
+         * Fetches songs from the backend with filters and pagination.
+         * Note: Level filtering is handled client-side in the component for now.
+         */
+        async fetchSongs(params: { category?: string; type?: string; search?: string; page?: number; limit?: number } = {}) {
             this.setLoading('songs', true);
-            this.clearError();
+            this.clearError(); // Clear previous errors
             try {
-                const response = await api.fetchSongs(params);
+                // Ensure page and limit have default values if not provided
+                const requestParams = {
+                    ...params,
+                    page: params.page || 1,
+                    limit: params.limit || 20
+                };
+                // Remove undefined/null/empty string values from params before sending
+                Object.keys(requestParams).forEach(key => {
+                    const value = requestParams[key as keyof typeof requestParams];
+                    if (value === undefined || value === null || value === '') {
+                        delete requestParams[key as keyof typeof requestParams];
+                    }
+                });
+
+                // Assuming api.fetchSongs now expects params and returns ApiResponse<SongsApiResponseData>
+                const response = await api.fetchSongs(requestParams);
+
                 if (response.success && response.data) {
-                    this.songs = response.data;
+                    this.songs = response.data.songs; // Update songs with the current page data
+                    this.songPagination = response.data.pagination; // Update pagination info
                 } else {
-                    this.setError(response.error || 'Failed to fetch songs');
+                    // Handle API error response
+                    throw new Error(response.error || 'Failed to fetch songs');
                 }
             } catch (err: any) {
-                this.setError(err.message);
+                // Handle network or other errors
+                console.error("Store: Error fetching songs:", err);
+                this.setError(err.message || 'An unknown error occurred while fetching songs');
+                this.songs = []; // Clear songs on error
+                this.songPagination = null; // Clear pagination on error
             } finally {
                 this.setLoading('songs', false);
             }
         },
 
+        /**
+         * Fetches distinct categories and types for filter dropdowns.
+         */
+        async fetchSongFilterOptions() {
+            this.setLoading('songFilters', true);
+            // Don't clear main error here, as it might be from song fetching
+            try {
+                // Assuming api.fetchSongFilterOptions returns ApiResponse<SongFiltersApiResponseData>
+                const response = await api.fetchSongFilterOptions();
+                 if (response.success && response.data) {
+                     this.songFilterOptions = response.data;
+                 } else {
+                     // Handle API error response
+                     throw new Error(response.error || 'Failed to fetch filter options');
+                 }
+            } catch (err: any) {
+                 // Handle network or other errors
+                 console.error("Store: Error fetching song filter options:", err);
+                 // Decide if you want to set a specific error for filters or just log
+                 // this.setError(`Failed to load filter options: ${err.message}`);
+                 // Keep potentially stale options or clear them
+                 // this.songFilterOptions = { categories: [], types: [] };
+            } finally {
+                 this.setLoading('songFilters', false);
+            }
+        },
+
+
         async fetchTournamentMatches() {
             this.setLoading('tournamentMatches', true);
             this.clearError();
             try {
-                const response = await api.fetchTournamentMatches();
+                const response = await api.fetchTournamentMatches(); // Assuming api.fetchTournamentMatches returns ApiResponse<TournamentMatch[]>
                 if (response.success && response.data) {
                     this.tournamentMatches = response.data;
                 } else {
@@ -375,7 +504,7 @@ export const useAppStore = defineStore('app', {
             this.setLoading('currentMatch', true);
             this.clearError();
             try {
-                const response = await api.fetchMatchState(doId);
+                const response = await api.fetchMatchState(doId); // Assuming api.fetchMatchState returns ApiResponse<MatchState>
                 if (response.success && response.data) {
                     this.currentMatchState = response.data;
                 } else {
@@ -394,7 +523,7 @@ export const useAppStore = defineStore('app', {
             this.setLoading('matchHistory', true);
             this.clearError();
             try {
-                const response = await api.fetchMatchHistory();
+                const response = await api.fetchMatchHistory(); // Assuming api.fetchMatchHistory returns ApiResponse<MatchHistoryMatch[]>
                 if (response.success && response.data) {
                     this.matchHistory = response.data;
                 } else {
@@ -411,7 +540,7 @@ export const useAppStore = defineStore('app', {
             this.setLoading('memberSongPreferences', true);
             this.clearError();
             try {
-                const response = await api.fetchMemberSongPreferences(memberId, stage);
+                const response = await api.fetchMemberSongPreferences(memberId, stage); // Assuming api.fetchMemberSongPreferences returns ApiResponse<MemberSongPreference[]>
                 if (response.success && response.data) {
                     this.memberSongPreferences = response.data;
                 } else {
@@ -428,7 +557,7 @@ export const useAppStore = defineStore('app', {
         async createTournamentMatch(payload: CreateTournamentMatchPayload) {
             this.clearError();
             try {
-                const response = await api.createTournamentMatch(payload);
+                const response = await api.createTournamentMatch(payload); // Assuming api.createTournamentMatch returns ApiResponse<TournamentMatch>
                 if (response.success && response.data) {
                     // Add the new match to the list and keep it sorted (optional, or re-fetch)
                     this.tournamentMatches.unshift(response.data);
@@ -448,7 +577,7 @@ export const useAppStore = defineStore('app', {
         async confirmMatchSetup(matchId: number, payload: ConfirmMatchSetupPayload) {
             this.clearError();
             try {
-                const response = await api.confirmMatchSetup(matchId, payload);
+                const response = await api.confirmMatchSetup(matchId, payload); // Assuming api.confirmMatchSetup returns ApiResponse<TournamentMatch>
                 if (response.success && response.data) {
                     // Update the match in the list
                     const index = this.tournamentMatches.findIndex(m => m.id === matchId);
@@ -467,6 +596,7 @@ export const useAppStore = defineStore('app', {
         async startLiveMatch(matchId: number) {
             this.clearError();
             try {
+                // Assuming api.startLiveMatch returns ApiResponse<{ message: string; match_do_id: string; do_init_result?: any }>
                 const response = await api.startLiveMatch(matchId);
                 if (response.success && response.data?.match_do_id) {
                     // Update the match in the list
@@ -491,7 +621,7 @@ export const useAppStore = defineStore('app', {
         async calculateRound(doId: string, payload: CalculateRoundPayload) {
             this.clearError();
             try {
-                const response = await api.calculateRound(doId, payload);
+                const response = await api.calculateRound(doId, payload); // Assuming api.calculateRound returns ApiResponse
                 if (!response.success) {
                     this.setError(response.error || 'Failed to calculate round');
                 }
@@ -506,7 +636,7 @@ export const useAppStore = defineStore('app', {
         async nextRound(doId: string) {
             this.clearError();
             try {
-                const response = await api.nextRound(doId);
+                const response = await api.nextRound(doId); // Assuming api.nextRound returns ApiResponse
                 if (!response.success) {
                     this.setError(response.error || 'Failed to advance to next round');
                 }
@@ -519,7 +649,7 @@ export const useAppStore = defineStore('app', {
         async selectTiebreakerSong(doId: string, payload: SelectTiebreakerSongPayload) {
             this.clearError();
             try {
-                const response = await api.selectTiebreakerSong(doId, payload);
+                const response = await api.selectTiebreakerSong(doId, payload); // Assuming api.selectTiebreakerSong returns ApiResponse
                 if (!response.success) {
                     this.setError(response.error || 'Failed to select tiebreaker song');
                 }
@@ -532,7 +662,7 @@ export const useAppStore = defineStore('app', {
         async resolveDraw(doId: string, payload: ResolveDrawPayload) {
             this.clearError();
             try {
-                const response = await api.resolveDraw(doId, payload);
+                const response = await api.resolveDraw(doId, payload); // Assuming api.resolveDraw returns ApiResponse
                 if (!response.success) {
                     this.setError(response.error || 'Failed to resolve draw');
                 }
@@ -545,7 +675,7 @@ export const useAppStore = defineStore('app', {
         async archiveMatch(doId: string) {
             this.clearError();
             try {
-                const response = await api.archiveMatch(doId);
+                const response = await api.archiveMatch(doId); // Assuming api.archiveMatch returns ApiResponse
                 if (response.success) {
                     this.currentMatchState = null; // Clear current match state
                     // Optionally, refresh tournament matches list
@@ -563,7 +693,7 @@ export const useAppStore = defineStore('app', {
         async saveMemberSongPreference(payload: SaveMemberSongPreferencePayload) {
             this.clearError();
             try {
-                const response = await api.saveMemberSongPreference(payload);
+                const response = await api.saveMemberSongPreference(payload); // Assuming api.saveMemberSongPreference returns ApiResponse<MemberSongPreference>
                 if (response.success && response.data) {
                     // Update local list or re-fetch
                     const index = this.memberSongPreferences.findIndex(p =>
@@ -593,14 +723,22 @@ export const useAppStore = defineStore('app', {
 
         // --- WebSocket Management ---
         connectWebSocket(doId: string) {
-            if (this.currentMatchWebSocket && this.currentMatchWebSocket.readyState === WebSocket.OPEN) {
-                console.log(`WebSocket already open for DO: ${this.currentMatchState?.match_do_id}. Closing existing.`);
-                this.currentMatchWebSocket.close(1000, "New connection requested");
+            // Prevent connecting if already open or connecting to the same DO
+            if (this.currentMatchWebSocket) {
+                 if (this.currentMatchWebSocket.readyState === WebSocket.OPEN || this.currentMatchWebSocket.readyState === WebSocket.CONNECTING) {
+                     // Check if it's the same DO
+                     // This requires the DO ID to be part of the state or accessible
+                     // Assuming currentMatchState holds the DO ID after fetchMatchState
+                     if (this.currentMatchState?.match_do_id === doId) {
+                         console.log(`WebSocket already open or connecting for DO: ${doId}.`);
+                         return; // Already connected or connecting to the target DO
+                     } else {
+                         console.log(`WebSocket open/connecting for a different DO. Closing existing.`);
+                         this.currentMatchWebSocket.close(1000, "New connection requested");
+                         this.currentMatchWebSocket = null; // Clear reference immediately
+                     }
+                 }
             }
-             if (this.currentMatchWebSocket && this.currentMatchWebSocket.readyState === WebSocket.CONNECTING) {
-                 console.log(`WebSocket already connecting for DO: ${this.currentMatchState?.match_do_id}. Waiting.`);
-                 return; // Avoid multiple connection attempts
-             }
 
 
             // Adjust protocol and host for WebSocket
@@ -621,7 +759,8 @@ export const useAppStore = defineStore('app', {
             this.currentMatchWebSocket.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data as string);
-                    // Check if the received data is a MatchState object
+                    // Check if the received data is a MatchState object and matches the current DO
+                    // We check match_do_id in the received data to ensure it's for the correct match
                     if (data && typeof data === 'object' && data.match_do_id === doId && data.status !== undefined) {
                          console.log(`Received MatchState update for DO ${doId}:`, data);
                          this.currentMatchState = data as MatchState;
@@ -648,12 +787,12 @@ export const useAppStore = defineStore('app', {
 
             this.currentMatchWebSocket.onclose = (event) => {
                 console.log(`WebSocket closed for DO ${doId}. Code: ${event.code}, Reason: ${event.reason}`);
-                // Only set error if it's an abnormal closure
+                // Only set error if it's an abnormal closure and not initiated by us (code 1000)
                 if (event.code !== 1000 && event.code !== 1001) { // 1000 = normal, 1001 = going away
                      this.setError(`WebSocket disconnected unexpectedly (Code: ${event.code}).`);
                 }
                 // Decide if you want to clear state or show a "disconnected" status
-                // this.currentMatchState = null;
+                // this.currentMatchState = null; // You might want to keep the last state visible
                 this.currentMatchWebSocket = null; // Clear the reference
             };
         },
