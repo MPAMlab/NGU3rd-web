@@ -53,7 +53,7 @@
                   disabled
               >
                   已结束
-              </el-button>
+               </el-button>
               <!-- TODO: Add Edit/Delete buttons if backend supports -->
               <!-- <el-button size="small" @click="handleEdit(row)">编辑</el-button> -->
               <!-- <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button> -->
@@ -159,13 +159,13 @@
                     <el-button
                         type="primary"
                         @click="openAddSongToMatchDialog"
-                        :disabled="!setupForm.team1_player_order.length || !setupForm.team2_player_order.length || setupForm.match_song_list.length >= maxInitialSongs || !nextSongPickerInfo.isPlayerOrderSufficient"
+                        :disabled="!setupForm.team1_player_order.length || !setupForm.team2_player_order.length || setupForm.match_song_list.length >= maxInitialSongs || !nextSongPickerInfo.isPlayerOrderSufficientForNextSong"
                     >
                         添加第 {{ setupForm.match_song_list.length + 1 }} 首歌曲 (共 {{ maxInitialSongs }})
-                        <span v-if="setupForm.match_song_list.length < maxInitialSongs && nextSongPickerInfo.isPlayerOrderSufficient">
+                        <span v-if="setupForm.match_song_list.length < maxInitialSongs && nextSongPickerInfo.isPlayerOrderSufficientForNextSong">
                             ({{ nextSongPickerInfo.pickerTeamName }} - {{ nextSongPickerInfo.pickerMemberNickname }} 选曲)
                         </span>
-                         <span v-else-if="!nextSongPickerInfo.isPlayerOrderSufficient">
+                         <span v-else-if="!nextSongPickerInfo.isPlayerOrderSufficientForNextSong">
                              (选手不足 选曲)
                          </span>
                     </el-button>
@@ -175,8 +175,8 @@
                       <el-text v-if="setupForm.match_song_list.length >= maxInitialSongs" type="success" size="small" style="margin-left: 10px;">
                          已配置完初始 {{ maxInitialSongs }} 首歌曲。
                      </el-text>
-                      <el-text v-if="!nextSongPickerInfo.isPlayerOrderSufficient && setupForm.match_song_list.length < maxInitialSongs && setupForm.team1_player_order.length > 0 && setupForm.team2_player_order.length > 0" type="warning" size="small" style="margin-left: 10px;">
-                         双方队伍的出场选手数量不足以配置下一首歌曲。请确保双方队伍都选择了至少 {{ nextSongPickerInfo.pairIndex + 1 }} 位选手。
+                      <el-text v-if="!nextSongPickerInfo.isPlayerOrderSufficientForNextSong && setupForm.match_song_list.length < maxInitialSongs && setupForm.team1_player_order.length > 0 && setupForm.team2_player_order.length > 0" type="warning" size="small" style="margin-left: 10px;">
+                         双方队伍的出场选手数量不足以配置下一首歌曲。请确保双方队伍都选择了至少 {{ nextSongPickerInfo.requiredPlayersForNextSong }} 位选手。
                      </el-text>
 
 
@@ -380,6 +380,9 @@
   const confirmingSetup = ref(false);
   const selectedStage = ref<'8进4' | '4进2' | '2进1'>('8进4'); // Default stage
 
+  // Required players per team for the initial song list (hardcoded 3 pairs)
+  const REQUIRED_PLAYERS_PER_TEAM_INITIAL = 3;
+
   const maxInitialSongs = computed(() => {
       switch (selectedStage.value) {
           case '2进1': return 6;
@@ -415,7 +418,6 @@
 
   // Handle stage change - potentially clear song list if it exceeds the new limit
   const handleStageChange = () => {
-      const requiredPlayers = maxInitialSongs.value / 2; // Each pair plays 2 songs
       if (setupForm.match_song_list.length > maxInitialSongs.value) {
            ElMessageBox.confirm(
               `修改赛程阶段会改变所需的歌曲数量。当前歌单有 ${setupForm.match_song_list.length} 首，新阶段需要 ${maxInitialSongs.value} 首。是否清空当前歌单？`,
@@ -432,15 +434,14 @@
           });
       }
        // Also potentially warn if player order is insufficient for the stage
-       if (setupForm.team1_player_order.length < requiredPlayers || setupForm.team2_player_order.length < requiredPlayers) {
-            ElMessage.warning(`当前赛程阶段 (${selectedStage.value}) 需要至少 ${requiredPlayers} 位选手出场。请确保双方队伍都选择了足够的选手。`);
+       if (setupForm.team1_player_order.length < REQUIRED_PLAYERS_PER_TEAM_INITIAL || setupForm.team2_player_order.length < REQUIRED_PLAYERS_PER_TEAM_INITIAL) {
+            ElMessage.warning(`当前赛程阶段 (${selectedStage.value}) 需要至少 ${REQUIRED_PLAYERS_PER_TEAM_INITIAL} 位选手出场。请确保双方队伍都选择了足够的选手。`);
        }
   };
 
 
   // Watch for changes in player orders to potentially reset song list
   const handlePlayerOrderChange = (team: 'teamA' | 'teamB') => {
-      const requiredPlayers = maxInitialSongs.value / 2; // Each pair plays 2 songs
       if (setupForm.match_song_list.length > 0) {
           ElMessageBox.confirm(
               `修改队伍 ${team === 'teamA' ? 'A' : 'B'} 的出场顺序可能会导致已添加的歌曲选曲信息不匹配，是否清空当前歌单？`,
@@ -457,8 +458,8 @@
           });
       }
        // Also potentially warn if player order is insufficient for the stage
-       if (setupForm.team1_player_order.length < requiredPlayers || setupForm.team2_player_order.length < requiredPlayers) {
-            ElMessage.warning(`当前赛程阶段 (${selectedStage.value}) 需要至少 ${requiredPlayers} 位选手出场。请确保双方队伍都选择了足够的选手。`);
+       if (setupForm.team1_player_order.length < REQUIRED_PLAYERS_PER_TEAM_INITIAL || setupForm.team2_player_order.length < REQUIRED_PLAYERS_PER_TEAM_INITIAL) {
+            ElMessage.warning(`当前赛程阶段 (${selectedStage.value}) 需要至少 ${REQUIRED_PLAYERS_PER_TEAM_INITIAL} 位选手出场。请确保双方队伍都选择了足够的选手。`);
        }
   };
 
@@ -490,12 +491,13 @@
   const submitConfirmSetupForm = async () => {
       if (!currentMatchToSetup.value) return;
 
-      const requiredPlayers = maxInitialSongs.value / 2;
-      if (setupForm.team1_player_order.length < requiredPlayers || setupForm.team2_player_order.length < requiredPlayers) {
-          ElMessage.warning(`当前赛程阶段 (${selectedStage.value}) 需要至少 ${requiredPlayers} 位选手出场。请确保双方队伍都选择了足够的选手。`);
+      // Check if enough players are selected for the stage
+      if (setupForm.team1_player_order.length < REQUIRED_PLAYERS_PER_TEAM_INITIAL || setupForm.team2_player_order.length < REQUIRED_PLAYERS_PER_TEAM_INITIAL) {
+          ElMessage.warning(`当前赛程阶段 (${selectedStage.value}) 需要至少 ${REQUIRED_PLAYERS_PER_TEAM_INITIAL} 位选手出场。请确保双方队伍都选择了足够的选手。`);
           return;
       }
 
+      // Check if the correct number of songs are configured for the stage
       if (setupForm.match_song_list.length !== maxInitialSongs.value) {
           ElMessage.warning(`请配置完整的 ${maxInitialSongs.value} 首比赛歌曲`);
           return;
@@ -539,16 +541,19 @@
       let pickerMemberNickname = '待定';
       let player1_nickname = '待定';
       let player2_nickname = '待定';
-      let isPlayerOrderSufficient = false;
+      let isPlayerOrderSufficientForNextSong = false;
+      let requiredPlayersForNextSong = 0; // How many players are needed for the *next* song's pair
 
       // Calculate the pair index and song index within the pair's turn
       // The pair index cycles through 0, 1, 2, 0, 1, 2... for songs 0-11
       const pairIndex = Math.floor(roundIndex / 2) % 3; // Use modulo 3 for the 3 pairs
       const songInPairIndex = roundIndex % 2; // 0 for first song of the pair, 1 for second
 
+      requiredPlayersForNextSong = pairIndex + 1; // Need at least pairIndex + 1 players selected
+
       // Check if we have enough players selected for this pair index
       if (pairIndex < len1 && pairIndex < len2 && currentMatchToSetup.value) {
-          isPlayerOrderSufficient = true;
+          isPlayerOrderSufficientForNextSong = true;
           // Determine players for this round based on pair index
           player1Id = team1Order[pairIndex];
           player2Id = team2Order[pairIndex];
@@ -594,21 +599,24 @@
           pickerMemberId,
           pickerTeamName,
           pickerMemberNickname,
-          isPlayerOrderSufficient: isPlayerOrderSufficient, // Indicate if players are available for this round
+          isPlayerOrderSufficientForNextSong: isPlayerOrderSufficientForNextSong, // Indicate if players are available for the *next* song's pair
+          requiredPlayersForNextSong: requiredPlayersForNextSong, // How many players are needed for the *next* song's pair
       };
   });
 
 
   const openAddSongToMatchDialog = () => {
-      // Check if player orders are set and sufficient for the next song
+      // Check if player orders are set at all
       if (!setupForm.team1_player_order.length || !setupForm.team2_player_order.length) {
           ElMessage.warning('请先选择双方队伍的出场顺序');
           return;
       }
-       if (!nextSongPickerInfo.value.isPlayerOrderSufficient) {
+       // Check if enough players are selected for the *next* song's pair
+       if (!nextSongPickerInfo.value.isPlayerOrderSufficientForNextSong) {
            // The warning is already shown below the button, no need for another popup here
            return;
        }
+       // Check if max songs for the stage are already added
        if (setupForm.match_song_list.length >= maxInitialSongs.value) {
            ElMessage.warning(`已配置完初始 ${maxInitialSongs.value} 首歌曲。`);
            return;
@@ -643,7 +651,7 @@
       const pickerInfo = nextSongPickerInfo.value;
 
       // Double check picker info validity before adding
-      if (pickerInfo.pickerMemberId === null || pickerInfo.pickerTeamId === null || !pickerInfo.isPlayerOrderSufficient) {
+      if (pickerInfo.pickerMemberId === null || pickerInfo.pickerTeamId === null || !pickerInfo.isPlayerOrderSufficientForNextSong) {
            ElMessage.error('无法确定选曲选手信息，请检查出场顺序设置。');
            return;
       }
