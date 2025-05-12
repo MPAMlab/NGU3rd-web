@@ -159,18 +159,24 @@
                     <el-button
                         type="primary"
                         @click="openAddSongToMatchDialog"
-                        :disabled="!setupForm.team1_player_order.length || !setupForm.team2_player_order.length || setupForm.match_song_list.length >= maxInitialSongs"
+                        :disabled="!setupForm.team1_player_order.length || !setupForm.team2_player_order.length || setupForm.match_song_list.length >= maxInitialSongs || !nextSongPickerInfo.isPlayerOrderSufficient"
                     >
                         添加第 {{ setupForm.match_song_list.length + 1 }} 首歌曲 (共 {{ maxInitialSongs }})
-                        <span v-if="setupForm.match_song_list.length < maxInitialSongs">
+                        <span v-if="setupForm.match_song_list.length < maxInitialSongs && nextSongPickerInfo.isPlayerOrderSufficient">
                             ({{ nextSongPickerInfo.pickerTeamName }} - {{ nextSongPickerInfo.pickerMemberNickname }} 选曲)
                         </span>
+                         <span v-else-if="!nextSongPickerInfo.isPlayerOrderSufficient">
+                             (选手不足 选曲)
+                         </span>
                     </el-button>
                      <el-text v-if="!setupForm.team1_player_order.length || !setupForm.team2_player_order.length" type="warning" size="small" style="margin-left: 10px;">
                          请先选择双方队伍的出场顺序
                      </el-text>
                       <el-text v-if="setupForm.match_song_list.length >= maxInitialSongs" type="success" size="small" style="margin-left: 10px;">
                          已配置完初始 {{ maxInitialSongs }} 首歌曲。
+                     </el-text>
+                      <el-text v-if="!nextSongPickerInfo.isPlayerOrderSufficient && setupForm.match_song_list.length < maxInitialSongs && setupForm.team1_player_order.length > 0 && setupForm.team2_player_order.length > 0" type="warning" size="small" style="margin-left: 10px;">
+                         双方队伍的出场选手数量不足以配置下一首歌曲。请确保双方队伍都选择了至少 {{ nextSongPickerInfo.pairIndex + 1 }} 位选手。
                      </el-text>
 
 
@@ -409,6 +415,7 @@
 
   // Handle stage change - potentially clear song list if it exceeds the new limit
   const handleStageChange = () => {
+      const requiredPlayers = maxInitialSongs.value / 2; // Each pair plays 2 songs
       if (setupForm.match_song_list.length > maxInitialSongs.value) {
            ElMessageBox.confirm(
               `修改赛程阶段会改变所需的歌曲数量。当前歌单有 ${setupForm.match_song_list.length} 首，新阶段需要 ${maxInitialSongs.value} 首。是否清空当前歌单？`,
@@ -425,7 +432,6 @@
           });
       }
        // Also potentially warn if player order is insufficient for the stage
-       const requiredPlayers = maxInitialSongs.value / 2; // Each pair plays 2 songs
        if (setupForm.team1_player_order.length < requiredPlayers || setupForm.team2_player_order.length < requiredPlayers) {
             ElMessage.warning(`当前赛程阶段 (${selectedStage.value}) 需要至少 ${requiredPlayers} 位选手出场。请确保双方队伍都选择了足够的选手。`);
        }
@@ -434,6 +440,7 @@
 
   // Watch for changes in player orders to potentially reset song list
   const handlePlayerOrderChange = (team: 'teamA' | 'teamB') => {
+      const requiredPlayers = maxInitialSongs.value / 2; // Each pair plays 2 songs
       if (setupForm.match_song_list.length > 0) {
           ElMessageBox.confirm(
               `修改队伍 ${team === 'teamA' ? 'A' : 'B'} 的出场顺序可能会导致已添加的歌曲选曲信息不匹配，是否清空当前歌单？`,
@@ -450,7 +457,6 @@
           });
       }
        // Also potentially warn if player order is insufficient for the stage
-       const requiredPlayers = maxInitialSongs.value / 2; // Each pair plays 2 songs
        if (setupForm.team1_player_order.length < requiredPlayers || setupForm.team2_player_order.length < requiredPlayers) {
             ElMessage.warning(`当前赛程阶段 (${selectedStage.value}) 需要至少 ${requiredPlayers} 位选手出场。请确保双方队伍都选择了足够的选手。`);
        }
@@ -464,7 +470,8 @@
       setupForm.team2_player_order = match.team2_player_order || [];
       // Initialize selectedStage based on existing song list length if possible, or default
       if (match.match_song_list && match.match_song_list.length > 0) {
-          selectedStage.value = match.match_song_list.length === 6 ? '2进1' : '8进4'; // Assume 12 for anything > 6 or 0
+          // Determine stage based on song count (assuming valid counts are 6 or 12)
+          selectedStage.value = match.match_song_list.length === 6 ? '2进1' : '8进4'; // Default to 8进4 for 12 or other counts
       } else {
           selectedStage.value = '8进4'; // Default for new setup
       }
@@ -519,47 +526,50 @@
   // Computed property to determine picker info for the *next* song to be added
   const nextSongPickerInfo = computed(() => {
       const roundIndex = setupForm.match_song_list.length; // 0-indexed
-      const teamAOrder = setupForm.team1_player_order;
-      const teamBOrder = setupForm.team2_player_order;
-      const lenA = teamAOrder.length;
-      const lenB = teamBOrder.length;
+      const team1Order = setupForm.team1_player_order;
+      const team2Order = setupForm.team2_player_order;
+      const len1 = team1Order.length;
+      const len2 = team2Order.length;
 
-      let playerAId: number | null = null;
-      let playerBId: number | null = null;
+      let player1Id: number | null = null;
+      let player2Id: number | null = null;
       let pickerTeamId: number | null = null;
       let pickerMemberId: number | null = null;
       let pickerTeamName = '待定';
       let pickerMemberNickname = '待定';
-      let playerA_nickname = '待定';
-      let playerB_nickname = '待定';
+      let player1_nickname = '待定';
+      let player2_nickname = '待定';
+      let isPlayerOrderSufficient = false;
 
       // Calculate the pair index and song index within the pair's turn
-      const pairIndex = Math.floor(roundIndex / 2);
+      // The pair index cycles through 0, 1, 2, 0, 1, 2... for songs 0-11
+      const pairIndex = Math.floor(roundIndex / 2) % 3; // Use modulo 3 for the 3 pairs
       const songInPairIndex = roundIndex % 2; // 0 for first song of the pair, 1 for second
 
       // Check if we have enough players selected for this pair index
-      if (pairIndex < lenA && pairIndex < lenB && currentMatchToSetup.value) {
+      if (pairIndex < len1 && pairIndex < len2 && currentMatchToSetup.value) {
+          isPlayerOrderSufficient = true;
           // Determine players for this round based on pair index
-          playerAId = teamAOrder[pairIndex];
-          playerBId = teamBOrder[pairIndex];
+          player1Id = team1Order[pairIndex];
+          player2Id = team2Order[pairIndex];
 
-          playerA_nickname = getMemberNicknameById(playerAId);
-          playerB_nickname = getMemberNicknameById(playerBId);
+          player1_nickname = getMemberNicknameById(player1Id);
+          player2_nickname = getMemberNicknameById(player2Id);
 
           // --- Implement the picking rule based on your description ---
-          // Rule: First song of the pair (songInPairIndex === 0) A player picks.
-          //       Second song of the pair (songInPairIndex === 1) B player picks.
+          // Rule: First song of the pair (songInPairIndex === 0) Team 1 player picks.
+          //       Second song of the pair (songInPairIndex === 1) Team 2 player picks.
 
-          if (songInPairIndex === 0) { // Team A picks
+          if (songInPairIndex === 0) { // Team 1 picks
               pickerTeamId = currentMatchToSetup.value.team1_id;
-              pickerMemberId = playerAId; // A player for this pair picks
+              pickerMemberId = player1Id; // Team 1 player for this pair picks
               pickerTeamName = currentMatchToSetup.value.team1_name || '队伍A';
-              pickerMemberNickname = playerA_nickname;
-          } else { // Team B picks
+              pickerMemberNickname = player1_nickname;
+          } else { // Team 2 picks
               pickerTeamId = currentMatchToSetup.value.team2_id;
-              pickerMemberId = playerBId; // B player for this pair picks
+              pickerMemberId = player2Id; // Team 2 player for this pair picks
               pickerTeamName = currentMatchToSetup.value.team2_name || '队伍B';
-              pickerMemberNickname = playerB_nickname;
+              pickerMemberNickname = player2_nickname;
           }
           // --- End of picking rule implementation ---
 
@@ -567,24 +577,24 @@
            // Not enough players selected for the current pair index
            pickerTeamName = '队伍A/B';
            pickerMemberNickname = '选手不足';
-           playerA_nickname = '选手不足';
-           playerB_nickname = '选手不足';
+           player1_nickname = '选手不足';
+           player2_nickname = '选手不足';
       }
 
 
       return {
           roundIndex, // This is the overall song index (0 to maxInitialSongs-1)
-          pairIndex,
-          songInPairIndex,
-          playerAId,
-          playerBId,
-          playerA_nickname,
-          playerB_nickname,
+          pairIndex, // Index of the player pair (0, 1, or 2)
+          songInPairIndex, // Index within the pair's turn (0 or 1)
+          playerAId: player1Id, // Renamed for clarity in template
+          playerBId: player2Id, // Renamed for clarity in template
+          playerA_nickname: player1_nickname,
+          playerB_nickname: player2_nickname,
           pickerTeamId,
           pickerMemberId,
           pickerTeamName,
           pickerMemberNickname,
-          isPlayerOrderSufficient: pairIndex < lenA && pairIndex < lenB, // Indicate if players are available for this round
+          isPlayerOrderSufficient: isPlayerOrderSufficient, // Indicate if players are available for this round
       };
   });
 
@@ -596,7 +606,7 @@
           return;
       }
        if (!nextSongPickerInfo.value.isPlayerOrderSufficient) {
-           ElMessage.warning(`双方队伍的出场选手数量不足以配置第 ${setupForm.match_song_list.length + 1} 首歌曲。请确保双方队伍都选择了至少 ${nextSongPickerInfo.value.pairIndex + 1} 位选手。`);
+           // The warning is already shown below the button, no need for another popup here
            return;
        }
        if (setupForm.match_song_list.length >= maxInitialSongs.value) {
