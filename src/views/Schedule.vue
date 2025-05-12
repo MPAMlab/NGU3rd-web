@@ -18,7 +18,7 @@
           </el-table-column>
           <el-table-column prop="status" label="状态" width="120">
               <template #default="{ row }">
-                  <el-tag :type="matchStatusTagType(row.status)">{{ matchStatusText(row.status) 💪</el-tag>
+                <el-tag :type="matchStatusTagType(row.status)">{{ matchStatusText(row.status) }}</el-tag>
               </template>
           </el-table-column>
           <el-table-column label="操作" width="300">
