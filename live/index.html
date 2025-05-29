@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NGU3rd - 比赛直播</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevent main page scroll */
+            color: white;
+            display: flex; /* Use flexbox to center the main content */
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* Ensure body takes at least full viewport height */
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
+        }
+        .live-indicator {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .health-bar {
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .health-fill-team1 {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #60a5fa);
+            transition: width 0.5s ease-in-out;
+        }
+        .health-fill-team2 {
+            height: 100%;
+            background: linear-gradient(90deg, #ef4444, #f87171);
+            transition: width 0.5s ease-in-out;
+        }
+        .camera-feed-vertical {
+            aspect-ratio: 9/16; /* Vertical 16:9 */
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            width: 100%; /* Fill parent width */
+        }
+        .portrait-warning {
+            display: none;
+        }
+        
+        @media (orientation: portrait) {
+            .live-container, .results-overlay {
+                display: none !important; /* Use !important to override JS display */
+            }
+            .portrait-warning {
+                display: flex;
+                position: fixed;
+                inset: 0;
+                align-items: center;
+                justify-content: center;
+                background-color: #0f172a;
+                z-index: 50;
+                padding: 1.5rem;
+            }
+        }
+        
+        /* Results Page Styles */
+        .results-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 50;
+            display: none; /* Hidden by default */
+            opacity: 0; /* Start with opacity 0 for transition */
+            justify-content: center; /* Center content */
+            align-items: center; /* Center content */
+            padding: 20px;
+        }
+        .results-content {
+            max-width: 1600px; /* Allow wider container */
+            width: 90%;
+            margin: auto;
+            aspect-ratio: 16/9; /* Force 16:9 aspect ratio */
+            overflow: hidden; /* Hide overflow content */
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* Center content vertically within the 16:9 box */
+        }
+        .winner-animation {
+            animation: scale-in 1s forwards;
+        }
+        @keyframes scale-in {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        /* Toggle Switch Styles */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.2);
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .toggle-slider {
+            background-color: #8b5cf6;
+        }
+        
+        input:checked + .toggle-slider:before {
+            transform: translateX(30px);
+        }
+        
+        /* Control Panel */
+        .control-panel {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .element-fire {
+            color: #ef4444;
+        }
+        .element-wood {
+            color: #10b981;
+        }
+        .element-water {
+            color: #3b82f6;
+        }
+
+        /* OBS Capture Area - Attempting 16:9 ratio for main content */
+        .obs-capture-area {
+            width: 100%;
+            max-height: 100vh; /* Max height is viewport height */
+            aspect-ratio: 16/9; /* Target 16:9 ratio */
+            margin: auto; /* Center the content block */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Hide potential overflow if screen is not 16:9 */
+        }
+
+        .main-content-flex {
+            flex: 1;
+            display: flex;
+            min-height: 0; /* Allow flex item to shrink below content size */
+        }
+
+        .current-player-badge {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: #3b82f6; /* Example badge color */
+            border-radius: 50%;
+            margin-left: 8px;
+            flex-shrink: 0;
+        }
+        
+        /* Fade transition for views */
+        .view-transition {
+            transition: opacity 0.5s ease-in-out;
+        }
+    </style>
+</head>
+<body>
+    <!-- Portrait Warning -->
+    <div class="portrait-warning">
+        <div class="text-center">
+            <img src="https://unpkg.com/lucide-static@latest/icons/smartphone-rotate.svg" class="w-16 h-16 mx-auto mb-4 text-white">
+            <h2 class="text-2xl font-bold mb-2">请旋转设备</h2>
+            <p class="text-gray-300">为获得最佳观看体验，请将设备横向放置</p>
+        </div>
+    </div>
+
+    <!-- Control Panel (For Demo Only) -->
+    <div class="control-panel glass">
+        <div class="flex items-center space-x-3">
+            <span class="text-sm">比赛画面</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="view-toggle">
+                <span class="toggle-slider"></span>
+            </label>
+            <span class="text-sm">结算页面</span>
+        </div>
+    </div>
+
+    <!-- Live Content -->
+    <div id="live-view" class="live-container view-transition w-full h-full absolute inset-0 flex items-center justify-center">
+        <div class="obs-capture-area">
+            <!-- Top Info Bar -->
+            <div class="glass flex items-center justify-between px-4 py-2 flex-shrink-0">
+                <div class="flex items-center space-x-3">
+                    <img src="https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Z2FtZSUyMGxvZ298ZW58MHx8MHx8fDA%3D" alt="NGU3rd Logo" class="h-8 w-8 rounded-full">
+                    <span class="font-bold text-lg">NGU3rd</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="live-indicator bg-red-500 text-xs px-2 py-0.5 rounded-full">LIVE</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span id="current-round" class="text-sm font-medium">初赛 - 第1轮</span>
+                </div>
+            </div>
+            
+            <!-- Main Content Area -->
+            <div class="main-content-flex p-4 space-x-4">
+                <!-- Left Panel -->
+                <div class="w-1/4 flex flex-col space-y-4 pr-2">
+                    <!-- Team Roster (Team 1) -->
+                    <div class="glass rounded-lg p-4 flex-shrink-0">
+                        <h3 class="text-lg font-bold mb-3 text-blue-400">音游大师队</h3>
+                        <div class="space-y-3">
+                            <!-- Player 1 - Current Player -->
+                            <div class="flex items-center space-x-3">
+                                <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=1160&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Player 1" class="w-8 h-8 rounded-full">
+                                <div class="flex items-center justify-between flex-grow">
+                                    <p class="font-medium text-sm">李小明</p>
+                                    <div class="flex items-center">
+                                        <span class="element-fire text-xs mr-2">火 (R)</span>
+                                        <span class="text-xs">绝剑士</span>
+                                        <span class="current-player-badge"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Player 2 -->
+                            <div class="flex items-center space-x-3">
+                                <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Player 2" class="w-8 h-8 rounded-full">
+                                <div class="flex items-center justify-between flex-grow">
+                                    <p class="font-medium text-sm">王小红</p>
+                                    <div class="flex items-center">
+                                        <span class="element-wood text-xs mr-2">木 (G)</span>
+                                        <span class="text-xs">矩盾手</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Player 3 -->
+                            <div class="flex items-center space-x-3">
+                                <img src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Player 3" class="w-8 h-8 rounded-full">
+                                <div class="flex items-center justify-between flex-grow">
+                                    <p class="font-medium text-sm">张小强</p>
+                                    <div class="flex items-center">
+                                        <span class="element-water text-xs mr-2">水 (B)</span>
+                                        <span class="text-xs">炼星师</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Health Display -->
+                    <div class="glass rounded-lg p-4 flex-shrink-0">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="font-medium">队伍血量</h4>
+                            <span id="team1-health-value" class="text-blue-400 font-bold">100</span>
+                        </div>
+                        <div class="health-bar">
+                            <div id="team1-health-bar" class="health-fill-team1" style="width: 100%"></div>
+                        </div>
+                        <div class="flex justify-between items-center mt-2">
+                            <span class="text-xs text-gray-300">复影折镜状态:</span>
+                            <span id="team1-shield-status" class="text-xs text-green-400">可用</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Machine Info Cam (Team 1) -->
+                    <div class="camera-feed-vertical glass overflow-hidden relative flex-grow">
+                         <img src="https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="机台信息板" class="w-full h-full object-cover">
+                        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                            <p class="text-xs font-medium">音游大师队 - 机台信息</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Sponsor Logo (Left) -->
+                    <div class="glass rounded-lg p-4 flex items-center justify-center flex-shrink-0">
+                        <img src="https://images.unsplash.com/photo-1563906267088-b029e7101114?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="赞助商Logo" class="h-12 max-w-full object-contain">
+                    </div>
+                </div>
+                
+                <!-- Middle Panel -->
+                <div class="flex-1 flex flex-col space-y-4 px-2">
+                    <!-- Current Song Info -->
+                    <div class="glass rounded-lg p-4 flex items-center justify-between flex-shrink-0">
+                        <div class="flex items-center space-x-4">
+                            <img src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Current Song" class="w-12 h-12 rounded">
+                            <div>
+                                <h3 class="font-bold text-base">Butterfly</h3>
+                                <p class="text-xs text-gray-300">难度: 12+ | BPM: 185 | <span class="text-blue-400 font-medium">音游大师队选曲</span></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Player Camera Feeds (Middle) -->
+                    <div class="flex space-x-4 flex-grow items-center justify-center">
+                        <div class="camera-feed-vertical glass overflow-hidden relative h-full" style="width: calc(50% - 8px);"> <!-- Calculate width to account for space-x-4 (16px) -->
+                            <img src="https://images.unsplash.com/photo-1511882150382-421056c89033?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="音游大师队摄像头" class="w-full h-full object-cover">
+                            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+                                <p class="text-sm font-medium">音游大师队视角</p>
+                            </div>
+                        </div>
+                        <div class="camera-feed-vertical glass overflow-hidden relative h-full" style="width: calc(50% - 8px);"> <!-- Calculate width to account for space-x-4 (16px) -->
+                            <img src="https://images.unsplash.com/photo-1560253023-3ec5d502959f?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="节奏猎人队摄像头" class="w-full h-full object-cover">
+                            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+                                <p class="text-sm font-medium">节奏猎人队视角</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right Panel -->
+                <div class="w-1/4 flex flex-col space-y-4 pl-2">
+                    <!-- Team Roster (Team 2) -->
+                    <div class="glass rounded-lg p-4 flex-shrink-0">
+                        <h3 class="text-lg font-bold mb-3 text-red-400">节奏猎人队</h3>
+                        <div class="space-y-3">
+                             <!-- Player 1 -->
+                            <div class="flex items-center space-x-3">
+                                <img src="https://images.unsplash.com/photo-1527980965255-d3b416303d12?q=80&w=1160&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Player 1" class="w-8 h-8 rounded-full">
+                                <div class="flex items-center justify-between flex-grow">
+                                    <p class="font-medium text-sm">赵小刚</p>
+                                    <div class="flex items-center">
+                                        <span class="element-water text-xs mr-2">水 (B)</span>
+                                        <span class="text-xs">绝剑士</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Player 2 -->
+                            <div class="flex items-center space-x-3">
+                                <img src="https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=1061&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Player 2" class="w-8 h-8 rounded-full">
+                                <div class="flex items-center justify-between flex-grow">
+                                    <p class="font-medium text-sm">钱小芳</p>
+                                    <div class="flex items-center">
+                                        <span class="element-fire text-xs mr-2">火 (R)</span>
+                                        <span class="text-xs">矩盾手</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Player 3 - Current Player -->
+                            <div class="flex items-center space-x-3">
+                                <img src="https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=1160&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Player 3" class="w-8 h-8 rounded-full">
+                                <div class="flex items-center justify-between flex-grow">
+                                    <p class="font-medium text-sm">孙小亮</p>
+                                    <div class="flex items-center">
+                                        <span class="element-wood text-xs mr-2">木 (G)</span>
+                                        <span class="text-xs">炼星师</span>
+                                        <span class="current-player-badge"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Health Display -->
+                    <div class="glass rounded-lg p-4 flex-shrink-0">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="font-medium">队伍血量</h4>
+                            <span id="team2-health-value" class="text-red-400 font-bold">85</span>
+                        </div>
+                        <div class="health-bar">
+                            <div id="team2-health-bar" class="health-fill-team2" style="width: 85%"></div>
+                        </div>
+                        <div class="flex justify-between items-center mt-2">
+                            <span class="text-xs text-gray-300">复影折镜状态:</span>
+                            <span id="team2-shield-status" class="text-xs text-green-400">可用</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Machine Info Cam (Team 2) -->
+                    <div class="camera-feed-vertical glass overflow-hidden relative flex-grow">
+                        <img src="https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="机台信息板" class="w-full h-full object-cover">
+                        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                            <p class="text-xs font-medium">节奏猎人队 - 机台信息</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Sponsor Logo (Right) -->
+                    <div class="glass rounded-lg p-4 flex items-center justify-center flex-shrink-0">
+                         <img src="https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?q=80&w=1169&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="赞助商Logo" class="h-12 max-w-full object-contain">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Results Page (Simplified) -->
+    <div id="results-view" class="results-overlay view-transition">
+        <div class="results-content glass rounded-xl p-8">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold mb-2">轮次结束</h2>
+                <p class="text-gray-300">初赛 - 第1轮</p>
+            </div>
+            
+            <!-- Winner Animation -->
+            <div class="winner-animation flex flex-col items-center mb-8 flex-grow justify-center">
+                <div class="text-blue-400 text-xl font-bold mb-2">胜利队伍</div>
+                <div class="text-3xl font-bold mb-8">音游大师队</div>
+                <div class="flex space-x-8">
+                    <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=1160&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Player 1" class="w-24 h-24 rounded-full">
+                    <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Player 2" class="w-24 h-24 rounded-full">
+                    <img src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="Player 3" class="w-24 h-24 rounded-full">
+                </div>
+            </div>
+            
+            <!-- Team Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 flex-shrink-0">
+                <div class="glass rounded-lg p-4">
+                    <h3 class="text-xl font-bold text-blue-400 mb-4">音游大师队</h3>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span>最终血量</span>
+                            <span class="font-bold">35</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>最高得分</span>
+                            <span class="font-bold">张小强 (98.7654%)</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>总伤害输出</span>
+                            <span class="font-bold">65</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>复影折镜</span>
+                            <span class="font-bold">未触发</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass rounded-lg p-4">
+                    <h3 class="text-xl font-bold text-red-400 mb-4">节奏猎人队</h3>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span>最终血量</span>
+                            <span class="font-bold">0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>最高得分</span>
+                            <span class="font-bold">孙小亮 (97.8521%)</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>总伤害输出</span>
+                            <span class="font-bold">65</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>复影折镜</span>
+                            <span class="font-bold">已触发</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const viewToggle = document.getElementById('view-toggle');
+            const liveView = document.getElementById('live-view');
+            const resultsView = document.getElementById('results-view');
+            
+            // 切换视图的函数，添加淡入淡出效果
+            function toggleView() {
+                if (viewToggle.checked) {
+                    // 切换到结算页面
+                    liveView.style.opacity = '0';
+                    setTimeout(() => {
+                        liveView.style.display = 'none';
+                        resultsView.style.display = 'flex';
+                        setTimeout(() => {
+                            resultsView.style.opacity = '1';
+                        }, 50); // 短暂延迟以确保 display 更改已应用
+                    }, 500); // 等待淡出完成 (0.5s, matches CSS transition)
+                } else {
+                    // 切换到比赛画面
+                    resultsView.style.opacity = '0';
+                    setTimeout(() => {
+                        resultsView.style.display = 'none';
+                        liveView.style.display = 'flex';
+                        setTimeout(() => {
+                            liveView.style.opacity = '1';
+                        }, 50); // 短暂延迟以确保 display 更改已应用
+                    }, 500); // 等待淡出完成 (0.5s, matches CSS transition)
+                }
+            }
+
+            // 监听开关变化
+            viewToggle.addEventListener('change', toggleView);
+            
+            // 设置初始视图状态
+            // Check orientation on load and resize
+            function checkOrientation() {
+                if (window.matchMedia("(orientation: portrait)").matches) {
+                     liveView.style.display = 'none';
+                     resultsView.style.display = 'none';
+                } else {
+                     // Set initial view based on toggle state only if landscape
+                    if (viewToggle.checked) {
+                        liveView.style.display = 'none';
+                        liveView.style.opacity = '0';
+                        resultsView.style.display = 'flex';
+                        resultsView.style.opacity = '1';
+                    } else {
+                        liveView.style.display = 'flex';
+                        liveView.style.opacity = '1';
+                        resultsView.style.display = 'none';
+                        resultsView.style.opacity = '0';
+                    }
+                }
+            }
+
+            checkOrientation(); // Check on page load
+            window.addEventListener('resize', checkOrientation); // Check on resize
+
+            // 可选：模拟血量变化（仅用于演示）
+            // function updateHealthBars() {
+            //     const team1HealthValue = document.getElementById('team1-health-value');
+            //     const team1HealthBar = document.getElementById('team1-health-bar');
+            //     const team2HealthValue = document.getElementById('team2-health-value');
+            //     const team2HealthBar = document.getElementById('team2-health-bar');
+            //     const team1ShieldStatus = document.getElementById('team1-shield-status');
+            //     const team2ShieldStatus = document.getElementById('team2-shield-status');
+
+            //     // 当前血量
+            //     let currentHealth1 = parseInt(team1HealthValue.textContent);
+            //     let currentHealth2 = parseInt(team2HealthValue.textContent);
+                
+            //     // 随机减少血量
+            //     if (Math.random() > 0.5 && currentHealth2 > 0) {
+            //         currentHealth2 = Math.max(0, currentHealth2 - Math.floor(Math.random() * 10));
+            //         team2HealthValue.textContent = currentHealth2;
+            //         team2HealthBar.style.width = `${currentHealth2}%`;
+                    
+            //         // 如果血量为0且复影折镜可用，触发复影折镜
+            //         if (currentHealth2 === 0 && team2ShieldStatus.textContent === '可用') {
+            //             setTimeout(() => {
+            //                 currentHealth2 = 33;
+            //                 team2HealthValue.textContent = currentHealth2;
+            //                 team2HealthBar.style.width = `${currentHealth2}%`;
+            //                 team2ShieldStatus.textContent = '已使用';
+            //                 team2ShieldStatus.classList.remove('text-green-400');
+            //                 team2ShieldStatus.classList.add('text-gray-400');
+            //             }, 1000);
+            //         }
+                    
+            //         // 如果血量为0且复影折镜已使用，显示结算页面
+            //         else if (currentHealth2 === 0 && team2ShieldStatus.textContent === '已使用') {
+            //             setTimeout(() => {
+            //                 viewToggle.checked = true;
+            //                 toggleView();
+            //             }, 2000);
+            //         }
+            //     }
+                
+            //     if (Math.random() > 0.7 && currentHealth1 > 0) {
+            //         currentHealth1 = Math.max(0, currentHealth1 - Math.floor(Math.random() * 8));
+            //         team1HealthValue.textContent = currentHealth1;
+            //         team1HealthBar.style.width = `${currentHealth1}%`;
+                    
+            //         // 如果血量为0且复影折镜可用，触发复影折镜
+            //         if (currentHealth1 === 0 && team1ShieldStatus.textContent === '可用') {
+            //             setTimeout(() => {
+            //                 currentHealth1 = 33;
+            //                 team1HealthValue.textContent = currentHealth1;
+            //                 team1HealthBar.style.width = `${currentHealth1}%`;
+            //                 team1ShieldStatus.textContent = '已使用';
+            //                 team1ShieldStatus.classList.remove('text-green-400');
+            //                 team1ShieldStatus.classList.add('text-gray-400');
+            //             }, 1000);
+            //         }
+                    
+            //         // 如果血量为0且复影折镜已使用，显示结算页面
+            //         else if (currentHealth1 === 0 && team1ShieldStatus.textContent === '已使用') {
+            //             setTimeout(() => {
+            //                 viewToggle.checked = true;
+            //                 toggleView();
+            //             }, 2000);
+            //         }
+            //     }
+            // }
+
+            // 每5秒更新一次血量（仅用于演示）
+            // 取消注释下面这行代码可以启用自动血量变化演示
+            // setInterval(updateHealthBars, 5000);
+        });
+    </script>
+</body>
+</html>

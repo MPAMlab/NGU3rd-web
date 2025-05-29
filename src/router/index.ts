@@ -14,9 +14,15 @@ import NotFoundPage from '@/views/NotFoundPage.vue';
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
-    name: 'Home',
+    name: 'Index',
     component: Home,
     meta: { title: '首页' },
+  },
+  {
+    path: '/Home',
+    name: 'Home',
+    component: Home,
+    meta: { title: '后台首页' },
   },
   {
     path: '/teams',
