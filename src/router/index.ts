@@ -10,12 +10,12 @@ import LiveMatch from '@/views/LiveMatch.vue'; // Assuming this is for viewing/c
 import MatchHistory from '@/views/MatchHistory.vue';
 import MemberSongPrefs from '@/views/MemberSongPrefs.vue';
 import NotFoundPage from '@/views/NotFoundPage.vue';
-
+import Index from '@/views/index.vue';
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
     name: 'Index',
-    component: Home,
+    component: Index,
     meta: { title: '首页' },
   },
   {
