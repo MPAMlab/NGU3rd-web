@@ -2,7 +2,7 @@
   <el-container style="min-height: 100vh;">
     <el-header style="padding: 0;">
       <el-menu mode="horizontal" :router="true" :default-active="$route.path">
-        <el-menu-item index="/">NGU3rd比赛系统</el-menu-item>
+        <el-menu-item index="/Home">NGU3rd比赛系统</el-menu-item>
         <el-menu-item index="/teams">队伍管理</el-menu-item>
         <el-menu-item index="/members">选手管理</el-menu-item>
         <el-menu-item index="/songs">歌曲列表</el-menu-item>
