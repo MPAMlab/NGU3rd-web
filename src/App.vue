@@ -2,14 +2,14 @@
   <el-container style="min-height: 100vh;">
     <el-header style="padding: 0;">
       <el-menu mode="horizontal" :router="true" :default-active="$route.path">
-        <el-menu-item index="/Home">NGU3rd比赛系统</el-menu-item>
+        <!-- <el-menu-item index="/Home">NGU3rd比赛系统</el-menu-item>
         <el-menu-item index="/teams">队伍管理</el-menu-item>
         <el-menu-item index="/members">选手管理</el-menu-item>
         <el-menu-item index="/songs">歌曲列表</el-menu-item>
         <el-menu-item index="/schedule">赛程管理</el-menu-item>
         <el-menu-item index="/match-history">比赛历史</el-menu-item>
         <el-menu-item index="/member-song-prefs">选手选曲</el-menu-item>
-        <!-- Add more navigation items -->
+         Add more navigation items -->
       </el-menu>
     </el-header>
     <el-main style="padding: 20px;">
