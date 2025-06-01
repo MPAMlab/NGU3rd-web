@@ -1,16 +1,32 @@
-// src/router.ts (or src/router/index.ts)
+// src/router.ts
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
+// Import the Pinia store
+import { useAppStore } from '@/store'; // Import your Pinia store
 
 // Import your view components
-import Home from '@/views/Home.vue';
+import Index from '@/views/MainSite.vue'; // Assuming this is your main registration/landing page
+import Home from '@/views/Home.vue'; // Assuming this is a dashboard or authenticated home
 import Teams from '@/views/Teams.vue';
 import Songs from '@/views/Songs.vue';
-import Schedule from '@/views/Schedule.vue';
-import LiveMatch from '@/views/LiveMatch.vue'; // Assuming this is for viewing/controlling a live match
+import Schedule from '@/views/Schedule.vue'; // Assuming this is admin-only
+import LiveMatch from '@/views/LiveMatch.vue';
 import MatchHistory from '@/views/MatchHistory.vue';
-import MemberSongPrefs from '@/views/MemberSongPrefs.vue';
+import MemberSongPrefs from '@/views/MemberSongPrefs.vue'; // Assuming this is user-authenticated
 import NotFoundPage from '@/views/NotFoundPage.vue';
-import Index from '@/views/MainSite.vue';
+import KindeCallback from '@/views/KindeCallback.vue'; // Import the KindeCallback view
+import PrivacyPolicyPage from '@/views/PrivacyPolicyPage.vue'; // Assuming this exists
+
+
+// Extend RouteMeta to include custom fields
+declare module 'vue-router' {
+  interface RouteMeta {
+    title?: string;
+    requiresAuth?: boolean; // Requires user authentication
+    requiresAdmin?: boolean; // Requires admin privileges
+  }
+}
+
+
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
@@ -19,47 +35,59 @@ const routes: Array<RouteRecordRaw> = [
     meta: { title: '首页' },
   },
   {
-    path: '/Home',
+    path: '/callback', // Kinde callback route
+    name: 'kinde-callback',
+    component: KindeCallback,
+    meta: { title: '认证处理中' },
+  },
+  {
+    path: '/privacy',
+    name: 'privacy-policy',
+    component: PrivacyPolicyPage,
+    meta: { title: '隐私政策' },
+  },
+  {
+    path: '/Home', // Example of an authenticated route
     name: 'Home',
     component: Home,
-    meta: { title: '后台首页' },
+    meta: { title: '后台首页', requiresAuth: true }, // Add meta field to require authentication
   },
   {
     path: '/teams',
     name: 'Teams',
     component: Teams,
-    meta: { title: '队伍管理' },
+    meta: { title: '队伍管理' }, // Public or requiresAuth? Let's assume public view for now
   },
   {
     path: '/songs',
     name: 'Songs',
     component: Songs,
-    meta: { title: '歌曲列表' },
+    meta: { title: '歌曲列表' }, // Public
   },
   {
     path: '/schedule',
     name: 'Schedule',
     component: Schedule,
-    meta: { title: '赛程管理' },
+    meta: { title: '赛程管理', requiresAdmin: true }, // Add meta field to require admin
   },
   {
-    path: '/live-match/:doId', // Assuming 'doId' is the parameter for your live match view
+    path: '/live-match/:doId',
     name: 'LiveMatch',
     component: LiveMatch,
-    props: true, // Pass route params as props to the component
-    meta: { title: '比赛直播/控制台' },
+    props: true,
+    meta: { title: '比赛直播/控制台' }, // Public view, but control features might require admin
   },
   {
     path: '/match-history',
     name: 'MatchHistory',
     component: MatchHistory,
-    meta: { title: '比赛历史' },
+    meta: { title: '比赛历史' }, // Public
   },
   {
     path: '/member-song-prefs',
     name: 'MemberSongPrefs',
     component: MemberSongPrefs,
-    meta: { title: '选手选曲偏好' },
+    meta: { title: '选手选曲偏好', requiresAuth: true }, // Requires user authentication
   },
   // 404 Page - Must be the last route
   {
@@ -82,9 +110,70 @@ const router = createRouter({
   },
 });
 
-// Global after hook to update page title
+// Global navigation guard
+router.beforeEach(async (to, from, next) => {
+    const store = useAppStore(); // Get access to the store
+
+    // Ensure auth status is checked on every navigation
+    // This calls the composable's checkAuthStatus which updates both composable and store state
+    await store.checkAuthStatus();
+    console.log(`Router Guard: Navigating to ${to.path}. Authenticated: ${store.isAuthenticated}, UserMember: ${!!store.userMember}, IsAdmin: ${store.isAdminUser}`);
+
+
+    // Always allow navigation to the Kinde callback page
+    if (to.name === 'kinde-callback') {
+        next();
+        return;
+    }
+
+    // Define public routes explicitly
+    const publicRoutes = ['Index', 'Teams', 'Songs', 'MatchHistory', 'LiveMatch', 'NotFound', 'privacy-policy'];
+    if (publicRoutes.includes(to.name as string)) {
+        next();
+        return;
+    }
+
+
+    // Check for routes requiring authentication
+    if (to.meta.requiresAuth) {
+        if (!store.isAuthenticated) {
+            console.warn(`Router Guard: Route ${to.path} requires authentication. Redirecting to login.`);
+            // Redirect to the main page or a dedicated login page
+            // You might want to store the 'to.fullPath' to redirect back after successful login
+            next({ name: 'Index' }); // Redirect to your main page
+            return;
+        }
+        // If authenticated, proceed
+        next();
+        return;
+    }
+
+    // Check for routes requiring admin privileges
+    if (to.meta.requiresAdmin) {
+        if (!store.isAuthenticated) {
+            console.warn(`Router Guard: Admin route ${to.path} requires authentication. Redirecting to login.`);
+            next({ name: 'Index' }); // Redirect to main page
+            return;
+        }
+        if (!store.isAdminUser) {
+            console.warn(`Router Guard: Admin route ${to.path} requires admin privileges. User is not admin. Redirecting to home.`);
+            next({ name: 'Home' }); // Redirect to a non-admin page, e.g., authenticated home
+            return;
+        }
+        // If authenticated and is admin, proceed
+        next();
+        return;
+    }
+
+    // If none of the above, allow navigation (should be covered by publicRoutes, but as a fallback)
+    // This line might be redundant if all routes are explicitly handled above.
+    // next();
+});
+
+
+// Global after hook to update page title (Keep as is)
 router.afterEach((to) => {
-  const defaultTitle = 'NGU3rd 比赛系统'; // Set your default application title
+  const defaultTitle = 'NGU3rd 比赛系统';
   if (to.meta.title) {
     document.title = `${to.meta.title} - ${defaultTitle}`;
   } else {

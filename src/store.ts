@@ -1,11 +1,16 @@
 // src/store.ts
 import { defineStore } from 'pinia';
 import * as api from './services/api'; // Import API functions
+// Import the Kinde Auth composable and its types
+import { useKindeAuth } from '@/composables/useKindeAuth';
+import type { KindeUser } from '@/composables/useKindeAuth'; // Import KindeUser type from composable
 
 // --- ALL TYPE DEFINITIONS GO HERE ---
+// IMPORTANT: Ideally, move these types to a shared src/types.ts file
+// For now, keeping them here as per your current structure, but adding KindeUser
 
 // API Response Wrapper (can be defined here or in api.ts)
-export interface ApiResponse<T = any> { // Added export
+export interface ApiResponse<T = any> {
     success: boolean;
     data?: T;
     error?: string;
@@ -13,25 +18,23 @@ export interface ApiResponse<T = any> { // Added export
 }
 
 // Represents the environment variables and bindings (Frontend perspective - less detailed than Worker Env)
-export interface FrontendEnv { // Added export
+export interface FrontendEnv {
     SONG_COVER_BUCKET_URL?: string; // Base URL for accessing song covers directly from R2
     // Add other frontend-relevant env vars if needed
 }
 
 // --- 固定表相关类型 (members, teams) ---
-export interface Team { // Added export
+export interface Team {
     id: number; // D1 auto-increment ID (number)
     code: string; // 4-character manual ID (your team_code)
     name: string; // your team_name
     created_at?: number | null; // Unix timestamp (matching your table)
-    // current_health, has_revive_mirror, status 这些是比赛中的状态，由DO管理
-    // 如果 teams 表中保留了这些字段，它们可能代表默认值或全局状态，与比赛实时状态区分
     current_health?: number | null;
     has_revive_mirror?: number | null; // 0 or 1
     status?: string | null; // e.g., 'active', 'inactive'
 }
 
-export interface Member { // Added export
+export interface Member {
     id: number; // D1 auto-increment ID (number)
     team_code: string; // FK to teams.code (string)
     color?: string | null; // e.g., 'fire', 'wood', 'water' (assuming D1 stores these strings)
@@ -42,14 +45,14 @@ export interface Member { // Added export
     avatar_url?: string | null; // Storing filename or full URL? If filename, need R2 binding
     joined_at?: number | null; // Unix timestamp
     updated_at?: number | null; // Unix timestamp
-    kinde_user_id?: string | null;
-    is_admin?: number | null; // 0 or 1
+    kinde_user_id: string | null; // <-- CONFIRMED
+    is_admin: number | null; // <-- CONFIRMED
     // Frontend convenience: Link to team if needed
     // team?: Team;
 }
 
 // --- 歌曲相关类型 ---
-export interface SongLevel { // Added export // 对应 JSON "等级" 结构
+export interface SongLevel { // 对应 JSON "等级" 结构
     B?: string; A?: string; E?: string; M?: string; R?: string;
 }
 
@@ -251,7 +254,7 @@ export interface ResolveDrawPayload { // Added export
 // Payload for Staff selecting a tiebreaker song (Frontend to Worker)
 export interface SelectTiebreakerSongPayload { // Added export
     song_id: number; // FK to songs.id (number)
-    selected_difficulty: string; // e.g., 'M', 'E' (Difficulty level key from SongLevel)
+    selected_difficulty: string; // e.g., 'M', 'E' (Difficulty level key)
 }
 
 // 回合总结 (用于展示计算过程和历史记录) - 对应 match_rounds_history 表的部分字段 + 详细计算日志
@@ -369,14 +372,6 @@ export interface MatchHistoryMatch { // Added export
     rounds: MatchHistoryRound[];
 }
 
-// API Payloads (matching backend) - Already defined above, but listed here for clarity
-// export interface CreateTournamentMatchPayload { ... }
-// export interface ConfirmMatchSetupPayload { ... }
-// export interface CalculateRoundPayload { ... }
-// export interface ResolveDrawPayload { ... }
-// export interface SelectTiebreakerSongPayload { ... }
-// export interface SaveMemberSongPreferencePayload { ... }
-
 export type InternalProfession = 'attacker' | 'defender' | 'supporter' | null; // Added export
 
 
@@ -427,39 +422,65 @@ export interface AppState { // Added export
     error: string | null;
     currentMatchWebSocket: WebSocket | null; // The active WebSocket connection
     connectedDoName: string | null; // The DO name (e.g., "match-1") the WebSocket is connected to
+
+    // --- Kinde Auth State (from composable) ---
+    isAuthenticated: boolean; // Reactive state from useKindeAuth
+    kindeUser: KindeUser | null; // Reactive state from useKindeAuth
+    userMember: Member | null; // Reactive state from useKindeAuth
+    isAdminUser: boolean; // Reactive state from useKindeAuth
 }
+
 
 // --- PINIA STORE DEFINITION ---
 export const useAppStore = defineStore('app', {
-    state: (): AppState => ({
-        teams: [],
-        members: [],
-        songs: [],
-        songPagination: null,
-        songFilterOptions: { categories: [], types: [] },
-        tournamentMatches: [],
-        currentMatchState: null,
-        matchHistory: [],
-        memberSongPreferences: [],
-        isLoading: {
-            teams: false, members: false, songs: false,
-            songFilters: false,
-            tournamentMatches: false,
-            currentMatch: false, matchHistory: false, memberSongPreferences: false,
-        },
-        error: null,
-        currentMatchWebSocket: null,
-        connectedDoName: null, // Initialize new state property
-    }),
+    state: (): AppState => {
+        // Get reactive state directly from the composable
+        const { isAuthenticated, kindeUser, userMember, isAdminUser } = useKindeAuth();
+
+        return {
+            teams: [],
+            members: [],
+            songs: [],
+            songPagination: null,
+            songFilterOptions: { categories: [], types: [] },
+            tournamentMatches: [],
+            currentMatchState: null,
+            matchHistory: [],
+            memberSongPreferences: [],
+            isLoading: {
+                teams: false, members: false, songs: false,
+                songFilters: false,
+                tournamentMatches: false,
+                currentMatch: false, matchHistory: false, memberSongPreferences: false,
+            },
+            error: null,
+            currentMatchWebSocket: null,
+            connectedDoName: null,
+
+            // --- Kinde Auth State ---
+            // Assign the reactive refs directly to the state properties
+            isAuthenticated: isAuthenticated.value, // Pinia will unwrap the ref
+            kindeUser: kindeUser.value,
+            userMember: userMember.value,
+            isAdminUser: isAdminUser.value,
+        };
+    },
+
+    // Pinia setup stores can use computed properties directly
+    // getters: {
+    //     isAuthenticated: (state) => state.isAuthenticated,
+    //     kindeUser: (state) => state.kindeUser,
+    //     userMember: (state) => state.userMember,
+    //     isAdminUser: (state) => state.isAdminUser,
+    // },
+
 
     actions: {
         // --- Generic Loading and Error Handling ---
         setLoading(key: string, value: boolean) {
-            // Ensure the key exists in isLoading or allow adding new keys
             if (this.isLoading.hasOwnProperty(key)) {
                  this.isLoading[key] = value;
             } else {
-                 // If you want to allow dynamic keys, cast to any or define index signature
                  (this.isLoading as any)[key] = value;
             }
         },
@@ -471,11 +492,50 @@ export const useAppStore = defineStore('app', {
              this.error = null;
         },
 
-        // --- Data Fetching Actions ---
+        // --- Kinde Auth Actions (Wrap composable functions) ---
+        async checkAuthStatus() {
+            const { checkAuthStatus } = useKindeAuth();
+            await checkAuthStatus();
+            // Update store state from composable state after check
+            const { isAuthenticated, kindeUser, userMember, isAdminUser } = useKindeAuth();
+            this.isAuthenticated = isAuthenticated.value;
+            this.kindeUser = kindeUser.value;
+            this.userMember = userMember.value;
+            this.isAdminUser = isAdminUser.value;
+        },
+        async login(prompt?: 'login' | 'create', context?: { teamCode: string | null, currentStep: number }) {
+            const { login } = useKindeAuth();
+            await login(prompt, context);
+            // State will be updated by checkAuthStatus called after callback
+        },
+        async logout() {
+            const { logout } = useKindeAuth();
+            await logout();
+            // State will be cleared by the composable
+            this.isAuthenticated = false;
+            this.kindeUser = null;
+            this.userMember = null;
+            this.isAdminUser = false;
+        },
+        async handleKindeCallback(code: string, state: string) {
+             const { handleCallback } = useKindeAuth();
+             const result = await handleCallback(code, state);
+             // State will be updated by checkAuthStatus called inside handleCallback
+             const { isAuthenticated, kindeUser, userMember, isAdminUser } = useKindeAuth();
+             this.isAuthenticated = isAuthenticated.value;
+             this.kindeUser = kindeUser.value;
+             this.userMember = userMember.value;
+             this.isAdminUser = isAdminUser.value;
+             return result; // Return result for router redirect logic
+        },
+
+
+        // --- Data Fetching Actions (Keep existing, they use api.ts which will be updated) ---
         async fetchTeams() {
             this.setLoading('teams', true);
             this.clearError();
             try {
+                // This will now use the authenticatedFetch via api.ts
                 const response = await api.fetchTeams();
                 if (response.success && response.data) {
                     this.teams = response.data;
@@ -493,6 +553,7 @@ export const useAppStore = defineStore('app', {
             this.setLoading('members', true);
             this.clearError();
             try {
+                // This will now use the authenticatedFetch via api.ts
                 const response = await api.fetchMembers(teamCode);
                 if (response.success && response.data) {
                     this.members = response.data;
@@ -506,9 +567,6 @@ export const useAppStore = defineStore('app', {
             }
         },
 
-        /**
-         * Fetches songs from the backend with filters and pagination.
-         */
         async fetchSongs(params: { category?: string; type?: string; search?: string; page?: number; limit?: number } = {}) {
             this.setLoading('songs', true);
             this.clearError();
@@ -525,6 +583,7 @@ export const useAppStore = defineStore('app', {
                     }
                 });
 
+                // This will now use the authenticatedFetch via api.ts
                 const response = await api.fetchSongs(requestParams);
 
                 if (response.success && response.data) {
@@ -543,12 +602,10 @@ export const useAppStore = defineStore('app', {
             }
         },
 
-        /**
-         * Fetches distinct categories and types for filter dropdowns.
-         */
         async fetchSongFilterOptions() {
             this.setLoading('songFilters', true);
             try {
+                 // This will now use the authenticatedFetch via api.ts
                 const response = await api.fetchSongFilterOptions();
                  if (response.success && response.data) {
                      this.songFilterOptions = response.data;
@@ -557,8 +614,6 @@ export const useAppStore = defineStore('app', {
                  }
             } catch (err: any) {
                  console.error("Store: Error fetching song filter options:", err);
-                 // Optionally set an error, but avoid overwriting a song fetch error
-                 // this.setError(`Failed to load filter options: ${err.message}`);
             } finally {
                  this.setLoading('songFilters', false);
             }
@@ -568,6 +623,7 @@ export const useAppStore = defineStore('app', {
             this.setLoading('tournamentMatches', true);
             this.clearError();
             try {
+                 // This will now use the authenticatedFetch via api.ts
                 const response = await api.fetchTournamentMatches();
                 if (response.success && response.data) {
                     this.tournamentMatches = response.data;
@@ -584,21 +640,22 @@ export const useAppStore = defineStore('app', {
         async fetchMatchState(doId: string) {
             this.setLoading('currentMatch', true);
             this.clearError();
-            console.log(`[Store HTTP] Attempting to fetch initial match state for DO: ${doId}`); // <-- Added log
+            console.log(`[Store HTTP] Attempting to fetch initial match state for DO: ${doId}`);
             try {
+                 // This will now use the authenticatedFetch via api.ts
                 const response = await api.fetchMatchState(doId);
                 if (response.success && response.data) {
                     this.currentMatchState = response.data;
-                    console.log(`[Store HTTP] Successfully fetched initial match state for DO ${doId}:`, this.currentMatchState); // <-- Added log
+                    console.log(`[Store HTTP] Successfully fetched initial match state for DO ${doId}:`, this.currentMatchState);
                 } else {
                     this.setError(response.error || `Failed to fetch match state for ${doId}`);
                     this.currentMatchState = null;
-                    console.error(`[Store HTTP] Failed to fetch match state for DO ${doId}:`, response.error); // <-- Added log
+                    console.error(`[Store HTTP] Failed to fetch match state for DO ${doId}:`, response.error);
                 }
             } catch (err: any) {
                 this.setError(err.message);
                 this.currentMatchState = null;
-                console.error(`[Store HTTP] Exception fetching match state for DO ${doId}:`, err); // <-- Added log
+                console.error(`[Store HTTP] Exception fetching match state for DO ${doId}:`, err);
             } finally {
                 this.setLoading('currentMatch', false);
             }
@@ -608,6 +665,7 @@ export const useAppStore = defineStore('app', {
             this.setLoading('matchHistory', true);
             this.clearError();
             try {
+                 // This will now use the authenticatedFetch via api.ts
                 const response = await api.fetchMatchHistory();
                 if (response.success && response.data) {
                     this.matchHistory = response.data;
@@ -625,6 +683,7 @@ export const useAppStore = defineStore('app', {
             this.setLoading('memberSongPreferences', true);
             this.clearError();
             try {
+                 // This will now use the authenticatedFetch via api.ts
                 const response = await api.fetchMemberSongPreferences(memberId, stage);
                 if (response.success && response.data) {
                     this.memberSongPreferences = response.data;
@@ -638,10 +697,11 @@ export const useAppStore = defineStore('app', {
             }
         },
 
-        // --- Tournament & Match Actions ---
+        // --- Tournament & Match Actions (Keep existing, they use api.ts which will be updated) ---
         async createTournamentMatch(payload: CreateTournamentMatchPayload) {
             this.clearError();
             try {
+                 // This will now use the authenticatedFetch via api.ts (requires Admin Auth)
                 const response = await api.createTournamentMatch(payload);
                 if (response.success && response.data) {
                     this.tournamentMatches.unshift(response.data);
@@ -660,6 +720,7 @@ export const useAppStore = defineStore('app', {
         async confirmMatchSetup(matchId: number, payload: ConfirmMatchSetupPayload) {
             this.clearError();
             try {
+                 // This will now use the authenticatedFetch via api.ts (requires Admin Auth)
                 const response = await api.confirmMatchSetup(matchId, payload);
                 if (response.success && response.data) {
                     const index = this.tournamentMatches.findIndex(m => m.id === matchId);
@@ -678,12 +739,13 @@ export const useAppStore = defineStore('app', {
         async startLiveMatch(matchId: number) {
             this.clearError();
             try {
+                 // This will now use the authenticatedFetch via api.ts (requires Admin Auth)
                 const response = await api.startLiveMatch(matchId);
                 if (response.success && response.data?.match_do_id) {
                     const index = this.tournamentMatches.findIndex(m => m.id === matchId);
                     if (index !== -1) {
                         this.tournamentMatches[index].status = 'live';
-                        this.tournamentMatches[index].match_do_id = response.data.match_do_id; // This match_do_id is the *name*
+                        this.tournamentMatches[index].match_do_id = response.data.match_do_id;
                     }
                     return response.data;
                 } else {
@@ -696,7 +758,8 @@ export const useAppStore = defineStore('app', {
             }
         },
 
-        // --- Live Match (DO) Actions ---
+        // --- Live Match (DO) Actions (Keep existing, they use api.ts which will be updated) ---
+        // These actions will now require Admin Auth via the backend middleware
         async calculateRound(doId: string, payload: CalculateRoundPayload) {
             this.clearError();
             try {
@@ -704,10 +767,10 @@ export const useAppStore = defineStore('app', {
                 if (!response.success) {
                     this.setError(response.error || 'Failed to calculate round');
                 }
-                return response; // Return the full response for component to check success
+                return response;
             } catch (err: any) {
                 this.setError(err.message);
-                return { success: false, error: err.message }; // Return structured error
+                return { success: false, error: err.message };
             }
         },
 
@@ -718,7 +781,7 @@ export const useAppStore = defineStore('app', {
                 if (!response.success) {
                     this.setError(response.error || 'Failed to advance to next round');
                 }
-                 return response; // Return the full response
+                 return response;
             } catch (err: any) {
                 this.setError(err.message);
                  return { success: false, error: err.message };
@@ -732,7 +795,7 @@ export const useAppStore = defineStore('app', {
                 if (!response.success) {
                     this.setError(response.error || 'Failed to select tiebreaker song');
                 }
-                 return response; // Return the full response
+                 return response;
             } catch (err: any) {
                 this.setError(err.message);
                  return { success: false, error: err.message };
@@ -746,7 +809,7 @@ export const useAppStore = defineStore('app', {
                 if (!response.success) {
                     this.setError(response.error || 'Failed to resolve draw');
                 }
-                 return response; // Return the full response
+                 return response;
             } catch (err: any) {
                 this.setError(err.message);
                  return { success: false, error: err.message };
@@ -758,15 +821,13 @@ export const useAppStore = defineStore('app', {
             try {
                 const response = await api.archiveMatch(doId);
                 if (response.success) {
-                    // Clear current match state as it's archived
                     this.currentMatchState = null;
-                    // Refresh lists that might show this match
                     this.fetchTournamentMatches();
                     this.fetchMatchHistory();
                 } else {
                     this.setError(response.error || 'Failed to archive match');
                 }
-                 return response; // Return the full response
+                 return response;
             } catch (err: any) {
                 this.setError(err.message);
                  return { success: false, error: err.message };
@@ -776,9 +837,9 @@ export const useAppStore = defineStore('app', {
         async saveMemberSongPreference(payload: SaveMemberSongPreferencePayload) {
             this.clearError();
             try {
+                 // This will now use the authenticatedFetch via api.ts (requires User Auth)
                 const response = await api.saveMemberSongPreference(payload);
                 if (response.success && response.data) {
-                    // Update or add the preference in the state list
                     const index = this.memberSongPreferences.findIndex(p =>
                         p.member_id === payload.member_id &&
                         p.tournament_stage === payload.tournament_stage &&
@@ -801,118 +862,89 @@ export const useAppStore = defineStore('app', {
             }
         },
 
-        // --- WebSocket Management ---
+        // --- WebSocket Management (Keep existing) ---
         connectWebSocket(doId: string) {
-            // doId here is the DO *name* from the route (e.g., "match-1")
+            // ... (Your existing connectWebSocket logic) ...
+             // doId here is the DO *name* from the route (e.g., "match-1")
+             if (this.currentMatchWebSocket && this.connectedDoName === doId) {
+                  if (this.currentMatchWebSocket.readyState === WebSocket.OPEN || this.currentMatchWebSocket.readyState === WebSocket.CONNECTING) {
+                      console.log(`[Store WS] WebSocket already open or connecting for DO name: ${doId}.`);
+                      return;
+                  }
+             }
 
-            // Check if a connection already exists for this specific DO name
-            if (this.currentMatchWebSocket && this.connectedDoName === doId) {
-                 if (this.currentMatchWebSocket.readyState === WebSocket.OPEN || this.currentMatchWebSocket.readyState === WebSocket.CONNECTING) {
-                     console.log(`[Store WS] WebSocket already open or connecting for DO name: ${doId}.`);
-                     return; // Already connected to the correct DO
+             if (this.currentMatchWebSocket) {
+                  console.log(`[Store WS] WebSocket exists (State: ${this.currentMatchWebSocket.readyState}). Closing existing connection for ${this.connectedDoName || 'unknown DO'}.`);
+                  this.currentMatchWebSocket.close(1000, "New connection requested");
+                  this.currentMatchWebSocket = null;
+                  this.connectedDoName = null;
+             }
+
+             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+             const wsHost = window.location.host;
+             const wsUrl = `${wsProtocol}//${wsHost}/api/live-match/${doId}/websocket`;
+
+             console.log(`[Store WS] Attempting to connect WebSocket to: ${wsUrl} for DO name: ${doId}`);
+             this.currentMatchWebSocket = new WebSocket(wsUrl);
+             this.connectedDoName = doId;
+
+             this.currentMatchWebSocket.onopen = () => {
+                 console.log(`[Store WS] WebSocket connected successfully for DO name: ${doId}!`);
+                 this.clearError();
+             };
+
+             this.currentMatchWebSocket.onmessage = (event) => {
+                 console.log(`[Store WS] WebSocket message received for DO name ${doId}:`, event.data);
+                 try {
+                     const data = JSON.parse(event.data as string);
+                     console.log(`[Store WS] Parsed WebSocket message for DO name ${doId}:`, data);
+                     if (data && typeof data === 'object' && data.status !== undefined && data.tournament_match_id !== undefined && data.match_do_id !== undefined) {
+                          console.log(`[Store WS] Received valid MatchState update for DO name ${doId}. Updating state.`);
+                          this.currentMatchState = data as MatchState;
+                          this.clearError();
+                     } else if (data && data.error) {
+                         console.error(`[Store WS] WebSocket received error message for DO name ${doId}:`, data.error);
+                         this.setError(`Live match error: ${data.error}`);
+                     }
+                     else {
+                         console.warn(`[Store WS] WebSocket received unknown message structure for DO name ${doId}:`, data);
+                     }
+                 } catch (e: any) {
+                     console.error(`[Store WS] Failed to parse WebSocket message JSON for DO name ${doId}:`, e);
+                     this.setError('Failed to process live match data from server.');
                  }
-            }
+             };
 
-            // If a connection exists but for a different DO, or it's closed/closing, close it
-            if (this.currentMatchWebSocket) {
-                 console.log(`[Store WS] WebSocket exists (State: ${this.currentMatchWebSocket.readyState}). Closing existing connection for ${this.connectedDoName || 'unknown DO'}.`);
-                 this.currentMatchWebSocket.close(1000, "New connection requested");
+             this.currentMatchWebSocket.onerror = (error) => {
+                 console.error(`[Store WS] WebSocket error for DO name ${doId}:`, error);
+                 this.setError('WebSocket connection error. Please refresh or check match status.');
                  this.currentMatchWebSocket = null;
                  this.connectedDoName = null;
-            }
+             };
 
-            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsHost = window.location.host;
-            // Use the DO name from the route in the WebSocket URL
-            const wsUrl = `${wsProtocol}//${wsHost}/api/live-match/${doId}/websocket`;
-
-            console.log(`[Store WS] Attempting to connect WebSocket to: ${wsUrl} for DO name: ${doId}`); // <-- Added log
-            this.currentMatchWebSocket = new WebSocket(wsUrl);
-            this.connectedDoName = doId; // Store the name we are trying to connect to
-
-            this.currentMatchWebSocket.onopen = () => {
-                console.log(`[Store WS] WebSocket connected successfully for DO name: ${doId}!`); // <-- Added log
-                this.clearError();
-                // The DO is expected to send the initial state upon connection
-            };
-
-            this.currentMatchWebSocket.onmessage = (event) => {
-                console.log(`[Store WS] WebSocket message received for DO name ${doId}:`, event.data); // <-- Added log
-
-                try {
-                    const data = JSON.parse(event.data as string);
-                    console.log(`[Store WS] Parsed WebSocket message for DO name ${doId}:`, data); // <-- Added log
-
-                    // Check if the received data is the expected MatchState structure
-                    // We assume messages on this specific WS connection are for the connected DO.
-                    // Check for key properties of MatchState like status and tournament_match_id
-                    // Also check if the match_do_id in the received data matches the *actual* DO ID
-                    // The DO sends its actual hex ID in the state, not the name from the URL.
-                    // We need to compare data.match_do_id (hex ID) with the match_do_id stored in currentMatchState
-                    // which was obtained from the startLiveMatch API call.
-                    // However, initially currentMatchState might be null.
-                    // A simpler check is to see if it looks like a MatchState object.
-                    // The DO name from the URL is only used to establish the connection.
-                    // The state object itself contains the actual DO hex ID.
-
-                    if (data && typeof data === 'object' && data.status !== undefined && data.tournament_match_id !== undefined && data.match_do_id !== undefined) {
-                         // Optional: Add a check if the received tournament_match_id matches the one we expect
-                         // This might require storing the tournament_match_id in the store state as well
-                         // if (this.currentMatchState?.tournament_match_id !== undefined && data.tournament_match_id !== this.currentMatchState.tournament_match_id) {
-                         //     console.warn(`[Store WS] Received message for unexpected tournament_match_id. Ignoring.`);
-                         //     return;
-                         // }
-
-                         console.log(`[Store WS] Received valid MatchState update for DO name ${doId}. Updating state.`); // <-- Added log
-                         this.currentMatchState = data as MatchState; // <-- Critical step: Update state
-                         this.clearError(); // Clear any previous WS error on successful message
-                    } else if (data && data.error) {
-                        console.error(`[Store WS] WebSocket received error message for DO name ${doId}:`, data.error); // <-- Added log
-                        this.setError(`Live match error: ${data.error}`); // Set error state based on backend message
-                    }
-                    else {
-                        console.warn(`[Store WS] WebSocket received unknown message structure for DO name ${doId}:`, data); // <-- Added log
-                        // Handle other message types if your DO sends them
-                    }
-                } catch (e: any) {
-                    console.error(`[Store WS] Failed to parse WebSocket message JSON for DO name ${doId}:`, e); // <-- Added log
-                    this.setError('Failed to process live match data from server.'); // Set error state
-                }
-            };
-
-            this.currentMatchWebSocket.onerror = (error) => {
-                console.error(`[Store WS] WebSocket error for DO name ${doId}:`, error); // <-- Added log
-                this.setError('WebSocket connection error. Please refresh or check match status.'); // Set error state
-                // Clean up on error
-                this.currentMatchWebSocket = null;
-                this.connectedDoName = null;
-            };
-
-            this.currentMatchWebSocket.onclose = (event) => {
-                console.log(`[Store WS] WebSocket closed for DO name ${doId}. Code: ${event.code}, Reason: ${event.reason}`); // <-- Added log
-                if (!event.wasClean) {
-                    console.error(`[Store WS] WebSocket connection died unexpectedly for DO name ${doId}`);
-                    // Only set error if it wasn't a clean close (code 1000 or 1001)
-                    if (event.code !== 1000 && event.code !== 1001) {
-                         this.setError(`WebSocket disconnected unexpectedly (Code: ${event.code}).`);
-                    }
-                }
-                this.currentMatchWebSocket = null;
-                this.connectedDoName = null;
-                // Optionally attempt to reconnect after a delay if appropriate (e.g., if code is not 1000/1001)
-            };
+             this.currentMatchWebSocket.onclose = (event) => {
+                 console.log(`[Store WS] WebSocket closed for DO name ${doId}. Code: ${event.code}, Reason: ${event.reason}`);
+                 if (!event.wasClean) {
+                     console.error(`[Store WS] WebSocket connection died unexpectedly for DO name ${doId}`);
+                     if (event.code !== 1000 && event.code !== 1001) {
+                          this.setError(`WebSocket disconnected unexpectedly (Code: ${event.code}).`);
+                     }
+                 }
+                 this.currentMatchWebSocket = null;
+                 this.connectedDoName = null;
+             };
         },
 
         disconnectWebSocket() {
-            if (this.currentMatchWebSocket && this.currentMatchWebSocket.readyState === WebSocket.OPEN) {
-                console.log(`[Store WS] Closing WebSocket for DO name: ${this.connectedDoName || 'unknown'}`); // <-- Added log
-                // Use standard close code 1000 for normal closure
-                this.currentMatchWebSocket.close(1000, "User navigated away");
-            } else {
-                 console.log(`[Store WS] WebSocket not open, nothing to close.`); // <-- Added log
-            }
-            this.currentMatchWebSocket = null;
-            this.connectedDoName = null;
+            // ... (Your existing disconnectWebSocket logic) ...
+             if (this.currentMatchWebSocket && this.currentMatchWebSocket.readyState === WebSocket.OPEN) {
+                 console.log(`[Store WS] Closing WebSocket for DO name: ${this.connectedDoName || 'unknown'}`);
+                 this.currentMatchWebSocket.close(1000, "User navigated away");
+             } else {
+                  console.log(`[Store WS] WebSocket not open, nothing to close.`);
+             }
+             this.currentMatchWebSocket = null;
+             this.connectedDoName = null;
         },
     },
 });

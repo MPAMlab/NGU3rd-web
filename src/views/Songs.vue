@@ -135,7 +135,7 @@ import { reactive, onMounted, ref, computed } from 'vue';
 import { useAppStore } from '@/store'; // Adjust path
 import { ElMessage } from 'element-plus';
 import { Picture } from '@element-plus/icons-vue';
-import type { Song, SongLevel } from '@/types'; // Adjust path and import SongLevel
+import type { Song, SongLevel } from '@/store'; // Adjust path and import SongLevel
 
 const store = useAppStore();
 
