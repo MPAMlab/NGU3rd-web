@@ -35,7 +35,8 @@ const routes: Array<RouteRecordRaw> = [
     meta: { title: '首页' },
   },
   {
-    path: '/callback', // Kinde callback route
+    // MODIFIED: Change path to match Kinde configuration
+    path: '/panel/callback', // Kinde callback route
     name: 'kinde-callback',
     component: KindeCallback,
     meta: { title: '认证处理中' },
@@ -121,7 +122,8 @@ router.beforeEach(async (to, from, next) => {
 
 
     // Always allow navigation to the Kinde callback page
-    if (to.name === 'kinde-callback') {
+    // Check if the path starts with the callback path
+    if (to.path.startsWith('/panel/callback')) { // MODIFIED: Check for the correct callback path
         next();
         return;
     }
