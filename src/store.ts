@@ -1,30 +1,39 @@
 // src/store.ts
 import { defineStore } from 'pinia';
 import * as api from './services/api'; // Import API functions
-// Import the Kinde Auth composable and its types
+// Import the Kinde Auth composable
 import { useKindeAuth } from '@/composables/useKindeAuth';
-import type { KindeUser } from '@/composables/useKindeAuth'; // Import KindeUser type from composable
+// REMOVED: Import KindeUser type from composable - it's defined here now
+// import type { KindeUser } from '@/composables/useKindeAuth';
 
-// --- ALL TYPE DEFINITIONS GO HERE ---
-// IMPORTANT: Ideally, move these types to a shared src/types.ts file
-// For now, keeping them here as per your current structure, but adding KindeUser
 
-// API Response Wrapper (can be defined here or in api.ts)
-export interface ApiResponse<T = any> {
+// --- ALL FRONTEND TYPE DEFINITIONS GO HERE ---
+
+// API Response Wrapper (Defined here for frontend use)
+export interface ApiResponse<T = any> { // <-- CONFIRMED EXPORT
     success: boolean;
     data?: T;
     error?: string;
     message?: string;
 }
 
+// Basic Kinde User Info (from ID token payload, returned by backend callback)
+export interface KindeUser { // <-- ADDED/CONFIRMED EXPORT
+    id: string; // Kinde User ID (sub claim)
+    email?: string;
+    name?: string; // Or other name claims like given_name, family_name
+    // Add other claims you might need from the ID token
+}
+
+
 // Represents the environment variables and bindings (Frontend perspective - less detailed than Worker Env)
-export interface FrontendEnv {
+export interface FrontendEnv { // <-- CONFIRMED EXPORT
     SONG_COVER_BUCKET_URL?: string; // Base URL for accessing song covers directly from R2
     // Add other frontend-relevant env vars if needed
 }
 
 // --- 固定表相关类型 (members, teams) ---
-export interface Team {
+export interface Team { // <-- CONFIRMED EXPORT
     id: number; // D1 auto-increment ID (number)
     code: string; // 4-character manual ID (your team_code)
     name: string; // your team_name
@@ -34,7 +43,7 @@ export interface Team {
     status?: string | null; // e.g., 'active', 'inactive'
 }
 
-export interface Member {
+export interface Member { // <-- CONFIRMED EXPORT
     id: number; // D1 auto-increment ID (number)
     team_code: string; // FK to teams.code (string)
     color?: string | null; // e.g., 'fire', 'wood', 'water' (assuming D1 stores these strings)
@@ -52,12 +61,12 @@ export interface Member {
 }
 
 // --- 歌曲相关类型 ---
-export interface SongLevel { // 对应 JSON "等级" 结构
+export interface SongLevel { // <-- CONFIRMED EXPORT // 对应 JSON "等级" 结构
     B?: string; A?: string; E?: string; M?: string; R?: string;
 }
 
 // Structure of a song item within the imported JSON array (Admin import payload)
-export interface ImportedSongItem { // Added export
+export interface ImportedSongItem { // <-- CONFIRMED EXPORT
     分类: string;
     曲名: string;
     BPM: string;
@@ -67,12 +76,12 @@ export interface ImportedSongItem { // Added export
 }
 
 // Payload for the admin song import endpoint
-export interface ImportSongsPayload { // Added export
+export interface ImportSongsPayload { // <-- CONFIRMED EXPORT
     songs: ImportedSongItem[]; // Array of song items from the JSON
     source_data_version?: string; // Optional version from the JSON
 }
 
-export interface Song { // Added export // 对应 D1 songs 表，也是前端主要使用的歌曲类型
+export interface Song { // <-- CONFIRMED EXPORT // 对应 D1 songs 表，也是前端主要使用的歌曲类型
     id: number; // D1 auto-increment ID (number)
     title: string;
     category?: string | null;
@@ -89,7 +98,7 @@ export interface Song { // Added export // 对应 D1 songs 表，也是前端主
 }
 
 // 用户为特定赛段选择的歌曲偏好 (对应 member_song_preferences 表)
-export interface MemberSongPreference { // Added export
+export interface MemberSongPreference { // <-- CONFIRMED EXPORT
     id?: number; // D1 PK (number)
     member_id: number; // FK to members.id (number)
     tournament_stage: string; // e.g., '初赛', '复赛'
@@ -104,7 +113,7 @@ export interface MemberSongPreference { // Added export
     parsedLevels?: SongLevel;
 }
 // Payload for saving a member's song preference (POST /api/member_song_preferences)
-export interface SaveMemberSongPreferencePayload { // Added export
+export interface SaveMemberSongPreferencePayload { // <-- CONFIRMED EXPORT
     member_id: number;
     tournament_stage: string;
     song_id: number;
@@ -113,7 +122,7 @@ export interface SaveMemberSongPreferencePayload { // Added export
 // --- 比赛核心类型 ---
 
 // 代表比赛歌单中的一首歌及其相关信息 (存储在 tournament_matches.match_song_list_json)
-export interface MatchSong { // Added export
+export interface MatchSong { // <-- CONFIRMED EXPORT
     song_id: number; // FK to songs.id (number)
     song_title: string; // Denormalized
     song_difficulty: string; // 实际比赛选择的难度，例如 'M 13' (包含等级和难度值)
@@ -145,14 +154,14 @@ export interface MatchSong { // Added export
 }
 
 // Payload for Staff to confirm match setup (PUT /api/tournament_matches/:id/confirm_setup)
-export interface ConfirmMatchSetupPayload { // Added export
+export interface ConfirmMatchSetupPayload { // <-- CONFIRMED EXPORT
     team1_player_order: number[]; // member_id 数组 (number[])
     team2_player_order: number[]; // member_id 数组 (number[])
     match_song_list: MatchSong[]; // 这场比赛最终确定的歌单 (MatchSong[])
 }
 
 // 赛程表条目 (对应 tournament_matches 表)
-export interface TournamentMatch { // Added export
+export interface TournamentMatch { // <-- CONFIRMED EXPORT
     id: number; // D1 auto-increment ID (number)
     round_name: string; // e.g., '初赛 - 第1轮'
     team1_id: number; // FK to teams.id (number)
@@ -183,7 +192,7 @@ export interface TournamentMatch { // Added export
 }
 
 // Payload for creating a new Tournament Match (POST /api/tournament_matches)
-export interface CreateTournamentMatchPayload { // Added export
+export interface CreateTournamentMatchPayload { // <-- CONFIRMED EXPORT
     round_name: string;
     team1_id: number | null; // Allow null in form state before selection
     team2_id: number | null; // Allow null in form state before selection
@@ -192,7 +201,7 @@ export interface CreateTournamentMatchPayload { // Added export
 }
 
 // DO 的实时状态 (WebSocket 推送的内容)
-export interface MatchState { // Added export
+export interface MatchState { // <-- CONFIRMED EXPORT
     // Note: This match_do_id is the *actual* hex ID of the DO instance, not the name like "match-1"
     match_do_id: string; // (string)
     tournament_match_id: number; // 关联的 D1 tournament_matches.id (number)
@@ -239,7 +248,7 @@ export interface MatchState { // Added export
 }
 
 // Payload for submitting scores (Frontend sends percentages)
-export interface CalculateRoundPayload { // Added export
+export interface CalculateRoundPayload { // <-- CONFIRMED EXPORT
     teamA_percentage: number; // e.g., 100.1234 (REAL)
     teamB_percentage: number; // e.g., 98.7654 (REAL)
     teamA_effect_value?: number; // 小分调整 (INTEGER)
@@ -247,18 +256,18 @@ export interface CalculateRoundPayload { // Added export
 }
 
 // Payload for resolving a draw (Staff action)
-export interface ResolveDrawPayload { // Added export
+export interface ResolveDrawPayload { // <-- CONFIRMED EXPORT
     winner: 'teamA' | 'teamB'; // 'teamA' or 'teamB' string
 }
 
 // Payload for Staff selecting a tiebreaker song (Frontend to Worker)
-export interface SelectTiebreakerSongPayload { // Added export
+export interface SelectTiebreakerSongPayload { // <-- CONFIRMED EXPORT
     song_id: number; // FK to songs.id (number)
     selected_difficulty: string; // e.g., 'M', 'E' (Difficulty level key)
 }
 
 // 回合总结 (用于展示计算过程和历史记录) - 对应 match_rounds_history 表的部分字段 + 详细计算日志
-export interface RoundSummary { // Added export
+export interface RoundSummary { // <-- CONFIRMED EXPORT
     round_number_in_match: number; // 这首歌是比赛的第 N 首 (1-based) (INTEGER)
     song_id: number; // (INTEGER)
     song_title: string;
@@ -312,7 +321,7 @@ export interface RoundSummary { // Added export
 }
 
 // Type for a single historical round record fetched from /api/match_history
-export interface MatchHistoryRound { // Added export
+export interface MatchHistoryRound { // <-- CONFIRMED EXPORT
     id: number; // match_rounds_history PK
     tournament_match_id: number;
     match_do_id: string; // Actual DO hex ID
@@ -355,7 +364,7 @@ export interface MatchHistoryRound { // Added export
 }
 
 // Type for a single historical match fetched from /api/match_history
-export interface MatchHistoryMatch { // Added export
+export interface MatchHistoryMatch { // <-- CONFIRMED EXPORT
     id: number; // tournament_matches PK
     round_name: string;
     scheduled_time: string | null;
@@ -372,12 +381,12 @@ export interface MatchHistoryMatch { // Added export
     rounds: MatchHistoryRound[];
 }
 
-export type InternalProfession = 'attacker' | 'defender' | 'supporter' | null; // Added export
+export type InternalProfession = 'attacker' | 'defender' | 'supporter' | null; // <-- CONFIRMED EXPORT
 
 
 // --- NEW TYPES FOR PAGINATION AND SONG FILTERS ---
 
-export interface PaginationInfo { // Added export
+export interface PaginationInfo { // <-- CONFIRMED EXPORT
     currentPage: number;
     pageSize: number;
     totalItems: number;
@@ -385,20 +394,20 @@ export interface PaginationInfo { // Added export
 }
 
 // Specific response data structure for GET /api/songs
-export interface SongsApiResponseData { // Added export
+export interface SongsApiResponseData { // <-- CONFIRMED EXPORT
     songs: Song[]; // Array of songs for the current page
     pagination: PaginationInfo; // Pagination metadata
 }
 
 // Specific response data structure for GET /api/songs/filters
-export interface SongFiltersApiResponseData { // Added export
+export interface SongFiltersApiResponseData { // <-- CONFIRMED EXPORT
     categories: string[];
     types: string[];
 }
 
 
 // --- PINIA STORE STATE INTERFACE ---
-export interface AppState { // Added export
+export interface AppState { // <-- CONFIRMED EXPORT
     teams: Team[];
     members: Member[];
     songs: Song[]; // This will now hold songs for the *current page*
@@ -435,6 +444,7 @@ export interface AppState { // Added export
 export const useAppStore = defineStore('app', {
     state: (): AppState => {
         // Get reactive state directly from the composable
+        // Pinia will automatically unwrap these refs
         const { isAuthenticated, kindeUser, userMember, isAdminUser } = useKindeAuth();
 
         return {
@@ -459,7 +469,7 @@ export const useAppStore = defineStore('app', {
 
             // --- Kinde Auth State ---
             // Assign the reactive refs directly to the state properties
-            isAuthenticated: isAuthenticated.value, // Pinia will unwrap the ref
+            isAuthenticated: isAuthenticated.value,
             kindeUser: kindeUser.value,
             userMember: userMember.value,
             isAdminUser: isAdminUser.value,
@@ -497,6 +507,8 @@ export const useAppStore = defineStore('app', {
             const { checkAuthStatus } = useKindeAuth();
             await checkAuthStatus();
             // Update store state from composable state after check
+            // Pinia state properties are reactive, but explicitly assigning
+            // the unwrapped values ensures the store state reflects the composable state.
             const { isAuthenticated, kindeUser, userMember, isAdminUser } = useKindeAuth();
             this.isAuthenticated = isAuthenticated.value;
             this.kindeUser = kindeUser.value;
@@ -511,7 +523,7 @@ export const useAppStore = defineStore('app', {
         async logout() {
             const { logout } = useKindeAuth();
             await logout();
-            // State will be cleared by the composable
+            // State will be cleared by the composable's logout logic
             this.isAuthenticated = false;
             this.kindeUser = null;
             this.userMember = null;
@@ -531,11 +543,11 @@ export const useAppStore = defineStore('app', {
 
 
         // --- Data Fetching Actions (Keep existing, they use api.ts which will be updated) ---
+        // These actions will now implicitly use the authenticatedFetch via api.ts
         async fetchTeams() {
             this.setLoading('teams', true);
             this.clearError();
             try {
-                // This will now use the authenticatedFetch via api.ts
                 const response = await api.fetchTeams();
                 if (response.success && response.data) {
                     this.teams = response.data;
@@ -553,7 +565,6 @@ export const useAppStore = defineStore('app', {
             this.setLoading('members', true);
             this.clearError();
             try {
-                // This will now use the authenticatedFetch via api.ts
                 const response = await api.fetchMembers(teamCode);
                 if (response.success && response.data) {
                     this.members = response.data;
@@ -583,7 +594,6 @@ export const useAppStore = defineStore('app', {
                     }
                 });
 
-                // This will now use the authenticatedFetch via api.ts
                 const response = await api.fetchSongs(requestParams);
 
                 if (response.success && response.data) {
@@ -605,7 +615,6 @@ export const useAppStore = defineStore('app', {
         async fetchSongFilterOptions() {
             this.setLoading('songFilters', true);
             try {
-                 // This will now use the authenticatedFetch via api.ts
                 const response = await api.fetchSongFilterOptions();
                  if (response.success && response.data) {
                      this.songFilterOptions = response.data;
@@ -623,7 +632,6 @@ export const useAppStore = defineStore('app', {
             this.setLoading('tournamentMatches', true);
             this.clearError();
             try {
-                 // This will now use the authenticatedFetch via api.ts
                 const response = await api.fetchTournamentMatches();
                 if (response.success && response.data) {
                     this.tournamentMatches = response.data;
@@ -642,7 +650,6 @@ export const useAppStore = defineStore('app', {
             this.clearError();
             console.log(`[Store HTTP] Attempting to fetch initial match state for DO: ${doId}`);
             try {
-                 // This will now use the authenticatedFetch via api.ts
                 const response = await api.fetchMatchState(doId);
                 if (response.success && response.data) {
                     this.currentMatchState = response.data;
@@ -665,7 +672,6 @@ export const useAppStore = defineStore('app', {
             this.setLoading('matchHistory', true);
             this.clearError();
             try {
-                 // This will now use the authenticatedFetch via api.ts
                 const response = await api.fetchMatchHistory();
                 if (response.success && response.data) {
                     this.matchHistory = response.data;
@@ -683,7 +689,6 @@ export const useAppStore = defineStore('app', {
             this.setLoading('memberSongPreferences', true);
             this.clearError();
             try {
-                 // This will now use the authenticatedFetch via api.ts
                 const response = await api.fetchMemberSongPreferences(memberId, stage);
                 if (response.success && response.data) {
                     this.memberSongPreferences = response.data;
@@ -698,10 +703,10 @@ export const useAppStore = defineStore('app', {
         },
 
         // --- Tournament & Match Actions (Keep existing, they use api.ts which will be updated) ---
+        // These actions will now require Admin Auth via the backend middleware
         async createTournamentMatch(payload: CreateTournamentMatchPayload) {
             this.clearError();
             try {
-                 // This will now use the authenticatedFetch via api.ts (requires Admin Auth)
                 const response = await api.createTournamentMatch(payload);
                 if (response.success && response.data) {
                     this.tournamentMatches.unshift(response.data);
@@ -720,7 +725,6 @@ export const useAppStore = defineStore('app', {
         async confirmMatchSetup(matchId: number, payload: ConfirmMatchSetupPayload) {
             this.clearError();
             try {
-                 // This will now use the authenticatedFetch via api.ts (requires Admin Auth)
                 const response = await api.confirmMatchSetup(matchId, payload);
                 if (response.success && response.data) {
                     const index = this.tournamentMatches.findIndex(m => m.id === matchId);
@@ -739,7 +743,6 @@ export const useAppStore = defineStore('app', {
         async startLiveMatch(matchId: number) {
             this.clearError();
             try {
-                 // This will now use the authenticatedFetch via api.ts (requires Admin Auth)
                 const response = await api.startLiveMatch(matchId);
                 if (response.success && response.data?.match_do_id) {
                     const index = this.tournamentMatches.findIndex(m => m.id === matchId);
@@ -837,7 +840,6 @@ export const useAppStore = defineStore('app', {
         async saveMemberSongPreference(payload: SaveMemberSongPreferencePayload) {
             this.clearError();
             try {
-                 // This will now use the authenticatedFetch via api.ts (requires User Auth)
                 const response = await api.saveMemberSongPreference(payload);
                 if (response.success && response.data) {
                     const index = this.memberSongPreferences.findIndex(p =>
@@ -864,8 +866,6 @@ export const useAppStore = defineStore('app', {
 
         // --- WebSocket Management (Keep existing) ---
         connectWebSocket(doId: string) {
-            // ... (Your existing connectWebSocket logic) ...
-             // doId here is the DO *name* from the route (e.g., "match-1")
              if (this.currentMatchWebSocket && this.connectedDoName === doId) {
                   if (this.currentMatchWebSocket.readyState === WebSocket.OPEN || this.currentMatchWebSocket.readyState === WebSocket.CONNECTING) {
                       console.log(`[Store WS] WebSocket already open or connecting for DO name: ${doId}.`);
@@ -936,7 +936,6 @@ export const useAppStore = defineStore('app', {
         },
 
         disconnectWebSocket() {
-            // ... (Your existing disconnectWebSocket logic) ...
              if (this.currentMatchWebSocket && this.currentMatchWebSocket.readyState === WebSocket.OPEN) {
                  console.log(`[Store WS] Closing WebSocket for DO name: ${this.connectedDoName || 'unknown'}`);
                  this.currentMatchWebSocket.close(1000, "User navigated away");
