@@ -1,17 +1,35 @@
 // src/services/api.ts
 import type {
-    // Import existing frontend types from store.ts
-    ApiResponse, Team, Member, Song, TournamentMatch, MatchState,
-    CalculateRoundPayload, ResolveDrawPayload, SelectTiebreakerSongPayload,
-    CreateTournamentMatchPayload, ConfirmMatchSetupPayload,
-    MemberSongPreference, SaveMemberSongPreferencePayload,
-    MatchHistoryMatch, RoundSummary,
-    SongsApiResponseData, SongFiltersApiResponseData,
-    KindeUser, // Assuming KindeUser is also defined in store.ts
+    // Import ALL necessary types from your Pinia store file
+    ApiResponse,
+    KindeUser,
+    Team,
+    Member,
+    Song,
+    SongLevel, // Needed for parsing levels if done in API layer (though store does it)
+    MemberSongPreference,
+    SaveMemberSongPreferencePayload,
+    MatchSong,
+    TournamentMatch,
+    CreateTournamentMatchPayload,
+    ConfirmMatchSetupPayload,
+    MatchState,
+    CalculateRoundPayload,
+    ResolveDrawPayload,
+    SelectTiebreakerSongPayload,
+    RoundSummary,
+    MatchHistoryMatch,
+    MatchHistoryRound,
+    PaginationInfo,
+    SongsApiResponseData,
+    SongFiltersApiResponseData,
+    InternalProfession, // Although this is backend-internal, it's in your store types
 
-    // Import NEW frontend types from store.ts
-    MatchPlayerSelectionFrontend, SaveMatchPlayerSelectionPayloadFrontend,
-    FetchUserMatchSelectionDataFrontend, MatchSelectionStatusFrontend,
+    // Import NEW frontend types defined in store.ts
+    MatchPlayerSelectionFrontend,
+    SaveMatchPlayerSelectionPayloadFrontend,
+    FetchUserMatchSelectionDataFrontend,
+    MatchSelectionStatusFrontend,
     CompileMatchSetupResponseFrontend
 } from '@/store'; // Import types from your Pinia store file
 
@@ -24,14 +42,14 @@ const API_BASE_URL = '/api';
  * Includes credentials to send HttpOnly cookies.
  * @param endpoint The API endpoint (e.g., '/teams').
  * @param method HTTP method (e.g., 'GET', 'POST').
- * @param data Optional data to send in the request body for POST, PUT, etc.
+ * @param data Optional data to send in the request body for POST, PUT, etc. Can be JSON object or FormData.
  * @param options Optional fetch options to merge.
  * @returns Promise<ApiResponse<T>>
  */
 async function callApi<T>(endpoint: string, method: string = 'GET', data?: any, options: RequestInit = {}): Promise<ApiResponse<T>> {
     const url = `${API_BASE_URL}${endpoint}`;
 
-    // Create a new Headers object for mutable headers
+    // Create a new Headers object for mutable headers, merging provided headers
     const headers = new Headers(options.headers);
 
     // Set default Content-Type unless it's FormData or already set
@@ -58,18 +76,20 @@ async function callApi<T>(endpoint: string, method: string = 'GET', data?: any, 
 
 
     try {
+        console.log(`API Call: ${method} ${url}`, { options: defaultOptions, data });
         const response = await fetch(url, defaultOptions);
+        console.log(`API Response: ${method} ${url} Status: ${response.status}`);
+
 
         if (response.status === 204) {
-             return { success: true, message: 'Operation successful (No Content)' };
+             // No content response, assume success
+             return { success: true, message: 'Operation successful (No Content)' } as ApiResponse<T>; // Cast as T might be void
         }
 
-        // Handle 401 Unauthorized specifically if needed, although useKindeAuth.authenticatedFetch does this
-        // If you are NOT using authenticatedFetch wrapper in composable, you'd handle 401 here.
-        // Since we are using it, the composable handles the 401 state update.
-
+        // Attempt to parse JSON response
         const result = await response.json().catch((parseError) => {
              console.error(`API Error: Failed to parse JSON response from ${method} ${url}`, response.status, parseError);
+             // If JSON parsing fails, return a generic error structure
              return {
                  success: false,
                  error: response.statusText || `Failed to parse JSON response (Status: ${response.status})`,
@@ -77,27 +97,33 @@ async function callApi<T>(endpoint: string, method: string = 'GET', data?: any, 
              };
         });
 
-        if (!response.ok || (result && result.success === false)) {
+        // Check for HTTP errors (status outside 2xx) or explicit success: false from backend
+        if (!response.ok || (result && typeof result === 'object' && result.success === false)) {
             console.error(`API Error: ${method} ${url}`, {
                 status: response.status,
                 statusText: response.statusText,
                 responseBody: result
             });
             // Throw an error to be caught by the calling Pinia action
+            // Use the error/message from the backend response if available, otherwise use status text
             throw new Error(result?.error || result?.message || `API request failed with status ${response.status}`);
         }
 
-        // Assume success if HTTP status is OK and no explicit success: false
-        if (result && typeof result.success !== 'boolean') {
+        // If response.ok is true and no explicit success: false, assume success
+        // Ensure the result object has success: true if it wasn't explicitly set by backend
+        if (result && typeof result === 'object' && typeof result.success !== 'boolean') {
             result.success = true;
         }
+
         return result as ApiResponse<T>;
 
     } catch (error: any) {
         console.error(`API Fetch/Network Error: ${method} ${url}`, error);
+        // Re-throw the error so the calling code (Pinia action) can handle it
         if (error instanceof Error) {
             throw error;
         } else {
+            // Wrap non-Error exceptions in an Error object
             throw new Error(String(error) || `Network request failed for ${method} ${url}`);
         }
     }
@@ -117,10 +143,11 @@ export const logout = (): Promise<ApiResponse<any>> => {
     // The frontend doesn't process the response body here, just initiates the redirect.
     // The callApi wrapper might throw if the redirect isn't handled as a successful response.
     // A simple fetch might be better here, or handle the redirect status in callApi.
-    // Let's use a simple fetch for logout redirect as it's a top-level navigation.
+    // Let's use a simple fetch for logout redirect.
     const url = `${API_BASE_URL}/logout`;
+    console.log(`API: Initiating logout redirect to ${url}`);
     // The browser will follow the redirect automatically
-    // We don't expect a JSON response, so we don't use callApi
+    // We don't expect a standard JSON response, so we don't use callApi
     return fetch(url, { method: 'GET', credentials: 'include' }) as Promise<any>; // Cast to any as we don't expect a standard ApiResponse
 };
 
@@ -145,9 +172,9 @@ export const createTeam = (teamCode: string, teamName: string): Promise<ApiRespo
     return callApi<{ code: string; name: string; }>('/teams/create', 'POST', { teamCode, teamName });
 };
 
-// joinTeam requires user authentication (backend middleware handles this)
+// joinTeam requires user authentication (handled by backend middleware)
 export const joinTeam = (payload: FormData): Promise<ApiResponse<{ member: Member }>> => {
-    // callApi handles FormData correctly
+    // callApi handles FormData correctly if Content-Type is not set
     return callApi<{ member: Member }>('/teams/join', 'POST', payload);
 };
 
@@ -166,29 +193,54 @@ export const fetchMemberById = (memberId: number): Promise<ApiResponse<Member>> 
     return callApi<Member>(`/members/${memberId}`, 'GET');
 };
 
-// patchMember requires user authentication (backend middleware handles this, verifies kinde_user_id)
+// patchMember requires user authentication (uses maimaiId in URL, backend verifies kinde_user_id)
 export const patchMember = (maimaiId: string, payload: FormData): Promise<ApiResponse<{ member: Member }>> => {
     return callApi<{ member: Member }>(`/members/${maimaiId}`, 'PATCH', payload);
 };
 
-// deleteMember requires user authentication (backend middleware handles this, verifies kinde_user_id)
+// deleteMember requires user authentication (uses maimaiId in URL, backend verifies kinde_user_id)
 export const deleteMember = (maimaiId: string): Promise<ApiResponse<any>> => {
-    return callApi<any>(`/members/${maimaiId}`, 'DELETE'); // Expects 204 No Content
+    // Expects 204 No Content on success
+    return callApi<any>(`/members/${maimaiId}`, 'DELETE');
 };
 
 
 // --- Songs API ---
-// fetchSongs is public
+// fetchSongs is public (paginated)
 export const fetchSongs = (params?: { category?: string; type?: string; search?: string; page?: number; limit?: number }): Promise<ApiResponse<SongsApiResponseData>> => {
     const queryParams = new URLSearchParams();
     if (params?.category) queryParams.append('category', params.category);
     if (params?.type) queryParams.append('type', params.type);
     if (params?.search) queryParams.append('search', params.search);
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.page !== undefined && params.page !== null) queryParams.append('page', params.page.toString());
+    if (params?.limit !== undefined && params.limit !== null) queryParams.append('limit', params.limit.toString());
     const queryString = queryParams.toString();
     return callApi<SongsApiResponseData>(`/songs${queryString ? `?${queryString}` : ''}`);
 };
+
+// fetchAllSongs is public (used for picker, assumes backend /songs endpoint returns all if no pagination params)
+// NOTE: If your backend /songs endpoint *always* returns paginated data, you might need a different endpoint
+// like /songs/all or modify this function to fetch all pages.
+// Based on the backend code, /api/songs without limit/page params seems to return all songs.
+export const fetchAllSongs = (): Promise<ApiResponse<Song[]>> => {
+     // Call /songs endpoint without pagination parameters
+     // The backend returns { songs: Song[], pagination: PaginationInfo } for paginated calls.
+     // If called without pagination, it might return just Song[] or { songs: Song[] }.
+     // Let's assume it returns { songs: Song[] } for consistency, even if pagination is null/default.
+     // Adjust the return type based on your actual backend implementation for the "all" case.
+     // If it returns Song[] directly:
+     // return callApi<Song[]>('/songs');
+     // If it returns { songs: Song[] } with pagination:
+     return callApi<SongsApiResponseData>('/songs').then(response => {
+         if (response.success && response.data) {
+             // Extract the songs array from the paginated response structure
+             return { success: true, data: response.data.songs, message: response.message };
+         }
+         // Propagate error or return empty array on failure
+         return { success: false, error: response.error || 'Failed to fetch all songs', data: [] };
+     });
+};
+
 
 // fetchSongFilterOptions is public
 export const fetchSongFilterOptions = (): Promise<ApiResponse<SongFiltersApiResponseData>> => {
@@ -197,11 +249,11 @@ export const fetchSongFilterOptions = (): Promise<ApiResponse<SongFiltersApiResp
 
 
 // --- Member Song Preference API ---
-// saveMemberSongPreference requires user authentication (backend middleware handles this)
+// saveMemberSongPreference requires user authentication (handled by backend middleware)
 export const saveMemberSongPreference = (payload: SaveMemberSongPreferencePayload): Promise<ApiResponse<MemberSongPreference>> => {
     return callApi<MemberSongPreference>('/member_song_preferences', 'POST', payload);
 };
-// fetchMemberSongPreferences requires user authentication (backend middleware handles this)
+// fetchMemberSongPreferences requires user authentication (handled by backend middleware)
 export const fetchMemberSongPreferences = (memberId: number, stage: string): Promise<ApiResponse<MemberSongPreference[]>> => {
     const queryParams = new URLSearchParams();
     queryParams.append('member_id', memberId.toString());
@@ -215,22 +267,22 @@ export const fetchMemberSongPreferences = (memberId: number, stage: string): Pro
 // fetchTournamentMatches is public
 export const fetchTournamentMatches = (): Promise<ApiResponse<TournamentMatch[]>> => callApi<TournamentMatch[]>('/tournament_matches');
 
-// createTournamentMatch requires Admin authentication (backend middleware handles this)
+// createTournamentMatch requires Admin authentication (handled by backend middleware)
 export const createTournamentMatch = (payload: CreateTournamentMatchPayload): Promise<ApiResponse<TournamentMatch>> => {
     return callApi<TournamentMatch>('/tournament_matches', 'POST', payload);
 };
 
-// confirmMatchSetup requires Admin authentication (backend middleware handles this)
+// confirmMatchSetup requires Admin authentication (handled by backend middleware)
 export const confirmMatchSetup = (matchId: number, payload: ConfirmMatchSetupPayload): Promise<ApiResponse<TournamentMatch>> => {
     return callApi<TournamentMatch>(`/tournament_matches/${matchId}/confirm_setup`, 'PUT', payload);
 };
 
-// startLiveMatch requires Admin authentication (backend middleware handles this)
+// startLiveMatch requires Admin authentication (handled by backend middleware)
 export const startLiveMatch = (matchId: number): Promise<ApiResponse<{ message: string; match_do_id: string; do_init_result?: any }>> => {
     return callApi<{ message: string; match_do_id: string; do_init_result?: any }>(`/tournament_matches/${matchId}/start_live`, 'POST');
 };
 
-// fetchMatchState is public
+// fetchMatchState is public (DO state is public for spectators)
 export const fetchMatchState = (doId: string): Promise<ApiResponse<MatchState>> => callApi<MatchState>(`/live-match/${doId}/state`);
 
 // --- Durable Object Actions (forwarded via Worker, require Admin Auth) ---
@@ -259,68 +311,57 @@ export const archiveMatch = (doId: string): Promise<ApiResponse<{ message?: stri
 // fetchMatchHistory is public
 export const fetchMatchHistory = (): Promise<ApiResponse<MatchHistoryMatch[]>> => callApi<MatchHistoryMatch[]>('/match_history');
 
+
+// --- NEW API CALLS FOR USER MATCH SELECTION AND STAFF COMPILATION ---
+
+// fetchUserMatchSelectionData requires user authentication (handled by backend middleware)
+// Corresponds to GET /api/member/match-selection/:matchId
+export const fetchUserMatchSelectionData = (matchId: number): Promise<ApiResponse<FetchUserMatchSelectionDataFrontend>> => {
+    return callApi<FetchUserMatchSelectionDataFrontend>(`/member/match-selection/${matchId}`, 'GET');
+};
+
+// saveMatchPlayerSelection requires user authentication (handled by backend middleware)
+// Corresponds to POST /api/member/match-selection/:matchId
+// Backend returns { selection: MatchPlayerSelection }
+export const saveMatchPlayerSelection = (matchId: number, payload: SaveMatchPlayerSelectionPayloadFrontend): Promise<ApiResponse<{ selection: MatchPlayerSelectionFrontend }>> => {
+    // The backend returns an object { selection: MatchPlayerSelection }.
+    // We need to type this correctly.
+    return callApi<{ selection: MatchPlayerSelectionFrontend }>(`/member/match-selection/${matchId}`, 'POST', payload);
+};
+
+// fetchMatchSelectionStatus requires Admin authentication (handled by backend middleware)
+// Corresponds to GET /api/tournament_matches/:matchId/selection-status
+export const fetchMatchSelectionStatus = (matchId: number): Promise<ApiResponse<MatchSelectionStatusFrontend>> => {
+    return callApi<MatchSelectionStatusFrontend>(`/tournament_matches/${matchId}/selection-status`, 'GET');
+};
+
+// compileMatchSetup requires Admin authentication (handled by backend middleware)
+// Corresponds to POST /api/tournament_matches/:matchId/compile-setup
+// Backend returns { success: boolean, message: string, tournamentMatch?: TournamentMatch }
+export const compileMatchSetup = (matchId: number): Promise<ApiResponse<CompileMatchSetupResponseFrontend>> => {
+    return callApi<CompileMatchSetupResponseFrontend>(`/tournament_matches/${matchId}/compile-setup`, 'POST');
+};
+
+
 // --- Admin API ---
-// fetchAdminMembers requires Admin authentication (backend middleware handles this)
+// fetchAdminMembers requires Admin authentication (handled by backend middleware)
 export const fetchAdminMembers = (): Promise<ApiResponse<{ members: Member[] }>> => {
     return callApi<{ members: Member[] }>('/admin/members', 'GET');
 };
 
-// TODO: Add other admin API calls (add/patch/delete members, update settings, etc.)
-// These will also require Admin authentication via backend middleware.
-// Fetch data for the user's match selection page
-
-
-// --- Member Match Selection API ---
-
-export const fetchUserMatchSelectionData = (matchId: number): Promise<ApiResponse<FetchUserMatchSelectionData>> => {
-    // Requires user authentication (backend middleware handles this)
-    return callApi<FetchUserMatchSelectionData>(`/member/match-selection/${matchId}`, 'GET');
+// Example Admin Patch Member (using ID instead of Maimai ID for admin)
+// Corresponds to PATCH /api/admin/members/:id
+export const adminPatchMember = (memberId: number, payload: FormData): Promise<ApiResponse<{ member: Member }>> => {
+    return callApi<{ member: Member }>(`/admin/members/${memberId}`, 'PATCH', payload);
 };
-
-// Save user's song selections and order for a match
-export const saveMatchPlayerSelection = (matchId: number, payload: SaveMatchPlayerSelectionPayload): Promise<ApiResponse<MatchPlayerSelection>> => {
-    // Requires user authentication (backend middleware handles this)
-    return callApi<MatchPlayerSelection>(`/member/match-selection/${matchId}`, 'POST', payload);
+// Example Admin Delete Member
+// Corresponds to DELETE /api/admin/members/:id
+export const adminDeleteMember = (memberId: number): Promise<ApiResponse<any>> => {
+    return callApi<any>(`/admin/members/${memberId}`, 'DELETE'); // Expects 204 No Content
 };
-
-// --- NEW Staff Match Setup Compilation API ---
-
-// Check selection status for a match (for Staff)
-export const checkMatchSelectionStatus = (matchId: number): Promise<ApiResponse<MatchSelectionStatus>> => {
-    // Requires Admin authentication (backend middleware handles this)
-    return callApi<MatchSelectionStatus>(`/tournament_matches/${matchId}/selection-status`, 'GET');
-};
-
-// Compile final match setup from player selections (for Staff)
-export const compileMatchSetup = (matchId: number): Promise<ApiResponse<CompileMatchSetupResponse>> => {
-    // Requires Admin authentication (backend middleware handles this)
-    return callApi<CompileMatchSetupResponse>(`/tournament_matches/${matchId}/compile-setup`, 'POST');
-};
-// --- NEW Member Match Selection API ---
-
-// Fetch data for the user's match selection page
-export const fetchUserMatchSelectionData = (matchId: number): Promise<ApiResponse<FetchUserMatchSelectionDataFrontend>> => {
-    // Requires user authentication (backend middleware handles this)
-    return callApi<FetchUserMatchSelectionDataFrontend>(`/member/match-selection/${matchId}`, 'GET');
-};
-
-// Save user's song selections and order for a match
-// Backend returns { selection: MatchPlayerSelection }
-export const saveMatchPlayerSelection = (matchId: number, payload: SaveMatchPlayerSelectionPayloadFrontend): Promise<ApiResponse<{ selection: MatchPlayerSelectionFrontend }>> => {
-    // Requires user authentication (backend middleware handles this)
-    return callApi<ApiResponse<{ selection: MatchPlayerSelectionFrontend }>>(`/member/match-selection/${matchId}`, 'POST', payload);
-};
-
-// --- NEW Staff Match Setup Compilation API ---
-
-// Check selection status for a match (for Staff)
-export const checkMatchSelectionStatus = (matchId: number): Promise<ApiResponse<MatchSelectionStatusFrontend>> => {
-    // Requires Admin authentication (backend middleware handles this)
-    return callApi<MatchSelectionStatusFrontend>(`/tournament_matches/${matchId}/selection-status`, 'GET');
-};
-
-// Compile final match setup from player selections (for Staff)
-export const compileMatchSetup = (matchId: number): Promise<ApiResponse<CompileMatchSetupResponseFrontend>> => {
-    // Requires Admin authentication (backend middleware handles this)
-    return callApi<CompileMatchSetupResponseFrontend>(`/tournament_matches/${matchId}/compile-setup`, 'POST');
+// Example Admin Update Settings
+// Corresponds to PUT /api/admin/settings
+// Note: Backend index.ts doesn't have this handler yet, but adding the API call here.
+export const adminUpdateSettings = (payload: { collection_paused: boolean }): Promise<ApiResponse<any>> => {
+    return callApi<any>('/admin/settings', 'PUT', payload); // Expects 200 or 204
 };

@@ -630,9 +630,10 @@ export const useAppStore = defineStore('app', {
         // --- Generic Loading and Error Handling ---
         setLoading(key: string, value: boolean) {
             if (this.isLoading.hasOwnProperty(key)) {
-                 this.isLoading[key] = value;
+                 this.isLoading[key as keyof AppState['isLoading']] = value; // Use keyof for type safety
             } else {
                  // Allow adding new loading keys dynamically if needed, though defining in AppState is better
+                 console.warn(`Attempted to set unknown loading key: ${key}`);
                  (this.isLoading as any)[key] = value;
             }
         },
@@ -1048,13 +1049,15 @@ export const useAppStore = defineStore('app', {
             this.setLoading('savingMatchSelection', true);
             this.clearError();
             try {
-                const response = await api.saveMatchPlayerSelection(matchId, payload); // Assume api.ts has this function
-                if (response.success && response.data) {
-                    // Update the user's selection in the state
-                    this.userMatchSelection = response.data;
+                // Corrected: api.saveMatchPlayerSelection returns ApiResponse<{ selection: MatchPlayerSelectionFrontend }>
+                const response = await api.saveMatchPlayerSelection(matchId, payload);
+                if (response.success && response.data?.selection) { // Check for response.data and response.data.selection
+                    // Corrected: Assign response.data.selection to userMatchSelection
+                    this.userMatchSelection = response.data.selection;
+
                     // Also update it within the upcomingMatchForSelection if it exists
                     if (this.upcomingMatchForSelection) {
-                         this.upcomingMatchForSelection.mySelection = response.data;
+                         this.upcomingMatchForSelection.mySelection = response.data.selection;
                          // Need to refetch occupied indices or update locally if possible
                          // For simplicity, let's refetch the whole selection data after saving
                          // Or, if the backend returns the updated occupied list, use that.
@@ -1068,14 +1071,17 @@ export const useAppStore = defineStore('app', {
                          //     }
                          // } else {
                              // Fallback: refetch all data
-                             this.fetchUserMatchSelectionData(matchId); // Refetch to get updated occupied indices
+                             // Refetching ensures occupied indices are up-to-date
+                             this.fetchUserMatchSelectionData(matchId);
                          // }
                     }
-                    console.log(`Store: Saved user match selection for match ${matchId}`, response.data);
-                    return response.data;
+                    console.log(`Store: Saved user match selection for match ${matchId}`, response.data.selection);
+                    // Corrected: Return the saved selection object itself
+                    return response.data.selection;
                 } else {
+                    // If response.success is false, response.data is undefined, but response.error/message should exist
                     this.setError(response.error || `Failed to save selection for match ${matchId}`);
-                    return null;
+                    return null; // Return null on failure
                 }
             } catch (err: any) {
                 this.setError(err.message);
