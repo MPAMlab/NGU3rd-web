@@ -1,3 +1,4 @@
+<!-- src/views/Home.vue -->
 <template>
     <div class="home-view">
       <el-card class="box-card">

@@ -1,3 +1,4 @@
+<!-- src/views/Songs.vue -->
 <template>
   <div class="songs-view">
     <el-card header="歌曲列表">

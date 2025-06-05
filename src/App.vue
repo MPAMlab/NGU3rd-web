@@ -83,7 +83,7 @@ const handleLogin = () => {
     <!-- Footer (Optional) -->
     <footer class="bg-gray-800 text-gray-400 text-center p-4 mt-8">
       <div class="container mx-auto">
-        <p>&copy; 2024 NGU3rd. All rights reserved.</p>
+        <p>&copy; 2025 NGU Team, MPAM Laboratory. All rights reserved.</p>
         <RouterLink :to="{ name: 'privacy-policy' }" class="text-gray-400 hover:text-purple-400 transition text-sm">隐私政策</RouterLink>
       </div>
     </footer>

@@ -1,3 +1,4 @@
+<!-- src/views/LiveMatch.vue -->
 <template>
     <div class="live-match-view">
       <el-card v-if="store.currentMatchState" :header="`直播赛程: ${store.currentMatchState.round_name}`" v-loading="store.isLoading.currentMatch">

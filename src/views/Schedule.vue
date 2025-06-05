@@ -1,3 +1,4 @@
+<!-- src/views/Schedule.vue -->
 <template>
     <div class="schedule-view">
       <el-card header="赛程管理" v-loading="store.isLoading.tournamentMatches || store.isLoading.teams || store.isLoading.members || store.isLoading.songs">

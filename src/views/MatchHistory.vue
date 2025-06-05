@@ -1,3 +1,4 @@
+<!-- src/views/MatchHistory.vue -->
 <template>
     <div class="match-history-view">
       <el-card header="比赛历史" v-loading="store.isLoading.matchHistory">

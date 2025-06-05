@@ -1,3 +1,4 @@
+<!-- src/views/MemberSongPrefs.vue -->
 <template>
     <div class="member-song-prefs-view">
       <el-card header="选手选曲偏好">
