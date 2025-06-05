@@ -1,12 +1,18 @@
 // src/services/api.ts
 import type {
-    Team, Member, Song, TournamentMatch, MatchState,
+    // Import existing frontend types from store.ts
+    ApiResponse, Team, Member, Song, TournamentMatch, MatchState,
     CalculateRoundPayload, ResolveDrawPayload, SelectTiebreakerSongPayload,
     CreateTournamentMatchPayload, ConfirmMatchSetupPayload,
     MemberSongPreference, SaveMemberSongPreferencePayload,
-    MatchHistoryMatch, RoundSummary, ApiResponse,
+    MatchHistoryMatch, RoundSummary,
     SongsApiResponseData, SongFiltersApiResponseData,
-    KindeUser // Import KindeUser type from store.ts
+    KindeUser, // Assuming KindeUser is also defined in store.ts
+
+    // Import NEW frontend types from store.ts
+    MatchPlayerSelectionFrontend, SaveMatchPlayerSelectionPayloadFrontend,
+    FetchUserMatchSelectionDataFrontend, MatchSelectionStatusFrontend,
+    CompileMatchSetupResponseFrontend
 } from '@/store'; // Import types from your Pinia store file
 
 // API_BASE_URL remains the same
@@ -261,3 +267,60 @@ export const fetchAdminMembers = (): Promise<ApiResponse<{ members: Member[] }>>
 
 // TODO: Add other admin API calls (add/patch/delete members, update settings, etc.)
 // These will also require Admin authentication via backend middleware.
+// Fetch data for the user's match selection page
+
+
+// --- Member Match Selection API ---
+
+export const fetchUserMatchSelectionData = (matchId: number): Promise<ApiResponse<FetchUserMatchSelectionData>> => {
+    // Requires user authentication (backend middleware handles this)
+    return callApi<FetchUserMatchSelectionData>(`/member/match-selection/${matchId}`, 'GET');
+};
+
+// Save user's song selections and order for a match
+export const saveMatchPlayerSelection = (matchId: number, payload: SaveMatchPlayerSelectionPayload): Promise<ApiResponse<MatchPlayerSelection>> => {
+    // Requires user authentication (backend middleware handles this)
+    return callApi<MatchPlayerSelection>(`/member/match-selection/${matchId}`, 'POST', payload);
+};
+
+// --- NEW Staff Match Setup Compilation API ---
+
+// Check selection status for a match (for Staff)
+export const checkMatchSelectionStatus = (matchId: number): Promise<ApiResponse<MatchSelectionStatus>> => {
+    // Requires Admin authentication (backend middleware handles this)
+    return callApi<MatchSelectionStatus>(`/tournament_matches/${matchId}/selection-status`, 'GET');
+};
+
+// Compile final match setup from player selections (for Staff)
+export const compileMatchSetup = (matchId: number): Promise<ApiResponse<CompileMatchSetupResponse>> => {
+    // Requires Admin authentication (backend middleware handles this)
+    return callApi<CompileMatchSetupResponse>(`/tournament_matches/${matchId}/compile-setup`, 'POST');
+};
+// --- NEW Member Match Selection API ---
+
+// Fetch data for the user's match selection page
+export const fetchUserMatchSelectionData = (matchId: number): Promise<ApiResponse<FetchUserMatchSelectionDataFrontend>> => {
+    // Requires user authentication (backend middleware handles this)
+    return callApi<FetchUserMatchSelectionDataFrontend>(`/member/match-selection/${matchId}`, 'GET');
+};
+
+// Save user's song selections and order for a match
+// Backend returns { selection: MatchPlayerSelection }
+export const saveMatchPlayerSelection = (matchId: number, payload: SaveMatchPlayerSelectionPayloadFrontend): Promise<ApiResponse<{ selection: MatchPlayerSelectionFrontend }>> => {
+    // Requires user authentication (backend middleware handles this)
+    return callApi<ApiResponse<{ selection: MatchPlayerSelectionFrontend }>>(`/member/match-selection/${matchId}`, 'POST', payload);
+};
+
+// --- NEW Staff Match Setup Compilation API ---
+
+// Check selection status for a match (for Staff)
+export const checkMatchSelectionStatus = (matchId: number): Promise<ApiResponse<MatchSelectionStatusFrontend>> => {
+    // Requires Admin authentication (backend middleware handles this)
+    return callApi<MatchSelectionStatusFrontend>(`/tournament_matches/${matchId}/selection-status`, 'GET');
+};
+
+// Compile final match setup from player selections (for Staff)
+export const compileMatchSetup = (matchId: number): Promise<ApiResponse<CompileMatchSetupResponseFrontend>> => {
+    // Requires Admin authentication (backend middleware handles this)
+    return callApi<CompileMatchSetupResponseFrontend>(`/tournament_matches/${matchId}/compile-setup`, 'POST');
+};

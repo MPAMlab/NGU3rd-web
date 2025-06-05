@@ -1,7 +1,8 @@
-<!-- src/views/Schedule.vue -->
+<!-- frontend/src/views/Schedule.vue -->
 <template>
     <div class="schedule-view">
-      <el-card header="赛程管理" v-loading="store.isLoading.tournamentMatches || store.isLoading.teams || store.isLoading.members || store.isLoading.songs">
+      <!-- Corrected: Added closing tag for el-card -->
+      <el-card header="赛程管理" v-loading="store.isLoading.tournamentMatches || store.isLoading.teams || store.isLoading.members">
         <el-button type="primary" @click="openCreateMatchDialog">创建新赛程</el-button>
 
         <el-table :data="store.tournamentMatches" style="width: 100%; margin-top: 20px;" border stripe>
@@ -28,8 +29,9 @@
                   v-if="row.status === 'scheduled' || row.status === 'pending_song_confirmation'"
                   size="small"
                   @click="openConfirmSetupDialog(row)"
+                  :loading="store.isLoading.checkingMatchSelectionStatus"
               >
-                  配置歌单/顺序
+                  查看/编译歌单
               </el-button>
               <el-button
                   v-if="row.status === 'ready_to_start'"
@@ -93,95 +95,73 @@
           </template>
         </el-dialog>
 
-        <!-- Confirm Setup Dialog -->
-        <el-dialog v-model="confirmSetupDialogVisible" :title="`配置赛程: ${currentMatchToSetup?.round_name}`" width="800px">
+        <!-- Confirm Setup Dialog (Modified for Player Selection Status & Compilation) -->
+        <el-dialog v-model="confirmSetupDialogVisible" :title="`赛程配置: ${currentMatchToSetup?.round_name}`" width="800px">
             <div v-if="currentMatchToSetup">
+                <!-- Corrected: el-alert should not be self-closing -->
                 <el-alert type="info" :closable="false" style="margin-bottom: 20px;">
-                    请配置队伍出场顺序和比赛歌单。歌单将按顺序进行比赛。
+                    查看选手选歌和顺序状态，并在所有选手完成后编译最终歌单。
                 </el-alert>
-
-                 <el-form-item label="赛程阶段" prop="selectedStage">
-                     <el-select v-model="selectedStage" placeholder="选择赛程阶段" @change="handleStageChange">
-                         <el-option label="8进4" value="8进4" />
-                         <el-option label="4进2" value="4进2" />
-                         <el-option label="2进1" value="2进1" />
-                     </el-select>
-                     <el-text type="info" size="small" style="margin-left: 10px;">
-                         {{ selectedStage === '2进1' ? '需要配置 6 首歌曲' : '需要配置 12 首歌曲' }}
-                     </el-text>
-                 </el-form-item>
-
 
                 <el-row :gutter="20">
                     <el-col :span="12">
-                        <el-card :header="`${currentMatchToSetup.team1_name} 出场顺序`">
-                            <el-select
-                                v-model="setupForm.team1_player_order"
-                                multiple
-                                placeholder="选择队伍 A 选手 (按顺序)"
-                                style="width: 100%;"
-                                filterable
-                                @change="handlePlayerOrderChange('teamA')"
-                            >
-                                <el-option
-                                    v-for="member in team1Members"
-                                    :key="member.id"
-                                    :label="member.nickname"
-                                    :value="member.id"
-                                />
-                            </el-select>
-                             <el-text type="info" size="small">请按实际出场顺序选择选手ID</el-text>
+                        <el-card :header="`${currentMatchToSetup.team1_name} 选手选歌状态`">
+                            <div v-if="matchSelectionStatus">
+                                <p>
+                                    已完成: {{ matchSelectionStatus.team1Status.completedSelections }} / {{ matchSelectionStatus.team1Status.requiredSelections }}
+                                    <el-tag :type="matchSelectionStatus.team1Status.completedSelections === matchSelectionStatus.team1Status.requiredSelections ? 'success' : 'warning'" size="small">
+                                        {{ matchSelectionStatus.team1Status.completedSelections === matchSelectionStatus.team1Status.requiredSelections ? '已完成' : '未完成' }}
+                                    </el-tag>
+                                </p>
+                                <div v-if="matchSelectionStatus.team1Status.missingMembers.length > 0">
+                                    <el-text type="warning" size="small">
+                                        未选歌选手: {{ matchSelectionStatus.team1Status.missingMembers.map(m => m.nickname).join(', ') }}
+                                    </el-text>
+                                </div>
+                                <!-- TODO: Display selected songs/order for each player -->
+                                <!-- This would require fetching match_player_selections here -->
+                            </div>
+                            <div v-else>
+                                <el-text type="info">点击下方按钮检查状态</el-text>
+                            </div>
                         </el-card>
                     </el-col>
                      <el-col :span="12">
-                        <el-card :header="`${currentMatchToSetup.team2_name} 出场顺序`">
-                            <el-select
-                                v-model="setupForm.team2_player_order"
-                                multiple
-                                placeholder="选择队伍 B 选手 (按顺序)"
-                                style="width: 100%;"
-                                filterable
-                                @change="handlePlayerOrderChange('teamB')"
-                            >
-                                <el-option
-                                    v-for="member in team2Members"
-                                    :key="member.id"
-                                    :label="member.nickname"
-                                    :value="member.id"
-                                />
-                            </el-select>
-                             <el-text type="info" size="small">请按实际出场顺序选择选手ID</el-text>
+                        <el-card :header="`${currentMatchToSetup.team2_name} 选手选歌状态`">
+                             <div v-if="matchSelectionStatus">
+                                <p>
+                                    已完成: {{ matchSelectionStatus.team2Status.completedSelections }} / {{ matchSelectionStatus.team2Status.requiredSelections }}
+                                     <el-tag :type="matchSelectionStatus.team2Status.completedSelections === matchSelectionStatus.team2Status.requiredSelections ? 'success' : 'warning'" size="small">
+                                        {{ matchSelectionStatus.team2Status.completedSelections === matchSelectionStatus.team2Status.requiredSelections ? '已完成' : '未完成' }}
+                                    </el-tag>
+                                </p>
+                                 <div v-if="matchSelectionStatus.team2Status.missingMembers.length > 0">
+                                    <el-text type="warning" size="small">
+                                        未选歌选手: {{ matchSelectionStatus.team2Status.missingMembers.map(m => m.nickname).join(', ') }}
+                                    </el-text>
+                                </div>
+                                <!-- TODO: Display selected songs/order for each player -->
+                            </div>
+                             <div v-else>
+                                <el-text type="info">点击下方按钮检查状态</el-text>
+                            </div>
                         </el-card>
                     </el-col>
                 </el-row>
 
-                <el-card header="比赛歌单" style="margin-top: 20px;">
-                    <!-- Add Song button is now conditional and shows picker info -->
-                    <el-button
-                        type="primary"
-                        @click="openAddSongToMatchDialog"
-                        :disabled="!setupForm.team1_player_order.length || !setupForm.team2_player_order.length || setupForm.match_song_list.length >= maxInitialSongs || !nextSongPickerInfo.isPlayerOrderSufficientForNextSong"
-                    >
-                        添加第 {{ setupForm.match_song_list.length + 1 }} 首歌曲 (共 {{ maxInitialSongs }})
-                        <span v-if="setupForm.match_song_list.length < maxInitialSongs && nextSongPickerInfo.isPlayerOrderSufficientForNextSong">
-                            ({{ nextSongPickerInfo.pickerTeamName }} - {{ nextSongPickerInfo.pickerMemberNickname }} 选曲)
-                        </span>
-                         <span v-else-if="!nextSongPickerInfo.isPlayerOrderSufficientForNextSong">
-                             (选手不足 选曲)
-                         </span>
-                    </el-button>
-                     <el-text v-if="!setupForm.team1_player_order.length || !setupForm.team2_player_order.length" type="warning" size="small" style="margin-left: 10px;">
-                         请先选择双方队伍的出场顺序
-                     </el-text>
-                      <el-text v-if="setupForm.match_song_list.length >= maxInitialSongs" type="success" size="small" style="margin-left: 10px;">
-                         已配置完初始 {{ maxInitialSongs }} 首歌曲。
-                     </el-text>
-                      <el-text v-if="!nextSongPickerInfo.isPlayerOrderSufficientForNextSong && setupForm.match_song_list.length < maxInitialSongs && setupForm.team1_player_order.length > 0 && setupForm.team2_player_order.length > 0" type="warning" size="small" style="margin-left: 10px;">
-                         双方队伍的出场选手数量不足以配置下一首歌曲。请确保双方队伍都选择了至少 {{ nextSongPickerInfo.requiredPlayersForNextSong }} 位选手。
-                     </el-text>
+                <el-card header="最终比赛歌单 (编译后)" style="margin-top: 20px;">
+                    <!-- Corrected: el-alert should not be self-closing -->
+                    <!-- Corrected: Safer v-if condition -->
+                    <el-alert v-if="currentMatchToSetup.match_song_list && currentMatchToSetup.match_song_list.length > 0" type="success" :closable="false" style="margin-bottom: 10px;">
+                        已编译生成最终歌单。共 {{ currentMatchToSetup.match_song_list.length }} 首歌曲。
+                    </el-alert>
+                     <!-- Corrected: el-alert should not be self-closing -->
+                     <el-alert v-else type="info" :closable="false" style="margin-bottom: 10px;">
+                        选手选歌完成后，点击下方按钮编译生成最终歌单。
+                    </el-alert>
 
-
-                    <el-table :data="setupForm.match_song_list" style="width: 100%; margin-top: 10px;" border stripe>
+                    <!-- Safely bind data, use empty array if match_song_list is null/undefined -->
+                    <el-table :data="currentMatchToSetup.match_song_list || []" style="width: 100%;" border stripe>
                         <el-table-column type="index" width="50" />
                          <el-table-column label="封面" width="80">
                              <template #default="{ row }">
@@ -207,125 +187,80 @@
                         <el-table-column prop="song_difficulty" label="难度" width="100" />
                         <el-table-column label="选曲选手" width="150">
                             <template #default="{ row }">
-                                {{ getMemberNicknameById(row.picker_member_id) }} ({{ getTeamNameById(row.picker_team_id) }})
+                                {{ store.getMemberNicknameById(row.picker_member_id) }} ({{ store.getTeamNameById(row.picker_team_id) }}) <!-- Use store getters -->
                             </template>
                         </el-table-column>
-                         <el-table-column label="操作" width="100">
+                         <!-- Remove delete button from compiled list view -->
+                         <!-- <el-table-column label="操作" width="100">
                              <template #default="{ $index }">
                                  <el-button size="small" type="danger" @click="removeSongFromMatchList($index)">删除</el-button>
                              </template>
-                         </el-table-column>
+                         </el-table-column> -->
                     </el-table>
                 </el-card>
+
+                 <!-- Manual Setup / Override (Optional - can add later if needed) -->
+                 <!-- <el-card header="手动配置 (覆盖选手选歌)" style="margin-top: 20px;">
+                     <el-alert type="warning" :closable="false" style="margin-bottom: 10px;">
+                         手动配置将覆盖选手的所有选歌和顺序。请谨慎操作。
+                     </el-alert>
+                     ... (Add manual player order and song list selection UI here) ...
+                 </el-card> -->
+
             </div>
             <template #footer>
-                <el-button @click="confirmSetupDialogVisible = false">取消</el-button>
-                <el-button type="primary" @click="submitConfirmSetupForm" :loading="confirmingSetup">确认配置</el-button>
+                <el-button @click="confirmSetupDialogVisible = false">关闭</el-button>
+                 <el-button
+                     type="primary"
+                     @click="checkSelectionStatus"
+                     :loading="store.isLoading.checkingMatchSelectionStatus"
+                     :disabled="!currentMatchToSetup"
+                 >
+                     检查选手选歌状态
+                 </el-button>
+                <el-button
+                    type="success"
+                    @click="compileMatchSetup"
+                    :loading="store.isLoading.compilingMatchSetup"
+                    :disabled="!matchSelectionStatus?.isReadyToCompile || store.isLoading.compilingMatchSetup"
+                >
+                    编译生成最终歌单
+                </el-button>
+                 <!-- Add Manual Save button if manual override is implemented -->
+                 <!-- <el-button type="warning" @click="submitConfirmSetupForm" :loading="confirmingSetup">保存手动配置</el-button> -->
             </template>
-        </el-dialog>
+        </el-dialog> <!-- Corrected: Closing el-dialog tag -->
 
-         <!-- Add Song to Match Dialog -->
-         <el-dialog v-model="addSongToMatchDialogVisible" title="添加歌曲到歌单" width="600px">
-             <el-alert type="info" :closable="false" style="margin-bottom: 20px;">
-                 正在为 **第 {{ nextSongPickerInfo.roundIndex + 1 }} 轮** 添加歌曲 (共 {{ maxInitialSongs }} 轮初始歌曲)。<br>
-                 本轮出战选手: **{{ nextSongPickerInfo.playerA_nickname }}** ({{ currentMatchToSetup?.team1_name }}) vs **{{ nextSongPickerInfo.playerB_nickname }}** ({{ currentMatchToSetup?.team2_name }})<br>
-                 选曲方: **{{ nextSongPickerInfo.pickerTeamName }}** (选手: **{{ nextSongPickerInfo.pickerMemberNickname }}**)
-             </el-alert>
-
-             <el-form :inline="true">
-                 <el-form-item label="搜索歌名">
-                     <el-input v-model="songSearchQuery" placeholder="输入歌名关键字" clearable @input="debouncedSearchSongs" />
-                 </el-form-item>
-                  <!-- Add filters here if needed -->
-             </el-form>
-             <el-table
-                 :data="store.songs"
-                 v-loading="store.isLoading.songs"
-                 style="width: 100%; max-height: 300px; overflow-y: auto;"
-                 highlight-current-row
-                 @current-change="handleSongSelectForMatch"
-                 border
-                 stripe
-             >
-                 <el-table-column type="index" width="50" />
-                 <el-table-column label="封面" width="80">
-                     <template #default="{ row }">
-                         <el-image
-                           v-if="row.fullCoverUrl"
-                           style="width: 50px; height: 50px"
-                           :src="row.fullCoverUrl"
-                           fit="cover"
-                           lazy
-                         >
-                           <template #error>
-                             <div class="image-slot">
-                               <el-icon><Picture /></el-icon>
-                             </div>
-                           </template>
-                         </el-image>
-                          <div v-else class="image-slot">
-                               <el-icon><Picture /></el-icon>
-                          </div>
-                     </template>
-                 </el-table-column>
-                 <el-table-column prop="title" label="曲名" />
-                 <el-table-column label="等级 (M)" width="100">
-                     <template #default="{ row }">
-                         {{ row.parsedLevels?.M || '-' }}
-                     </template>
-                 </el-table-column>
-                 <!-- Add other difficulty columns if needed -->
-             </el-table>
-
-             <el-form v-if="selectedSongForMatch" :model="newMatchSongForm" style="margin-top: 20px;" label-width="100px">
-                 <el-form-item label="已选歌曲">
-                     <el-text>{{ selectedSongForMatch.title }}</el-text>
-                 </el-form-item>
-                 <el-form-item label="选择难度" prop="selected_difficulty" :rules="[{ required: true, message: '请选择难度', trigger: 'change' }]">
-                     <el-select v-model="newMatchSongForm.selected_difficulty" placeholder="选择难度">
-                         <el-option
-                             v-for="(level, diff) in selectedSongForMatch.parsedLevels"
-                             :key="diff"
-                             :label="`${diff} ${level}`"
-                             :value="diff"
-                             :disabled="!level"
-                         />
-                     </el-select>
-                 </el-form-item>
-                 <!-- Picker info is displayed, not selected here -->
-             </el-form>
-
-             <template #footer>
-                 <el-button @click="addSongToMatchDialogVisible = false">取消</el-button>
-                 <el-button type="primary" @click="addSelectedSongToMatchList" :disabled="!selectedSongForMatch || !newMatchSongForm.selected_difficulty">添加到歌单</el-button>
-             </template>
-         </el-dialog>
+         <!-- Add Song to Match Dialog (Remove this - manual song adding is not the primary flow) -->
+         <!-- <el-dialog v-model="addSongToMatchDialogVisible" title="添加歌曲到歌单" width="600px"> ... </el-dialog> -->
 
 
-      </el-card>
-    </div>
-  </template>
+      </el-card> <!-- Corrected: Closing el-card tag -->
+    </div> <!-- Corrected: Closing div tag -->
+  </template> <!-- Corrected: Closing template tag -->
 
   <script setup lang="ts">
-  import { useAppStore, type TournamentMatch, type CreateTournamentMatchPayload, type ConfirmMatchSetupPayload, type MatchSong, type Song, type Member } from '@/store';
+  // Import types directly from store.ts
+  import { useAppStore, type TournamentMatch, type CreateTournamentMatchPayload, type ConfirmMatchSetupPayload, type MatchSong, type Song, type Member, type MatchSelectionStatusFrontend } from '@/store';
   import { onMounted, ref, reactive, computed, watch } from 'vue';
   import { useRouter } from 'vue-router';
   import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus';
-  import { debounce } from 'lodash-es';
+  // Removed debounce as it's not used in Schedule.vue snippet
+  import { Picture } from '@element-plus/icons-vue'; // Import Picture icon
 
   const store = useAppStore();
   const router = useRouter();
 
   // --- Access R2 Public URL from Pages Environment Variables ---
   // Replace 'VITE_R2_PUBLIC_BUCKET_URL' with the actual name you set in Pages
-  const R2_PUBLIC_BUCKET_URL = import.meta.env.VITE_R2_PUBLIC_BUCKET_URL;
+  // const R2_PUBLIC_BUCKET_URL = import.meta.env.VITE_R2_PUBLIC_BUCKET_URL; // Not used in this component
 
   // --- Data Fetching ---
   onMounted(() => {
     store.fetchTournamentMatches();
-    store.fetchTeams(); // Needed for team selects
-    store.fetchMembers(); // Needed for player selects
-    store.fetchSongs(); // Needed for song selection (songs fetched here will have fullCoverUrl from Worker)
+    store.fetchTeams(); // Needed for team selects and display
+    store.fetchMembers(); // Needed for player selects and display (in staff view)
+    // store.fetchSongs(); // No longer needed to fetch all songs here unless for manual override
   });
 
   // --- Create Match Dialog ---
@@ -370,378 +305,154 @@
     });
   };
 
-  // --- Confirm Setup Dialog ---
+  // --- Confirm Setup Dialog (Modified) ---
   const confirmSetupDialogVisible = ref(false);
   const currentMatchToSetup = ref<TournamentMatch | null>(null);
-  const setupForm = reactive<ConfirmMatchSetupPayload>({
-      team1_player_order: [],
-      team2_player_order: [],
-      match_song_list: [],
-  });
-  const confirmingSetup = ref(false);
-  const selectedStage = ref<'8进4' | '4进2' | '2进1'>('8进4'); // Default stage
+  const matchSelectionStatus = ref<MatchSelectionStatusFrontend | null>(null); // To store the status check result
+  // Removed checkingStatusMatchId as we use store.isLoading.checkingMatchSelectionStatus directly
+  // Removed setupForm, confirmingSetup, selectedStage, maxInitialSongs, nextSongPickerInfo, etc.
+  // Removed addSongToMatchDialogVisible, selectedSongForMatch, newMatchSongForm, songSearchQuery, debouncedSearchSongs, handleSongSelectForMatch, addSelectedSongToMatchList, removeSongFromMatchList
 
-  // Required players per team for the initial song list (hardcoded 3 pairs)
-  const REQUIRED_PLAYERS_PER_TEAM_INITIAL = 3;
-
-  const maxInitialSongs = computed(() => {
-      switch (selectedStage.value) {
-          case '2进1': return 6;
-          case '8进4':
-          case '4进2':
-          default: return 12;
-      }
-  });
-
-  const team1Members = computed(() => {
-      if (!currentMatchToSetup.value) return [];
-      const team1Code = store.teams.find(t => t.id === currentMatchToSetup.value?.team1_id)?.code;
-      return store.members.filter(m => m.team_code === team1Code);
-  });
-
-  const team2Members = computed(() => {
-      if (!currentMatchToSetup.value) return [];
-       const team2Code = store.teams.find(t => t.id === currentMatchToSetup.value?.team2_id)?.code;
-      return store.members.filter(m => m.team_code === team2Code);
-  });
-
-  const getMemberNicknameById = (memberId: number | undefined | null) => {
-      if (memberId === undefined || memberId === null) return '未知选手';
-      const member = store.members.find(m => m.id === memberId);
-      return member?.nickname || `ID:${memberId}`;
-  };
-
-  const getTeamNameById = (teamId: number | undefined | null) => {
-       if (teamId === undefined || teamId === null) return '未知队伍';
-      const team = store.teams.find(t => t.id === teamId);
-      return team?.name || `ID:${teamId}`;
-  };
-
-  // Handle stage change - potentially clear song list if it exceeds the new limit
-  const handleStageChange = () => {
-      if (setupForm.match_song_list.length > maxInitialSongs.value) {
-           ElMessageBox.confirm(
-              `修改赛程阶段会改变所需的歌曲数量。当前歌单有 ${setupForm.match_song_list.length} 首，新阶段需要 ${maxInitialSongs.value} 首。是否清空当前歌单？`,
-              '警告',
-              {
-                  confirmButtonText: '清空歌单',
-                  cancelButtonText: '保留歌单', // User might manually remove later
-                  type: 'warning',
-              }
-          ).then(() => {
-              setupForm.match_song_list = []; // Clear song list
-          }).catch(() => {
-              // User chose to keep the song list, they will need to manually remove excess songs
-          });
-      }
-       // Also potentially warn if player order is insufficient for the stage
-       if (setupForm.team1_player_order.length < REQUIRED_PLAYERS_PER_TEAM_INITIAL || setupForm.team2_player_order.length < REQUIRED_PLAYERS_PER_TEAM_INITIAL) {
-            ElMessage.warning(`当前赛程阶段 (${selectedStage.value}) 需要至少 ${REQUIRED_PLAYERS_PER_TEAM_INITIAL} 位选手出场。请确保双方队伍都选择了足够的选手。`);
-       }
-  };
-
-
-  // Watch for changes in player orders to potentially reset song list
-  const handlePlayerOrderChange = (team: 'teamA' | 'teamB') => {
-      if (setupForm.match_song_list.length > 0) {
-          ElMessageBox.confirm(
-              `修改队伍 ${team === 'teamA' ? 'A' : 'B'} 的出场顺序可能会导致已添加的歌曲选曲信息不匹配，是否清空当前歌单？`,
-              '警告',
-              {
-                  confirmButtonText: '清空歌单',
-                  cancelButtonText: '保留歌单',
-                  type: 'warning',
-              }
-          ).then(() => {
-              setupForm.match_song_list = []; // Clear song list
-          }).catch(() => {
-              // User chose to keep the song list, proceed with caution
-          });
-      }
-       // Also potentially warn if player order is insufficient for the stage
-       if (setupForm.team1_player_order.length < REQUIRED_PLAYERS_PER_TEAM_INITIAL || setupForm.team2_player_order.length < REQUIRED_PLAYERS_PER_TEAM_INITIAL) {
-            ElMessage.warning(`当前赛程阶段 (${selectedStage.value}) 需要至少 ${REQUIRED_PLAYERS_PER_TEAM_INITIAL} 位选手出场。请确保双方队伍都选择了足够的选手。`);
-       }
-  };
-
-
-  const openConfirmSetupDialog = (match: TournamentMatch) => {
+  const openConfirmSetupDialog = async (match: TournamentMatch) => {
       currentMatchToSetup.value = match;
-      // Initialize form with existing data if any
-      setupForm.team1_player_order = match.team1_player_order || [];
-      setupForm.team2_player_order = match.team2_player_order || [];
-      // Initialize selectedStage based on existing song list length if possible, or default
-      if (match.match_song_list && match.match_song_list.length > 0) {
-          // Determine stage based on song count (assuming valid counts are 6 or 12)
-          selectedStage.value = match.match_song_list.length === 6 ? '2进1' : '8进4'; // Default to 8进4 for 12 or other counts
-      } else {
-          selectedStage.value = '8进4'; // Default for new setup
-      }
-
-      // Ensure match_song_list items have fullCoverUrl when loading from backend JSON
-      setupForm.match_song_list = (match.match_song_list || []).map(song => {
-          // If fullCoverUrl is missing but cover_filename exists, reconstruct it using the frontend env var
-          if (!song.fullCoverUrl && song.cover_filename && R2_PUBLIC_BUCKET_URL) {
-               song.fullCoverUrl = `${R2_PUBLIC_BUCKET_URL}/${song.cover_filename}`;
-          }
-          return song;
-      });
+      matchSelectionStatus.value = null; // Reset status when opening
       confirmSetupDialogVisible.value = true;
+      // Optionally check status immediately when opening
+      // await checkSelectionStatus(); // Decide if you want to auto-check on open
   };
 
-  const submitConfirmSetupForm = async () => {
+  const checkSelectionStatus = async () => {
       if (!currentMatchToSetup.value) return;
-
-      // Check if enough players are selected for the stage
-      if (setupForm.team1_player_order.length < REQUIRED_PLAYERS_PER_TEAM_INITIAL || setupForm.team2_player_order.length < REQUIRED_PLAYERS_PER_TEAM_INITIAL) {
-          ElMessage.warning(`当前赛程阶段 (${selectedStage.value}) 需要至少 ${REQUIRED_PLAYERS_PER_TEAM_INITIAL} 位选手出场。请确保双方队伍都选择了足够的选手。`);
-          return;
-      }
-
-      // Check if the correct number of songs are configured for the stage
-      if (setupForm.match_song_list.length !== maxInitialSongs.value) {
-          ElMessage.warning(`请配置完整的 ${maxInitialSongs.value} 首比赛歌曲`);
-          return;
-      }
-
-      confirmingSetup.value = true;
-      const result = await store.confirmMatchSetup(currentMatchToSetup.value.id, setupForm);
-      confirmingSetup.value = false;
-
-      if (result) {
-          ElMessage.success('赛程配置成功');
-          confirmSetupDialogVisible.value = false;
+      // Use store loading state directly
+      const status = await store.fetchMatchSelectionStatus(currentMatchToSetup.value.id); // Corrected action name
+      if (status) {
+          matchSelectionStatus.value = status;
+          ElMessage.success('选手选歌状态检查完成');
       } else {
-          ElMessage.error(`配置失败: ${store.error}`);
+          ElMessage.error(`检查状态失败: ${store.error}`);
       }
   };
 
-  // --- Add Song to Match Dialog ---
-  const addSongToMatchDialogVisible = ref(false);
-  const songSearchQuery = ref('');
-  const selectedSongForMatch = ref<Song | null>(null);
-  const newMatchSongForm = reactive<{
-      selected_difficulty: string;
-  }>({
-      selected_difficulty: '',
-  });
+  const compileMatchSetup = async () => {
+      if (!currentMatchToSetup.value) return;
+      if (!matchSelectionStatus.value?.isReadyToCompile) {
+          ElMessage.warning('选手选歌尚未全部完成，无法编译歌单。');
+          return;
+      }
 
-  // Computed property to determine picker info for the *next* song to be added
-  const nextSongPickerInfo = computed(() => {
-      const roundIndex = setupForm.match_song_list.length; // 0-indexed
-      const team1Order = setupForm.team1_player_order;
-      const team2Order = setupForm.team2_player_order;
-      const len1 = team1Order.length;
-      const len2 = team2Order.length;
+      // Use store loading state directly
+      const compiledMatchResponse = await store.compileMatchSetup(currentMatchToSetup.value.id); // Get the full response
 
-      let player1Id: number | null = null;
-      let player2Id: number | null = null;
-      let pickerTeamId: number | null = null;
-      let pickerMemberId: number | null = null;
-      let pickerTeamName = '待定';
-      let pickerMemberNickname = '待定';
-      let player1_nickname = '待定';
-      let player2_nickname = '待定';
-      let isPlayerOrderSufficientForNextSong = false;
-      let requiredPlayersForNextSong = 0; // How many players are needed for the *next* song's pair
-
-      // Calculate the pair index and song index within the pair's turn
-      // The pair index cycles through 0, 1, 2, 0, 1, 2... for songs 0-11
-      const pairIndex = Math.floor(roundIndex / 2) % 3; // Use modulo 3 for the 3 pairs
-      const songInPairIndex = roundIndex % 2; // 0 for first song of the pair, 1 for second
-
-      requiredPlayersForNextSong = pairIndex + 1; // Need at least pairIndex + 1 players selected
-
-      // Check if we have enough players selected for this pair index
-      if (pairIndex < len1 && pairIndex < len2 && currentMatchToSetup.value) {
-          isPlayerOrderSufficientForNextSong = true;
-          // Determine players for this round based on pair index
-          player1Id = team1Order[pairIndex];
-          player2Id = team2Order[pairIndex];
-
-          player1_nickname = getMemberNicknameById(player1Id);
-          player2_nickname = getMemberNicknameById(player2Id);
-
-          // --- Implement the picking rule based on your description ---
-          // Rule: First song of the pair (songInPairIndex === 0) Team 1 player picks.
-          //       Second song of the pair (songInPairIndex === 1) Team 2 player picks.
-
-          if (songInPairIndex === 0) { // Team 1 picks
-              pickerTeamId = currentMatchToSetup.value.team1_id;
-              pickerMemberId = player1Id; // Team 1 player for this pair picks
-              pickerTeamName = currentMatchToSetup.value.team1_name || '队伍A';
-              pickerMemberNickname = player1_nickname;
-          } else { // Team 2 picks
-              pickerTeamId = currentMatchToSetup.value.team2_id;
-              pickerMemberId = player2Id; // Team 2 player for this pair picks
-              pickerTeamName = currentMatchToSetup.value.team2_name || '队伍B';
-              pickerMemberNickname = player2_nickname;
+      if (compiledMatchResponse?.success) { // Check success property from the response
+          ElMessage.success('歌单编译成功！赛程状态已更新为“准备开始”。');
+          // Update the local currentMatchToSetup to show the compiled list
+          // The store.compileMatchSetup action is planned to return the updated match in data.tournamentMatch
+          if (compiledMatchResponse.tournamentMatch) {
+               currentMatchToSetup.value = compiledMatchResponse.tournamentMatch;
+          } else {
+               // Fallback: If backend didn't return the match, find it in the store's list
+               const updatedMatch = store.tournamentMatches.find(m => m.id === currentMatchToSetup.value?.id);
+               if (updatedMatch) currentMatchToSetup.value = updatedMatch;
           }
-          // --- End of picking rule implementation ---
 
-      } else if (currentMatchToSetup.value) {
-           // Not enough players selected for the current pair index
-           pickerTeamName = '队伍A/B';
-           pickerMemberNickname = '选手不足';
-           player1_nickname = '选手不足';
-           player2_nickname = '选手不足';
+          // No need to close the dialog, staff can review the compiled list
+      } else {
+          // Error message is already set by the store action
+          ElMessage.error(`歌单编译失败: ${store.error}`);
       }
-
-
-      return {
-          roundIndex, // This is the overall song index (0 to maxInitialSongs-1)
-          pairIndex, // Index of the player pair (0, 1, or 2)
-          songInPairIndex, // Index within the pair's turn (0 or 1)
-          playerAId: player1Id, // Renamed for clarity in template
-          playerBId: player2Id, // Renamed for clarity in template
-          playerA_nickname: player1_nickname,
-          playerB_nickname: player2_nickname,
-          pickerTeamId,
-          pickerMemberId,
-          pickerTeamName,
-          pickerMemberNickname,
-          isPlayerOrderSufficientForNextSong: isPlayerOrderSufficientForNextSong, // Indicate if players are available for the *next* song's pair
-          requiredPlayersForNextSong: requiredPlayersForNextSong, // How many players are needed for the *next* song's pair
-      };
-  });
-
-
-  const openAddSongToMatchDialog = () => {
-      // Check if player orders are set at all
-      if (!setupForm.team1_player_order.length || !setupForm.team2_player_order.length) {
-          ElMessage.warning('请先选择双方队伍的出场顺序');
-          return;
-      }
-       // Check if enough players are selected for the *next* song's pair
-       if (!nextSongPickerInfo.value.isPlayerOrderSufficientForNextSong) {
-           // The warning is already shown below the button, no need for another popup here
-           return;
-       }
-       // Check if max songs for the stage are already added
-       if (setupForm.match_song_list.length >= maxInitialSongs.value) {
-           ElMessage.warning(`已配置完初始 ${maxInitialSongs.value} 首歌曲。`);
-           return;
-       }
-
-
-      songSearchQuery.value = '';
-      selectedSongForMatch.value = null;
-      newMatchSongForm.selected_difficulty = '';
-      // When fetching songs here, the Worker should already add fullCoverUrl
-      store.fetchSongs();
-      addSongToMatchDialogVisible.value = true;
   };
 
-  const debouncedSearchSongs = debounce(() => {
-      store.fetchSongs({ search: songSearchQuery.value });
-  }, 300);
-
-  const handleSongSelectForMatch = (song: Song) => {
-      selectedSongForMatch.value = song;
-      // Reset difficulty when song changes
-      newMatchSongForm.selected_difficulty = '';
+  // Helper to get member nickname for display in compiled song list
+  // Use the getter from the store
+  const getMemberNicknameById = (memberId: number | undefined | null) => {
+      return store.getMemberNicknameById(memberId);
   };
 
-  const addSelectedSongToMatchList = () => {
-      if (!selectedSongForMatch.value || !newMatchSongForm.selected_difficulty) {
-          ElMessage.warning('请选择歌曲和难度');
-          return;
-      }
-
-      // Use the calculated picker info for the next song
-      const pickerInfo = nextSongPickerInfo.value;
-
-      // Double check picker info validity before adding
-      if (pickerInfo.pickerMemberId === null || pickerInfo.pickerTeamId === null || !pickerInfo.isPlayerOrderSufficientForNextSong) {
-           ElMessage.error('无法确定选曲选手信息，请检查出场顺序设置。');
-           return;
-      }
-
-      const song = selectedSongForMatch.value;
-      const difficulty = newMatchSongForm.selected_difficulty;
-
-      const parsedLevels = song.parsedLevels || {};
-      const difficultyValue = parsedLevels[difficulty as keyof typeof parsedLevels] || '??';
-      const fullDifficultyString = `${difficulty} ${difficultyValue}`;
-
-      const newMatchSong: MatchSong = {
-          song_id: song.id,
-          song_title: song.title,
-          song_difficulty: fullDifficultyString,
-          song_element: song.category === 'original' ? 'fire' : song.category === 'niconico' ? 'wood' : null, // Example mapping
-          cover_filename: song.cover_filename,
-          bpm: song.bpm,
-          // When adding a new song selected from the list, use the fullCoverUrl provided by the store's song list
-          fullCoverUrl: song.fullCoverUrl,
-          picker_member_id: pickerInfo.pickerMemberId, // Use calculated picker
-          picker_team_id: pickerInfo.pickerTeamId,     // Use calculated picker
-          is_tiebreaker_song: false, // Default to false for initial list
-          status: 'pending',
-      };
-
-      setupForm.match_song_list.push(newMatchSong);
-      addSongToMatchDialogVisible.value = false;
-      selectedSongForMatch.value = null; // Clear selection
-      newMatchSongForm.selected_difficulty = ''; // Clear difficulty
+  // Helper to get team name for display in compiled song list
+  // Use the getter from the store
+  const getTeamNameById = (teamId: number | undefined | null) => {
+      return store.getTeamNameById(teamId);
   };
 
-  const removeSongFromMatchList = (index: number) => {
-      setupForm.match_song_list.splice(index, 1);
-       // Optional: Add a warning if removing a song makes the list incomplete for the selected stage
-       if (setupForm.match_song_list.length < maxInitialSongs.value) {
-            ElMessage.warning(`歌单数量已变为 ${setupForm.match_song_list.length} 首，请继续添加至 ${maxInitialSongs.value} 首。`);
-       }
+
+  // --- Match Status Display Helpers ---
+  const matchStatusTagType = (status: string) => {
+    switch (status) {
+      case 'scheduled': return 'info';
+      case 'pending_song_confirmation': return 'warning'; // Use warning for pending selection/compilation
+      case 'ready_to_start': return 'success';
+      case 'live': return 'primary';
+      case 'completed': return 'success';
+      case 'archived': return 'info';
+      default: return 'info';
+    }
   };
 
+  const matchStatusText = (status: string) => {
+    switch (status) {
+      case 'scheduled': return '已计划';
+      case 'pending_song_confirmation': return '待选手选歌/待编译'; // Updated text
+      case 'ready_to_start': return '准备开始';
+      case 'live': return '直播中';
+      case 'completed': return '已完成';
+      case 'archived': return '已归档';
+      default: return '未知状态';
+    }
+  };
 
   // --- Start Live Match ---
   const startingMatchId = ref<number | null>(null);
+
   const startLiveMatch = async (match: TournamentMatch) => {
-      if (!match.id) return;
-      startingMatchId.value = match.id;
-      const result = await store.startLiveMatch(match.id);
-      startingMatchId.value = null;
-      if (result && result.match_do_id) {
-          ElMessage.success('比赛已开始直播');
-          // Navigate to the live match view
-          router.push(`/live-match/${result.match_do_id}`);
-      } else {
-          ElMessage.error(`开始直播失败: ${store.error}`);
+      if (match.status !== 'ready_to_start') {
+          ElMessage.warning('赛程状态不是“准备开始”，无法启动直播。请先完成歌单编译。');
+          return;
       }
-  };
+       if (!match.match_song_list || match.match_song_list.length === 0) {
+            ElMessage.warning('歌单为空，无法启动直播。请先编译歌单。');
+            return;
+       }
+       if (!match.team1_player_order || match.team1_player_order.length === 0 || !match.team2_player_order || match.team2_player_order.length === 0) {
+            ElMessage.warning('选手出场顺序未配置，无法启动直播。请先编译歌单。');
+            return;
+       }
 
 
-  // --- Helpers ---
-  const matchStatusTagType = (status: TournamentMatch['status']) => {
-      switch (status) {
-          case 'live': return 'success';
-          case 'ready_to_start': return 'warning';
-          case 'scheduled':
-          case 'pending_song_confirmation': return 'info';
-          case 'completed':
-          case 'archived': return 'info';
-          default: return 'info';
-      }
-  };
-
-  const matchStatusText = (status: TournamentMatch['status']) => {
-       switch (status) {
-          case 'scheduled': return '已排程';
-          case 'pending_song_confirmation': return '待确认歌单';
-          case 'ready_to_start': return '准备就绪';
-          case 'live': return '进行中';
-          case 'completed': return '已完成';
-          case 'archived': return '已归档';
-          default: return '未知状态';
-      }
+      ElMessageBox.confirm(
+          `确定要开始赛程 "${match.round_name}" 的直播吗？`,
+          '提示',
+          {
+              confirmButtonText: '确定',
+              cancelButtonText: '取消',
+              type: 'warning',
+          }
+      ).then(async () => {
+          startingMatchId.value = match.id;
+          const result = await store.startLiveMatch(match.id);
+          startingMatchId.value = null;
+          if (result && result.match_do_id) {
+              ElMessage.success('直播已启动！');
+              // Optionally redirect to the live match view
+              router.push(`/live-match/${result.match_do_id}`);
+          } else {
+              ElMessage.error(`启动直播失败: ${store.error}`);
+          }
+      }).catch(() => {
+          // User cancelled
+      });
   };
 
   </script>
 
   <style scoped>
   .schedule-view {
-    max-width: 1200px;
-    margin: 0 auto;
+    max-width: 1200px; /* Adjust as needed */
+    margin: 20px auto; /* Add some margin */
+    padding: 20px;
+  }
+  .el-form-item {
+      margin-right: 15px; /* Spacing between filter items */
+      margin-bottom: 15px; /* Add bottom margin for better layout */
   }
   .image-slot {
     display: flex;
@@ -751,6 +462,6 @@
     height: 100%;
     background: var(--el-fill-color-light);
     color: var(--el-text-color-secondary);
-    font-size: 14px;
+    font-size: 20px;
   }
   </style>

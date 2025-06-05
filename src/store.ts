@@ -3,14 +3,11 @@ import { defineStore } from 'pinia';
 import * as api from './services/api'; // Import API functions
 // Import the Kinde Auth composable
 import { useKindeAuth } from '@/composables/useKindeAuth';
-// REMOVED: Import KindeUser type from composable - it's defined here now
-// import type { KindeUser } from '@/composables/useKindeAuth';
-
 
 // --- ALL FRONTEND TYPE DEFINITIONS GO HERE ---
 
 // API Response Wrapper (Defined here for frontend use)
-export interface ApiResponse<T = any> { // <-- CONFIRMED EXPORT
+export interface ApiResponse<T = any> {
     success: boolean;
     data?: T;
     error?: string;
@@ -18,22 +15,21 @@ export interface ApiResponse<T = any> { // <-- CONFIRMED EXPORT
 }
 
 // Basic Kinde User Info (from ID token payload, returned by backend callback)
-export interface KindeUser { // <-- ADDED/CONFIRMED EXPORT
+export interface KindeUser {
     id: string; // Kinde User ID (sub claim)
     email?: string;
     name?: string; // Or other name claims like given_name, family_name
     // Add other claims you might need from the ID token
 }
 
-
 // Represents the environment variables and bindings (Frontend perspective - less detailed than Worker Env)
-export interface FrontendEnv { // <-- CONFIRMED EXPORT
+export interface FrontendEnv {
     SONG_COVER_BUCKET_URL?: string; // Base URL for accessing song covers directly from R2
     // Add other frontend-relevant env vars if needed
 }
 
 // --- 固定表相关类型 (members, teams) ---
-export interface Team { // <-- CONFIRMED EXPORT
+export interface Team {
     id: number; // D1 auto-increment ID (number)
     code: string; // 4-character manual ID (your team_code)
     name: string; // your team_name
@@ -43,7 +39,7 @@ export interface Team { // <-- CONFIRMED EXPORT
     status?: string | null; // e.g., 'active', 'inactive'
 }
 
-export interface Member { // <-- CONFIRMED EXPORT
+export interface Member {
     id: number; // D1 auto-increment ID (number)
     team_code: string; // FK to teams.code (string)
     color?: string | null; // e.g., 'fire', 'wood', 'water' (assuming D1 stores these strings)
@@ -61,12 +57,12 @@ export interface Member { // <-- CONFIRMED EXPORT
 }
 
 // --- 歌曲相关类型 ---
-export interface SongLevel { // <-- CONFIRMED EXPORT // 对应 JSON "等级" 结构
+export interface SongLevel { // 对应 JSON "等级" 结构
     B?: string; A?: string; E?: string; M?: string; R?: string;
 }
 
 // Structure of a song item within the imported JSON array (Admin import payload)
-export interface ImportedSongItem { // <-- CONFIRMED EXPORT
+export interface ImportedSongItem {
     分类: string;
     曲名: string;
     BPM: string;
@@ -76,12 +72,12 @@ export interface ImportedSongItem { // <-- CONFIRMED EXPORT
 }
 
 // Payload for the admin song import endpoint
-export interface ImportSongsPayload { // <-- CONFIRMED EXPORT
+export interface ImportSongsPayload {
     songs: ImportedSongItem[]; // Array of song items from the JSON
     source_data_version?: string; // Optional version from the JSON
 }
 
-export interface Song { // <-- CONFIRMED EXPORT // 对应 D1 songs 表，也是前端主要使用的歌曲类型
+export interface Song { // 对应 D1 songs 表，也是前端主要使用的歌曲类型
     id: number; // D1 auto-increment ID (number)
     title: string;
     category?: string | null;
@@ -98,7 +94,7 @@ export interface Song { // <-- CONFIRMED EXPORT // 对应 D1 songs 表，也是�
 }
 
 // 用户为特定赛段选择的歌曲偏好 (对应 member_song_preferences 表)
-export interface MemberSongPreference { // <-- CONFIRMED EXPORT
+export interface MemberSongPreference {
     id?: number; // D1 PK (number)
     member_id: number; // FK to members.id (number)
     tournament_stage: string; // e.g., '初赛', '复赛'
@@ -113,7 +109,7 @@ export interface MemberSongPreference { // <-- CONFIRMED EXPORT
     parsedLevels?: SongLevel;
 }
 // Payload for saving a member's song preference (POST /api/member_song_preferences)
-export interface SaveMemberSongPreferencePayload { // <-- CONFIRMED EXPORT
+export interface SaveMemberSongPreferencePayload {
     member_id: number;
     tournament_stage: string;
     song_id: number;
@@ -122,7 +118,7 @@ export interface SaveMemberSongPreferencePayload { // <-- CONFIRMED EXPORT
 // --- 比赛核心类型 ---
 
 // 代表比赛歌单中的一首歌及其相关信息 (存储在 tournament_matches.match_song_list_json)
-export interface MatchSong { // <-- CONFIRMED EXPORT
+export interface MatchSong {
     song_id: number; // FK to songs.id (number)
     song_title: string; // Denormalized
     song_difficulty: string; // 实际比赛选择的难度，例如 'M 13' (包含等级和难度值)
@@ -142,26 +138,26 @@ export interface MatchSong { // <-- CONFIRMED EXPORT
     teamA_player_id?: number; // Team A 出战这首歌的选手 ID (number)
     teamB_player_id?: number; // Team B 出战这首歌的选手 ID (number)
     teamA_percentage?: number; // 完整百分比 (REAL)
-    teamB_percentage?: number; // 完整百分比 (REAL)
+    teamB_percentage?: number; // (REAL)
     teamA_damage_dealt?: number; // (INTEGER)
     teamB_damage_dealt?: number; // (INTEGER)
     teamA_effect_value?: number; // 小分调整 (INTEGER)
-    teamB_effect_value?: number; // 小分调整 (INTEGER)
+    teamB_effect_value?: number; // (INTEGER)
     teamA_health_after?: number; // 本轮结束后血量 (INTEGER)
-    teamB_health_after?: number; // 本轮结束后血量 (INTEGER)
+    teamB_health_after?: number; // (INTEGER)
     teamA_mirror_triggered?: boolean; // (INTEGER 0/1) -> boolean in DO state
     teamB_mirror_triggered?: boolean; // (INTEGER 0/1) -> boolean in DO state
 }
 
 // Payload for Staff to confirm match setup (PUT /api/tournament_matches/:id/confirm_setup)
-export interface ConfirmMatchSetupPayload { // <-- CONFIRMED EXPORT
+export interface ConfirmMatchSetupPayload {
     team1_player_order: number[]; // member_id 数组 (number[])
-    team2_player_order: number[]; // member_id 数组 (number[])
+    team2_player_order: number[]; // (number[])
     match_song_list: MatchSong[]; // 这场比赛最终确定的歌单 (MatchSong[])
 }
 
 // 赛程表条目 (对应 tournament_matches 表)
-export interface TournamentMatch { // <-- CONFIRMED EXPORT
+export interface TournamentMatch {
     id: number; // D1 auto-increment ID (number)
     round_name: string; // e.g., '初赛 - 第1轮'
     team1_id: number; // FK to teams.id (number)
@@ -175,7 +171,7 @@ export interface TournamentMatch { // <-- CONFIRMED EXPORT
 
     // From D1 JSON fields (parsed by Worker)
     team1_player_order?: number[] | null; // member_id 数组 (number[])
-    team2_player_order?: number[] | null; // member_id 数组 (number[])
+    team2_player_order?: number[] | null; // (number[])
     match_song_list?: MatchSong[] | null; // 这场比赛的歌单 (MatchSong[])
 
     // Denormalized for display convenience in lists (fetched via JOIN)
@@ -192,7 +188,7 @@ export interface TournamentMatch { // <-- CONFIRMED EXPORT
 }
 
 // Payload for creating a new Tournament Match (POST /api/tournament_matches)
-export interface CreateTournamentMatchPayload { // <-- CONFIRMED EXPORT
+export interface CreateTournamentMatchPayload {
     round_name: string;
     team1_id: number | null; // Allow null in form state before selection
     team2_id: number | null; // Allow null in form state before selection
@@ -201,7 +197,7 @@ export interface CreateTournamentMatchPayload { // <-- CONFIRMED EXPORT
 }
 
 // DO 的实时状态 (WebSocket 推送的内容)
-export interface MatchState { // <-- CONFIRMED EXPORT
+export interface MatchState {
     // Note: This match_do_id is the *actual* hex ID of the DO instance, not the name like "match-1"
     match_do_id: string; // (string)
     tournament_match_id: number; // 关联的 D1 tournament_matches.id (number)
@@ -222,17 +218,17 @@ export interface MatchState { // <-- CONFIRMED EXPORT
     teamA_name: string; // Denormalized
     teamB_name: string; // Denormalized
     teamA_score: number; // 当前血量 (number)
-    teamB_score: number; // 当前血量 (number)
+    teamB_score: number; // (number)
 
     teamA_player_order_ids: number[]; // Ordered member IDs (number[])
-    teamB_player_order_ids: number[]; // Ordered member IDs (number[])
+    teamB_player_order_ids: number[]; // (number[])
     teamA_current_player_id: number | null; // 当前代表A队出战的选手ID (number | null)
-    teamB_current_player_id: number | null; // 当前代表B队出战的选手ID (number | null)
+    teamB_current_player_id: number | null; // (number | null)
     // Denormalized current player info (fetched from teamA_members/teamB_members)
     teamA_current_player_nickname?: string;
     teamB_current_player_nickname?: string;
     teamA_current_player_profession?: string | null; // '绝剑士', '矩盾手', '炼星师'
-    teamB_current_player_profession?: string | null; // <-- Added the missing property
+    teamB_current_player_profession?: string | null;
 
     // teamA_members and teamB_members are stored in DO and *are* included in the broadcasted state based on your JSON
     teamA_members: Member[];
@@ -248,26 +244,26 @@ export interface MatchState { // <-- CONFIRMED EXPORT
 }
 
 // Payload for submitting scores (Frontend sends percentages)
-export interface CalculateRoundPayload { // <-- CONFIRMED EXPORT
+export interface CalculateRoundPayload {
     teamA_percentage: number; // e.g., 100.1234 (REAL)
     teamB_percentage: number; // e.g., 98.7654 (REAL)
     teamA_effect_value?: number; // 小分调整 (INTEGER)
-    teamB_effect_value?: number; // 小分调整 (INTEGER)
+    teamB_effect_value?: number; // (INTEGER)
 }
 
 // Payload for resolving a draw (Staff action)
-export interface ResolveDrawPayload { // <-- CONFIRMED EXPORT
+export interface ResolveDrawPayload {
     winner: 'teamA' | 'teamB'; // 'teamA' or 'teamB' string
 }
 
 // Payload for Staff selecting a tiebreaker song (Frontend to Worker)
-export interface SelectTiebreakerSongPayload { // <-- CONFIRMED EXPORT
+export interface SelectTiebreakerSongPayload {
     song_id: number; // FK to songs.id (number)
     selected_difficulty: string; // e.g., 'M', 'E' (Difficulty level key)
 }
 
 // 回合总结 (用于展示计算过程和历史记录) - 对应 match_rounds_history 表的部分字段 + 详细计算日志
-export interface RoundSummary { // <-- CONFIRMED EXPORT
+export interface RoundSummary {
     round_number_in_match: number; // 这首歌是比赛的第 N 首 (1-based) (INTEGER)
     song_id: number; // (INTEGER)
     song_title: string;
@@ -281,7 +277,7 @@ export interface RoundSummary { // <-- CONFIRMED EXPORT
     teamA_percentage: number; // (REAL)
     teamB_percentage: number; // (REAL)
     teamA_effect_value_applied: number; // 小分调整 (INTEGER)
-    teamB_effect_value_applied: number; // 小分调整 (INTEGER)
+    teamB_effect_value_applied: number; // (INTEGER)
 
     // 详细计算步骤 (来自 DO 内部逻辑)
     teamA_damage_digits: number[]; // (number[])
@@ -296,24 +292,24 @@ export interface RoundSummary { // <-- CONFIRMED EXPORT
     teamB_modified_damage_to_A: number; // Damage B deals to A after B's profession effect (number)
 
     teamA_health_before_round: number; // Health at start of this round (number)
-    teamB_health_before_round: number; // Health at start of this round (number)
+    teamB_health_before_round: number; // (number)
 
     teamA_mirror_triggered: boolean; // (boolean)
     teamB_mirror_triggered: boolean; // (boolean)
     teamA_mirror_effect_applied?: string; // e.g., "Defender: Reflected 10 damage"
     teamB_mirror_effect_applied?: string;
     teamA_supporter_base_skill_heal?: number; // Heal from supporter base skill (number)
-    teamB_supporter_base_skill_heal?: number; // Heal from supporter base skill (number)
+    teamB_supporter_base_skill_heal?: number; // (number)
     teamA_supporter_mirror_bonus_heal?: number; // Heal from supporter mirror bonus (number)
-    teamB_supporter_mirror_bonus_heal?: number; // Heal from supporter mirror bonus (number)
+    teamB_supporter_mirror_bonus_heal?: number; // (number)
 
     teamA_final_damage_dealt: number; // Total damage A caused to B (incl. attacker/defender mirror) (number)
-    teamB_final_damage_dealt: number; // Total damage B caused to A (incl. attacker/defender mirror) (number)
+    teamB_final_damage_dealt: number; // (number)
 
     teamA_health_change: number; // Total health change for A this round (number)
-    teamB_health_change: number; // Total health change for B this round (number)
+    teamB_health_change: number; // (number)
     teamA_health_after: number; // Health after this round (number)
-    teamB_health_after: number; // Health after this round (number)
+    teamB_health_after: number; // (number)
 
     is_tiebreaker_song?: boolean; // Whether this round was a tiebreaker (boolean)
 
@@ -321,7 +317,7 @@ export interface RoundSummary { // <-- CONFIRMED EXPORT
 }
 
 // Type for a single historical round record fetched from /api/match_history
-export interface MatchHistoryRound { // <-- CONFIRMED EXPORT
+export interface MatchHistoryRound {
     id: number; // match_rounds_history PK
     tournament_match_id: number;
     match_do_id: string; // Actual DO hex ID
@@ -343,7 +339,7 @@ export interface MatchHistoryRound { // <-- CONFIRMED EXPORT
     team1_health_after: number | null;
     team2_health_after: number | null;
     team1_mirror_triggered: number | null; // D1 stores 0/1
-    team2_mirror_triggered: number | null; // D1 stores 0/1
+    team2_mirror_triggered: number | null; // (INTEGER 0/1)
     team1_effect_value: number | null;
     team2_effect_value: number | null;
     is_tiebreaker_song: number | null; // D1 stores 0/1
@@ -364,7 +360,7 @@ export interface MatchHistoryRound { // <-- CONFIRMED EXPORT
 }
 
 // Type for a single historical match fetched from /api/match_history
-export interface MatchHistoryMatch { // <-- CONFIRMED EXPORT
+export interface MatchHistoryMatch {
     id: number; // tournament_matches PK
     round_name: string;
     scheduled_time: string | null;
@@ -381,12 +377,12 @@ export interface MatchHistoryMatch { // <-- CONFIRMED EXPORT
     rounds: MatchHistoryRound[];
 }
 
-export type InternalProfession = 'attacker' | 'defender' | 'supporter' | null; // <-- CONFIRMED EXPORT
+export type InternalProfession = 'attacker' | 'defender' | 'supporter' | null;
 
 
 // --- NEW TYPES FOR PAGINATION AND SONG FILTERS ---
 
-export interface PaginationInfo { // <-- CONFIRMED EXPORT
+export interface PaginationInfo {
     currentPage: number;
     pageSize: number;
     totalItems: number;
@@ -394,20 +390,95 @@ export interface PaginationInfo { // <-- CONFIRMED EXPORT
 }
 
 // Specific response data structure for GET /api/songs
-export interface SongsApiResponseData { // <-- CONFIRMED EXPORT
+export interface SongsApiResponseData {
     songs: Song[]; // Array of songs for the current page
     pagination: PaginationInfo; // Pagination metadata
 }
 
 // Specific response data structure for GET /api/songs/filters
-export interface SongFiltersApiResponseData { // <-- CONFIRMED EXPORT
+export interface SongFiltersApiResponseData {
     categories: string[];
     types: string[];
 }
 
+// Define NEW types needed for the frontend user match selection view
+// Represents a player's song selections and order for a specific match (matches the DB table)
+export interface MatchPlayerSelectionFrontend { // Frontend representation of player selection
+    id?: number; // D1 PK
+    tournament_match_id: number;
+    member_id: number;
+    team_id: number;
+    song1_id: number;
+    song1_difficulty: string;
+    song2_id: number;
+    song2_difficulty: string;
+    selected_order_index: number; // 0-based index (0 for 1st, 1 for 2nd, etc.)
+    created_at?: string;
+    updated_at?: string;
+    // Frontend convenience fields (might be populated by API or store logic)
+    song1_title?: string;
+    song2_title?: string;
+    song1_fullCoverUrl?: string;
+    song2_fullCoverUrl?: string;
+    song1_parsedLevels?: SongLevel;
+    song2_parsedLevels?: SongLevel;
+    member_nickname?: string;
+    team_name?: string;
+}
+
+// Payload for saving a player's match selection (Frontend sends this)
+export interface SaveMatchPlayerSelectionPayloadFrontend {
+    song1_id: number;
+    song1_difficulty: string;
+    song2_id: number;
+    song2_difficulty: string;
+    selected_order_index: number;
+}
+
+// Data structure received by the frontend for the user match selection view (GET /api/member/match-selection/:matchId)
+export interface FetchUserMatchSelectionDataFrontend {
+    match: TournamentMatch; // Basic match info
+    myTeam: Team;
+    opponentTeam: Team;
+    myTeamMembers: Member[]; // Full member list for user's team
+    opponentTeamMembers: Member[]; // Full member list for opponent's team
+    mySelection: MatchPlayerSelectionFrontend | null; // User's existing selection
+    // Occupied indices need member_id and nickname for frontend display
+    occupiedOrderIndices: { team_id: number; selected_order_index: number; member_id: number; member_nickname?: string }[];
+    availableOrderSlotsCount: number; // Total number of slots available per team (e.g., 3 for 3v3)
+    // Note: allSongs is NOT included here, frontend fetches it separately
+}
+
+// Data structure received by the frontend for checking selection status (Staff view) (GET /api/tournament_matches/:matchId/selection-status)
+export interface MatchSelectionStatusFrontend {
+    matchId: number;
+    isReadyToCompile: boolean; // True if all players have selected
+    team1Status: {
+        teamId: number;
+        teamName: string;
+        requiredSelections: number; // Number of players expected
+        completedSelections: number; // Number of players who have selected
+        missingMembers: { id: number; nickname: string }[]; // List of members missing selections
+    };
+    team2Status: {
+        teamId: number;
+        teamName: string;
+        requiredSelections: number;
+        completedSelections: number;
+        missingMembers: { id: number; nickname: string }[];
+    };
+}
+
+// Data structure received by the frontend after compiling match setup (Staff view) (POST /api/tournament_matches/:matchId/compile-setup)
+export interface CompileMatchSetupResponseFrontend {
+    success: boolean;
+    message: string;
+    tournamentMatch?: TournamentMatch; // Optional: return the updated match
+}
+
 
 // --- PINIA STORE STATE INTERFACE ---
-export interface AppState { // <-- CONFIRMED EXPORT
+export interface AppState {
     teams: Team[];
     members: Member[];
     songs: Song[]; // This will now hold songs for the *current page*
@@ -417,6 +488,19 @@ export interface AppState { // <-- CONFIRMED EXPORT
     currentMatchState: MatchState | null; // The live match state from DO/WebSocket
     matchHistory: MatchHistoryMatch[];
     memberSongPreferences: MemberSongPreference[];
+
+    // --- NEW STATE FOR USER MATCH SELECTION ---
+    // Data fetched for the specific match selection page
+    upcomingMatchForSelection: FetchUserMatchSelectionDataFrontend | null;
+    // User's own selection (redundant with upcomingMatchForSelection.mySelection but potentially useful)
+    userMatchSelection: MatchPlayerSelectionFrontend | null;
+    // Occupied indices for display (redundant with upcomingMatchForSelection.occupiedOrderIndices but kept for consistency with original AppState)
+    occupiedOrderIndices: { team_id: number; selected_order_index: number; member_id: number; member_nickname?: string }[];
+    // Total slots count (redundant with upcomingMatchForSelection.availableOrderSlotsCount but kept for consistency with original AppState)
+    availableOrderSlotsCount: number;
+    // Full list of songs for the picker component (not paginated)
+    allSongsForPicker: Song[];
+
     isLoading: {
         teams: boolean;
         members: boolean;
@@ -426,6 +510,12 @@ export interface AppState { // <-- CONFIRMED EXPORT
         currentMatch: boolean; // Loading state for fetching initial match state
         matchHistory: boolean;
         memberSongPreferences: boolean;
+        // --- NEW LOADING STATES ---
+        userMatchSelection: boolean; // Loading state for fetching user selection data
+        savingMatchSelection: boolean; // Loading state for saving user selection
+        checkingMatchSelectionStatus: boolean; // Loading state for staff status check
+        compilingMatchSetup: boolean; // Loading state for staff compilation
+        allSongsForPicker: boolean; // Loading state for the full song list
         [key: string]: boolean; // For generic loading states
     };
     error: string | null;
@@ -457,11 +547,25 @@ export const useAppStore = defineStore('app', {
             currentMatchState: null,
             matchHistory: [],
             memberSongPreferences: [],
+
+            // --- NEW STATE INITIALIZATION ---
+            upcomingMatchForSelection: null,
+            userMatchSelection: null,
+            occupiedOrderIndices: [],
+            availableOrderSlotsCount: 0,
+            allSongsForPicker: [],
+
             isLoading: {
                 teams: false, members: false, songs: false,
                 songFilters: false,
                 tournamentMatches: false,
                 currentMatch: false, matchHistory: false, memberSongPreferences: false,
+                // --- NEW LOADING STATES INITIALIZATION ---
+                userMatchSelection: false,
+                savingMatchSelection: false,
+                checkingMatchSelectionStatus: false,
+                compilingMatchSetup: false,
+                allSongsForPicker: false,
             },
             error: null,
             currentMatchWebSocket: null,
@@ -476,13 +580,50 @@ export const useAppStore = defineStore('app', {
         };
     },
 
-    // Pinia setup stores can use computed properties directly
-    // getters: {
-    //     isAuthenticated: (state) => state.isAuthenticated,
-    //     kindeUser: (state) => state.kindeUser,
-    //     userMember: (state) => state.userMember,
-    //     isAdminUser: (state) => state.isAdminUser,
-    // },
+    getters: {
+        // Helper to find a song in the allSongsForPicker list by ID
+        getSongForPickerById: (state) => (songId: number | null | undefined): Song | undefined => {
+            if (songId === null || songId === undefined) return undefined;
+            return state.allSongsForPicker.find(song => song.id === songId);
+        },
+        // Helper to find a member nickname by ID (used in Schedule view and MatchSongSelection overview)
+        getMemberNicknameById: (state) => (memberId: number | null | undefined): string => {
+             if (memberId === null || memberId === undefined) return '未知选手';
+             const member = state.members.find(m => m.id === memberId);
+             return member?.nickname || `ID: ${memberId}`;
+        },
+         // Helper to find a team name by ID (used in Schedule view)
+        getTeamNameById: (state) => (teamId: number | null | undefined): string => {
+             if (teamId === null || teamId === undefined) return '未知队伍';
+             const team = state.teams.find(t => t.id === teamId);
+             return team?.name || `ID: ${teamId}`;
+        },
+         // Helper to check if an order index is occupied by a teammate (used in MatchSongSelection)
+         isOrderIndexOccupiedByTeammate: (state) => (index: number): boolean => {
+             const myTeamId = state.upcomingMatchForSelection?.myTeam?.id;
+             const myMemberId = state.userMember?.id;
+             if (!myTeamId || !myMemberId) return false; // Cannot be occupied by teammate if no team/user info
+
+             return state.occupiedOrderIndices.some(item =>
+                 item.team_id === myTeamId &&
+                 item.selected_order_index === index &&
+                 item.member_id !== myMemberId // Must be a different member (teammate)
+             );
+         },
+         // Helper to get the nickname of the member occupying a slot (used in MatchSongSelection overview)
+         getOccupyingMemberNickname: (state) => (teamId: number, index: number): string | undefined => {
+             const occupiedItem = state.occupiedOrderIndices.find(item =>
+                 item.team_id === teamId &&
+                 item.selected_order_index === index
+             );
+             // The backend should ideally include member_nickname in occupiedOrderIndices
+             // If not, you'd need to look up the member from state.members
+             return occupiedItem?.member_nickname; // Assuming backend provides this
+             // If backend doesn't provide nickname in occupiedOrderIndices:
+             // const member = state.members.find(m => m.id === occupiedItem?.member_id);
+             // return member?.nickname;
+         }
+    },
 
 
     actions: {
@@ -491,6 +632,7 @@ export const useAppStore = defineStore('app', {
             if (this.isLoading.hasOwnProperty(key)) {
                  this.isLoading[key] = value;
             } else {
+                 // Allow adding new loading keys dynamically if needed, though defining in AppState is better
                  (this.isLoading as any)[key] = value;
             }
         },
@@ -651,8 +793,9 @@ export const useAppStore = defineStore('app', {
             console.log(`[Store HTTP] Attempting to fetch initial match state for DO: ${doId}`);
             try {
                 const response = await api.fetchMatchState(doId);
+                // Corrected: Use response.data
                 if (response.success && response.data) {
-                    this.currentMatchState = response.data;
+                    this.currentMatchState = response.data; // Assuming response.data is the MatchState object
                     console.log(`[Store HTTP] Successfully fetched initial match state for DO ${doId}:`, this.currentMatchState);
                 } else {
                     this.setError(response.error || `Failed to fetch match state for ${doId}`);
@@ -709,6 +852,7 @@ export const useAppStore = defineStore('app', {
             try {
                 const response = await api.createTournamentMatch(payload);
                 if (response.success && response.data) {
+                    // Add new match to the beginning of the list and sort by creation date
                     this.tournamentMatches.unshift(response.data);
                     this.tournamentMatches.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                     return response.data;
@@ -727,6 +871,7 @@ export const useAppStore = defineStore('app', {
             try {
                 const response = await api.confirmMatchSetup(matchId, payload);
                 if (response.success && response.data) {
+                    // Update the match in the tournamentMatches list
                     const index = this.tournamentMatches.findIndex(m => m.id === matchId);
                     if (index !== -1) this.tournamentMatches[index] = response.data;
                     return response.data;
@@ -745,6 +890,7 @@ export const useAppStore = defineStore('app', {
             try {
                 const response = await api.startLiveMatch(matchId);
                 if (response.success && response.data?.match_do_id) {
+                    // Update the match status and DO ID in the tournamentMatches list
                     const index = this.tournamentMatches.findIndex(m => m.id === matchId);
                     if (index !== -1) {
                         this.tournamentMatches[index].status = 'live';
@@ -761,8 +907,8 @@ export const useAppStore = defineStore('app', {
             }
         },
 
-        // --- Live Match (DO) Actions (Keep existing, they use api.ts which will be updated) ---
-        // These actions will now require Admin Auth via the backend middleware
+        // --- Live Match (DO) Actions (forwarded via Worker, require Admin Auth) ---
+        // These calls will be protected by the adminAuthMiddleware on the backend
         async calculateRound(doId: string, payload: CalculateRoundPayload) {
             this.clearError();
             try {
@@ -770,7 +916,7 @@ export const useAppStore = defineStore('app', {
                 if (!response.success) {
                     this.setError(response.error || 'Failed to calculate round');
                 }
-                return response;
+                return response; // Return the full response for component to check success/error
             } catch (err: any) {
                 this.setError(err.message);
                 return { success: false, error: err.message };
@@ -784,7 +930,7 @@ export const useAppStore = defineStore('app', {
                 if (!response.success) {
                     this.setError(response.error || 'Failed to advance to next round');
                 }
-                 return response;
+                 return response; // Return the full response
             } catch (err: any) {
                 this.setError(err.message);
                  return { success: false, error: err.message };
@@ -798,7 +944,7 @@ export const useAppStore = defineStore('app', {
                 if (!response.success) {
                     this.setError(response.error || 'Failed to select tiebreaker song');
                 }
-                 return response;
+                 return response; // Return the full response
             } catch (err: any) {
                 this.setError(err.message);
                  return { success: false, error: err.message };
@@ -812,7 +958,7 @@ export const useAppStore = defineStore('app', {
                 if (!response.success) {
                     this.setError(response.error || 'Failed to resolve draw');
                 }
-                 return response;
+                 return response; // Return the full response
             } catch (err: any) {
                 this.setError(err.message);
                  return { success: false, error: err.message };
@@ -824,13 +970,14 @@ export const useAppStore = defineStore('app', {
             try {
                 const response = await api.archiveMatch(doId);
                 if (response.success) {
+                    // Clear current match state and refresh lists
                     this.currentMatchState = null;
                     this.fetchTournamentMatches();
                     this.fetchMatchHistory();
                 } else {
                     this.setError(response.error || 'Failed to archive match');
                 }
-                 return response;
+                 return response; // Return the full response
             } catch (err: any) {
                 this.setError(err.message);
                  return { success: false, error: err.message };
@@ -842,11 +989,12 @@ export const useAppStore = defineStore('app', {
             try {
                 const response = await api.saveMemberSongPreference(payload);
                 if (response.success && response.data) {
+                    // Update or add the preference in the list
                     const index = this.memberSongPreferences.findIndex(p =>
                         p.member_id === payload.member_id &&
                         p.tournament_stage === payload.tournament_stage &&
                         p.song_id === payload.song_id &&
-                        p.selected_difficulty === payload.selected_difficulty
+                        p.selected_difficulty === payload.selected_difficulty // Match all unique constraint columns
                     );
                      if (index !== -1) {
                          this.memberSongPreferences[index] = response.data;
@@ -864,9 +1012,169 @@ export const useAppStore = defineStore('app', {
             }
         },
 
+        // --- NEW ACTIONS FOR USER MATCH SELECTION ---
+
+        async fetchUserMatchSelectionData(matchId: number) {
+            this.setLoading('userMatchSelection', true);
+            this.clearError();
+            this.upcomingMatchForSelection = null; // Clear previous data
+            this.userMatchSelection = null;
+            this.occupiedOrderIndices = [];
+            this.availableOrderSlotsCount = 0;
+
+            try {
+                const response = await api.fetchUserMatchSelectionData(matchId); // Assume api.ts has this function
+                if (response.success && response.data) {
+                    this.upcomingMatchForSelection = response.data;
+                    // Populate separate state properties for convenience if needed
+                    this.userMatchSelection = response.data.mySelection;
+                    this.occupiedOrderIndices = response.data.occupiedOrderIndices;
+                    this.availableOrderSlotsCount = response.data.availableOrderSlotsCount;
+                    console.log(`Store: Fetched user match selection data for match ${matchId}`, response.data);
+                    return response.data;
+                } else {
+                    this.setError(response.error || `Failed to fetch selection data for match ${matchId}`);
+                    return null;
+                }
+            } catch (err: any) {
+                this.setError(err.message);
+                return null;
+            } finally {
+                this.setLoading('userMatchSelection', false);
+            }
+        },
+
+        async saveMatchSelection(matchId: number, payload: SaveMatchPlayerSelectionPayloadFrontend) {
+            this.setLoading('savingMatchSelection', true);
+            this.clearError();
+            try {
+                const response = await api.saveMatchPlayerSelection(matchId, payload); // Assume api.ts has this function
+                if (response.success && response.data) {
+                    // Update the user's selection in the state
+                    this.userMatchSelection = response.data;
+                    // Also update it within the upcomingMatchForSelection if it exists
+                    if (this.upcomingMatchForSelection) {
+                         this.upcomingMatchForSelection.mySelection = response.data;
+                         // Need to refetch occupied indices or update locally if possible
+                         // For simplicity, let's refetch the whole selection data after saving
+                         // Or, if the backend returns the updated occupied list, use that.
+                         // Assuming backend returns the saved selection, we'll refetch for simplicity.
+                         // A more optimized approach would be to update occupied indices locally.
+                         // If the backend returns the updated occupied list in the save response:
+                         // if (response.data.updatedOccupiedIndices) {
+                         //     this.occupiedOrderIndices = response.data.updatedOccupiedIndices;
+                         //     if (this.upcomingMatchForSelection) {
+                         //          this.upcomingMatchForSelection.occupiedOrderIndices = response.data.updatedOccupiedIndices;
+                         //     }
+                         // } else {
+                             // Fallback: refetch all data
+                             this.fetchUserMatchSelectionData(matchId); // Refetch to get updated occupied indices
+                         // }
+                    }
+                    console.log(`Store: Saved user match selection for match ${matchId}`, response.data);
+                    return response.data;
+                } else {
+                    this.setError(response.error || `Failed to save selection for match ${matchId}`);
+                    return null;
+                }
+            } catch (err: any) {
+                this.setError(err.message);
+                return null;
+            } finally {
+                this.setLoading('savingMatchSelection', false);
+            }
+        },
+
+        async fetchAllSongsForPicker() {
+             this.setLoading('allSongsForPicker', true);
+             this.clearError();
+             try {
+                 // Assuming api.ts has a function to fetch all songs (potentially handling pagination internally)
+                 // Or you might need to call fetchSongs repeatedly with pagination params
+                 // For this example, let's assume a simple api.fetchAllSongs() exists.
+                 // If not, you'd need more complex logic here or in api.ts
+                 const response = await api.fetchAllSongs(); // Assume this fetches ALL songs
+                 if (response.success && response.data) {
+                     this.allSongsForPicker = response.data; // Assuming data is an array of Song[]
+                     console.log(`Store: Fetched ${this.allSongsForPicker.length} songs for picker.`);
+                 } else {
+                     this.setError(response.error || 'Failed to fetch all songs for picker');
+                     this.allSongsForPicker = [];
+                 }
+             } catch (err: any) {
+                 this.setError(err.message);
+                 this.allSongsForPicker = [];
+             } finally {
+                 this.setLoading('allSongsForPicker', false);
+             }
+        },
+
+        // --- NEW ACTIONS FOR STAFF MATCH COMPILATION ---
+
+        async fetchMatchSelectionStatus(matchId: number): Promise<MatchSelectionStatusFrontend | null> {
+            this.setLoading('checkingMatchSelectionStatus', true);
+            this.clearError();
+            try {
+                const response = await api.fetchMatchSelectionStatus(matchId); // Assume api.ts has this function
+                if (response.success && response.data) {
+                    console.log(`Store: Fetched match selection status for match ${matchId}`, response.data);
+                    return response.data; // Return data directly, not stored in global state
+                } else {
+                    this.setError(response.error || `Failed to fetch selection status for match ${matchId}`);
+                    return null;
+                }
+            } catch (err: any) {
+                this.setError(err.message);
+                return null;
+            } finally {
+                this.setLoading('checkingMatchSelectionStatus', false);
+            }
+        },
+
+        async compileMatchSetup(matchId: number): Promise<CompileMatchSetupResponseFrontend | null> {
+            this.setLoading('compilingMatchSetup', true);
+            this.clearError();
+            try {
+                const response = await api.compileMatchSetup(matchId); // Assume api.ts has this function
+                if (response.success) {
+                    console.log(`Store: Compiled match setup for match ${matchId}`, response.data);
+                    // Update the tournamentMatches list with the potentially updated match
+                    // The backend response includes the updated match in response.data?.tournamentMatch
+                    if (response.data?.tournamentMatch) { // Use optional chaining for safety
+                         const index = this.tournamentMatches.findIndex(m => m.id === matchId);
+                         if (index !== -1) {
+                             this.tournamentMatches[index] = response.data.tournamentMatch;
+                         } else {
+                             // If not found (shouldn't happen for existing match), maybe refetch all
+                             this.fetchTournamentMatches();
+                         }
+                    } else {
+                         // If backend doesn't return the match, force refetch the list
+                         this.fetchTournamentMatches();
+                    }
+
+                    // Return the response data itself, which includes success, message, and optionally tournamentMatch
+                    // Corrected: Ensure return type matches Promise<CompileMatchSetupResponseFrontend | null>
+                    return response.data || null; // Return response.data if truthy, otherwise null
+
+                } else {
+                    // If response.success is false, response.data is undefined, but response.error/message should exist
+                    this.setError(response.error || `Failed to compile match setup for match ${matchId}`);
+                    return null; // Return null on failure
+                }
+            } catch (err: any) {
+                this.setError(err.message);
+                return null;
+            } finally {
+                this.setLoading('compilingMatchSetup', false);
+            }
+        },
+
+
         // --- WebSocket Management (Keep existing) ---
         connectWebSocket(doId: string) {
              if (this.currentMatchWebSocket && this.connectedDoName === doId) {
+                  // Corrected: Use WebSocket.CONNECTING
                   if (this.currentMatchWebSocket.readyState === WebSocket.OPEN || this.currentMatchWebSocket.readyState === WebSocket.CONNECTING) {
                       console.log(`[Store WS] WebSocket already open or connecting for DO name: ${doId}.`);
                       return;
@@ -882,6 +1190,7 @@ export const useAppStore = defineStore('app', {
 
              const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
              const wsHost = window.location.host;
+             // Construct the WebSocket URL based on the DO name
              const wsUrl = `${wsProtocol}//${wsHost}/api/live-match/${doId}/websocket`;
 
              console.log(`[Store WS] Attempting to connect WebSocket to: ${wsUrl} for DO name: ${doId}`);
@@ -890,7 +1199,7 @@ export const useAppStore = defineStore('app', {
 
              this.currentMatchWebSocket.onopen = () => {
                  console.log(`[Store WS] WebSocket connected successfully for DO name: ${doId}!`);
-                 this.clearError();
+                 this.clearError(); // Clear any previous connection errors
              };
 
              this.currentMatchWebSocket.onmessage = (event) => {
@@ -898,10 +1207,11 @@ export const useAppStore = defineStore('app', {
                  try {
                      const data = JSON.parse(event.data as string);
                      console.log(`[Store WS] Parsed WebSocket message for DO name ${doId}:`, data);
+                     // Basic check to see if it looks like a MatchState object
                      if (data && typeof data === 'object' && data.status !== undefined && data.tournament_match_id !== undefined && data.match_do_id !== undefined) {
                           console.log(`[Store WS] Received valid MatchState update for DO name ${doId}. Updating state.`);
                           this.currentMatchState = data as MatchState;
-                          this.clearError();
+                          this.clearError(); // Clear error on successful state update
                      } else if (data && data.error) {
                          console.error(`[Store WS] WebSocket received error message for DO name ${doId}:`, data.error);
                          this.setError(`Live match error: ${data.error}`);
@@ -926,6 +1236,7 @@ export const useAppStore = defineStore('app', {
                  console.log(`[Store WS] WebSocket closed for DO name ${doId}. Code: ${event.code}, Reason: ${event.reason}`);
                  if (!event.wasClean) {
                      console.error(`[Store WS] WebSocket connection died unexpectedly for DO name ${doId}`);
+                     // Set error only if it wasn't a clean close (code 1000) or normal shutdown (code 1001)
                      if (event.code !== 1000 && event.code !== 1001) {
                           this.setError(`WebSocket disconnected unexpectedly (Code: ${event.code}).`);
                      }
@@ -938,7 +1249,7 @@ export const useAppStore = defineStore('app', {
         disconnectWebSocket() {
              if (this.currentMatchWebSocket && this.currentMatchWebSocket.readyState === WebSocket.OPEN) {
                  console.log(`[Store WS] Closing WebSocket for DO name: ${this.connectedDoName || 'unknown'}`);
-                 this.currentMatchWebSocket.close(1000, "User navigated away");
+                 this.currentMatchWebSocket.close(1000, "User navigated away"); // Use code 1000 for clean close
              } else {
                   console.log(`[Store WS] WebSocket not open, nothing to close.`);
              }

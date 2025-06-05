@@ -15,7 +15,7 @@ import MemberSongPrefs from '@/views/MemberSongPrefs.vue'; // Assuming this is u
 import NotFoundPage from '@/views/NotFoundPage.vue';
 import KindeCallback from '@/views/KindeCallback.vue'; // Import the KindeCallback view
 import PrivacyPolicyPage from '@/views/PrivacyPolicyPage.vue'; // Assuming this exists
-
+import MatchSongSelection from '@/views/MatchSongSelection.vue'; // NEW Import
 
 // Extend RouteMeta to include custom fields
 declare module 'vue-router' {
@@ -89,6 +89,13 @@ const routes: Array<RouteRecordRaw> = [
     name: 'MemberSongPrefs',
     component: MemberSongPrefs,
     meta: { title: '选手选曲偏好', requiresAuth: true }, // Requires user authentication
+  },
+  {
+    path: '/match-selection/:matchId', // NEW Route
+    name: 'MatchSongSelection',
+    component: MatchSongSelection,
+    props: true, // Pass matchId as a prop
+    meta: { title: '比赛选歌', requiresAuth: true }, // Requires user authentication
   },
   // 404 Page - Must be the last route
   {
