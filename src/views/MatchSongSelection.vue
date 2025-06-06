@@ -155,7 +155,8 @@
 
         <!-- Song Picker Dialog -->
         <el-dialog v-model="songPickerDialogVisible" title="选择歌曲" width="800px"> <!-- Increased width -->
-             <el-form :inline="true">
+             <!-- Added v-if condition here -->
+             <el-form :inline="true" v-if="store.songFilterOptions">
                  <!-- Category Dropdown -->
                  <el-form-item label="分类">
                    <el-select
@@ -242,6 +243,16 @@
                      <el-input v-model="pickerFilters.search" placeholder="输入歌名关键字" clearable @input="handlePickerSearchChange" />
                  </el-form-item>
              </el-form>
+             <!-- Added v-else-if for loading state -->
+             <div v-else-if="store.isLoading.songFilters" style="text-align: center; padding: 20px;">
+                 <el-spinner />
+                 <p>加载筛选选项中...</p>
+             </div>
+             <!-- Added v-else for error state -->
+             <div v-else style="text-align: center; padding: 20px;">
+                 <el-alert type="error" :title="store.error || '加载筛选选项失败'" :closable="false"></el-alert>
+             </div>
+
 
              <el-table
                  :data="filteredSongsForPicker"
@@ -540,6 +551,8 @@ const openSongPicker = (songIndex: number) => {
     songPickerDialogVisible.value = true;
 
     // Fetch filter options if not already loaded (now also fetched on mount)
+    // This is crucial to populate store.songFilterOptions early
+    // The v-if on the form handles the rendering delay.
     if (store.songFilterOptions.categories.length === 0 && !store.isLoading.songFilters) {
          store.fetchSongFilterOptions();
     }
@@ -635,12 +648,16 @@ onMounted(() => {
     if (matchId.value) {
         store.fetchUserMatchSelectionData(matchId.value);
         // Fetch filter options on mount as well, they might be needed for the picker
+        // This is crucial to populate store.songFilterOptions early
+        // The v-if on the form handles the rendering delay.
         if (store.songFilterOptions.categories.length === 0 && !store.isLoading.songFilters) {
              store.fetchSongFilterOptions();
         }
         // Fetch all songs for the picker on mount
         // This ensures song details are available for displaying saved selections immediately
         // This list is NOT used for the picker table data anymore, only for initial display of saved songs.
+        // We still need this because the `watch` for `store.userMatchSelection` uses `store.getSongForPickerById`
+        // which looks up songs in `store.allSongsForPicker`.
         if (store.allSongsForPicker.length === 0 && !store.isLoading.allSongsForPicker) {
              store.fetchAllSongsForPicker();
         }
