@@ -1,4 +1,4 @@
-<!-- frontend/src/views/Songs.vue -->
+<!-- src/views/Songs.vue -->
 <template>
   <div class="songs-view">
     <el-card header="歌曲列表">
@@ -43,26 +43,6 @@
            </el-select>
         </el-form-item>
 
-        <!-- Difficulty Dropdown (NEW) -->
-        <el-form-item label="难度">
-            <el-select
-              v-model="filters.difficulty"
-              placeholder="选择难度"
-              clearable
-              filterable
-              @change="handleFilterChange"
-              :loading="store.isLoading.songFilters"
-              style="width: 120px;"
-            >
-              <el-option
-                v-for="item in store.songFilterOptions.difficulties"
-                :key="item"
-                :label="item"
-                :value="item"
-              />
-            </el-select>
-         </el-form-item>
-
         <!-- Level Dropdown -->
         <el-form-item label="等级">
            <el-select
@@ -73,12 +53,11 @@
              @change="handleFilterChange"
              style="width: 120px;"
            >
-             <!-- 使用 store 中获取的等级列表 -->
              <el-option
-               v-for="level in store.songFilterOptions.levels"
-               :key="level"
-               :label="level"
-               :value="level"
+               v-for="level in levelOptions"
+               :key="level.value"
+               :label="level.label"
+               :value="level.value"
              />
            </el-select>
         </el-form-item>
@@ -93,8 +72,8 @@
         </el-form-item>
       </el-form>
 
-      <!-- 直接使用 store.songs 作为表格数据 -->
-      <el-table :data="store.songs" v-loading="store.isLoading.songs" style="width: 100%" border stripe>
+      <!-- Use filteredSongs for the table data -->
+      <el-table :data="filteredSongs" v-loading="store.isLoading.songs" style="width: 100%" border stripe>
         <el-table-column type="index" width="50" />
         <el-table-column label="封面" width="100">
           <template #default="{ row }">
@@ -154,10 +133,10 @@
 
 <script setup lang="ts">
 import { reactive, onMounted, ref, computed } from 'vue';
-import { useAppStore } from '@/store';
+import { useAppStore } from '@/store'; // Adjust path
 import { ElMessage } from 'element-plus';
 import { Picture } from '@element-plus/icons-vue';
-import type { Song, SongLevel } from '@/store';
+import type { Song, SongLevel } from '@/store'; // Adjust path and import SongLevel
 
 const store = useAppStore();
 
@@ -165,38 +144,67 @@ const filters = reactive({
   category: '',
   type: '',
   search: '',
-  level: '',
-  difficulty: '', // 新增 difficulty 筛选状态
+  level: '', // Add level filter state
   page: 1,
   limit: 20, // Default page size
 });
 
-// Level Options and Difficulty Options will now come from the store's songFilterOptions
-// Remove the hardcoded levelOptions ref
+// Define Level Options based on your description
+const levelOptions = ref([
+    { value: '1', label: '1' }, { value: '2', label: '2' }, { value: '3', label: '3' }, { value: '4', label: '4' },
+    { value: '5', label: '5' }, { value: '5+', label: '5+' },
+    { value: '6', label: '6' }, { value: '6+', label: '6+' },
+    { value: '7', label: '7' }, { value: '7+', label: '7+' },
+    { value: '8', label: '8' }, // Assuming 8+ doesn't exist based on your list, but 8 does
+    { value: '9', label: '9' }, { value: '9+', label: '9+' },
+    { value: '10', label: '10' }, // Assuming 10+ doesn't exist
+    { value: '11', label: '11' }, // Assuming 11+ doesn't exist
+    { value: '12', label: '12' }, { value: '12+', label: '12+' },
+    { value: '13', label: '13' }, // Assuming 13+ doesn't exist
+    { value: '14', label: '14' }, { value: '14+', label: '14+' },
+    { value: '15', label: '15' },
+]);
+// NOTE: Double check the exact levels with '+' in the game data if needed.
+
+// --- Level Filtering Logic (Client-Side) ---
+// This computed property filters the songs *after* they are fetched from the backend page
+const filteredSongs = computed(() => {
+    if (!filters.level) {
+        return store.songs; // No level filter applied, show all songs from the current page
+    }
+    // Filter songs on the current page based on the selected level
+    return store.songs.filter(song => {
+        if (!song.parsedLevels) return false;
+        // Check if the selected level matches *any* of the song's difficulty levels (B, A, E, M, R)
+        // We need to check the VALUES of the parsedLevels object
+        const levels = Object.values(song.parsedLevels) as (string | undefined)[]; // Get all level values
+        return levels.some(lvl => lvl === filters.level); // Check if any value matches the filter
+    });
+});
+// --- End Level Filtering Logic ---
+
 
 /**
  * Loads songs from the store based on current filters and pagination.
- * All filters are passed to the backend.
+ * Note: Level filter is applied client-side in `filteredSongs`.
  */
 const loadSongs = async () => {
-  // Pass ALL filters and pagination params to the store action
+  // Pass filters and pagination params to the store action
   await store.fetchSongs({
-    category: filters.category || undefined,
+    category: filters.category || undefined, // Pass empty string as undefined to remove from params
     type: filters.type || undefined,
     search: filters.search || undefined,
-    level: filters.level || undefined, // Pass level filter
-    difficulty: filters.difficulty || undefined, // Pass difficulty filter
     page: filters.page,
     limit: filters.limit,
   });
-  // Display error if fetching songs failed
-  if (store.error) {
+  // Display error if fetching songs failed (but not if just filter options failed)
+  if (store.error && !store.error.startsWith('Failed to load filter options')) {
     ElMessage.error(`加载歌曲失败: ${store.error}`);
   }
 };
 
 /**
- * Handles changes in filter inputs (category, type, search, level, difficulty).
+ * Handles changes in filter inputs (category, type, search, level).
  * Resets pagination to page 1 and reloads songs.
  */
 const handleFilterChange = () => {
@@ -255,4 +263,3 @@ onMounted(() => {
      justify-content: flex-end; /* Align to the right */
 }
 </style>
-

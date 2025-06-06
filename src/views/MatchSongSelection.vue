@@ -2,7 +2,7 @@
 <template>
     <div class="match-selection-view">
         <el-card
-            v-loading="store.isLoading.userMatchSelection || store.isLoading.allSongsForPicker || store.isLoading.savingMatchSelection || store.isLoading.songFilters"
+            v-loading="store.isLoading.userMatchSelection || store.isLoading.songs || store.isLoading.savingMatchSelection || store.isLoading.songFilters"
             :header="matchTitle"
         >
             <div v-if="store.upcomingMatchForSelection">
@@ -165,6 +165,7 @@
                      filterable
                      style="width: 150px;"
                      :loading="store.isLoading.songFilters"
+                     @change="handlePickerFilterChange"
                    >
                      <el-option
                        v-for="item in store.songFilterOptions.categories"
@@ -184,6 +185,7 @@
                       filterable
                       style="width: 120px;"
                       :loading="store.isLoading.songFilters"
+                      @change="handlePickerFilterChange"
                     >
                       <el-option
                         v-for="item in store.songFilterOptions.types"
@@ -203,8 +205,8 @@
                        filterable
                        style="width: 120px;"
                        :loading="store.isLoading.songFilters"
+                       @change="handlePickerFilterChange"
                      >
-                       <!-- Corrected: Access difficulties from songFilterOptions -->
                        <el-option
                          v-for="item in store.songFilterOptions.difficulties"
                          :key="item"
@@ -223,8 +225,8 @@
                       filterable
                       style="width: 120px;"
                       :loading="store.isLoading.songFilters"
+                      @change="handlePickerFilterChange"
                     >
-                      <!-- Corrected: Access levels from songFilterOptions -->
                       <el-option
                         v-for="level in store.songFilterOptions.levels"
                         :key="level"
@@ -237,20 +239,20 @@
                  <!-- Search Input -->
                  <el-form-item label="搜索歌名">
                      <!-- Debounced search is applied to the computed property -->
-                     <el-input v-model="pickerFilters.search" placeholder="输入歌名关键字" clearable />
+                     <el-input v-model="pickerFilters.search" placeholder="输入歌名关键字" clearable @input="handlePickerSearchChange" />
                  </el-form-item>
              </el-form>
 
              <el-table
                  :data="filteredSongsForPicker"
-                 v-loading="store.isLoading.allSongsForPicker"
+                 v-loading="store.isLoading.songs" <!-- Use store.isLoading.songs for paginated fetch -->
                  style="width: 100%; max-height: 400px; overflow-y: auto;" <!-- Increased max-height -->
                  highlight-current-row
                  @current-change="handleSongSelectForPicker"
                  border
                  stripe
              >
-                 <el-table-column type="index" width="50" />
+                 <el-table-column type="index" width="50" :index="getPickerTableIndex" /> <!-- Correct index calculation -->
                  <el-table-column label="封面" width="80">
                      <template #default="{ row }">
                          <el-image
@@ -286,6 +288,21 @@
                  </el-table-column>
              </el-table>
 
+             <!-- Pagination for Picker -->
+             <el-pagination
+               v-if="store.songPagination && store.songPagination.totalItems > 0"
+               background
+               layout="total, sizes, prev, pager, next, jumper"
+               :total="store.songPagination.totalItems"
+               :page-sizes="[10, 20, 50, 100]"
+               :page-size="pickerFilters.limit"
+               :current-page="pickerFilters.page"
+               @size-change="handlePickerSizeChange"
+               @current-change="handlePickerCurrentPageChange"
+               style="margin-top: 20px; justify-content: flex-end;"
+             />
+
+
              <el-form v-if="selectedSongInPicker" style="margin-top: 20px;" label-width="100px">
                  <el-form-item label="已选歌曲">
                      <el-text>{{ selectedSongInPicker.title }}</el-text>
@@ -314,7 +331,6 @@
 
 <script setup lang="ts">
 // Import types directly from store.ts
-// Corrected: Import SongLevel type
 import { useAppStore, type Song, type MatchPlayerSelectionFrontend, type SaveMatchPlayerSelectionPayloadFrontend, type SongLevel } from '@/store';
 import { onMounted, ref, reactive, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
@@ -341,13 +357,15 @@ const songPickerDialogVisible = ref(false);
 const currentSongIndexToSelect = ref(0); // 0 for first song, 1 for second
 const selectedSongInPicker = ref<Song | null>(null);
 const selectedDifficultyInPicker = ref('');
-// Picker filter state (client-side filtering)
+// Picker filter state (client-side filtering + pagination params)
 const pickerFilters = reactive({
     category: '',
     type: '',
     search: '',
-    level: '',
-    difficulty: '',
+    level: '', // Client-side filter
+    difficulty: '', // Client-side filter
+    page: 1, // Pagination
+    limit: 20, // Pagination
 });
 
 
@@ -374,44 +392,32 @@ const isSelectionComplete = computed(() => {
     );
 });
 
-// Filter songs for the picker based on search query and other filters (client-side filtering)
+// Filter songs for the picker based on Level and Difficulty (client-side filtering on the current page)
 const filteredSongsForPicker = computed(() => {
-    let songs = store.allSongsForPicker;
+    let songs = store.songs; // Use the current page of songs from the store
 
-    // Apply Category filter
-    if (pickerFilters.category) {
-        songs = songs.filter(song => song.category === pickerFilters.category);
-    }
-    // Apply Type filter
-    if (pickerFilters.type) {
-        songs = songs.filter(song => song.type === pickerFilters.type);
-    }
-    // Apply Difficulty filter
+    // Apply Difficulty filter (client-side)
     if (pickerFilters.difficulty) {
         songs = songs.filter(song => song.parsedLevels && song.parsedLevels.hasOwnProperty(pickerFilters.difficulty));
     }
-    // Apply Level filter
+    // Apply Level filter (client-side)
     if (pickerFilters.level) {
         songs = songs.filter(song => {
             if (!song.parsedLevels) return false;
             // Check if the selected level matches the level for the selected difficulty (if any)
             // OR if it matches any level if no difficulty is selected
             if (pickerFilters.difficulty) {
-                 // Corrected: Access level using the difficulty key and compare as strings
+                 // Access level using the difficulty key and compare as strings
                  const levelValue = song.parsedLevels[pickerFilters.difficulty as keyof SongLevel];
                  return levelValue === pickerFilters.level; // Compare strings directly
             } else {
                  // If no difficulty filter, check if the level matches any difficulty's level
-                 // Corrected: Iterate over values and compare as strings
+                 // Iterate over values and compare as strings
                  return Object.values(song.parsedLevels).some(level => level === pickerFilters.level);
             }
         });
     }
-    // Apply Search filter (case-insensitive)
-    if (pickerFilters.search) {
-        const query = pickerFilters.search.toLowerCase();
-        songs = songs.filter(song => song.title.toLowerCase().includes(query));
-    }
+    // Note: Category, Type, Search, Page, Limit are handled by the backend via store.fetchSongs
 
     return songs;
 });
@@ -422,6 +428,11 @@ const matchTitle = computed(() => {
     if (!match) return '比赛选歌';
     return `${match.round_name || '未知轮次'} - ${match.team1_name || '未知队伍'} vs ${match.team2_name || '未知队伍'}`;
 });
+
+// Helper for picker table index calculation
+const getPickerTableIndex = (index: number) => {
+    return (pickerFilters.page - 1) * pickerFilters.limit + index + 1;
+};
 
 
 // --- Watchers ---
@@ -491,26 +502,49 @@ const handleOrderChange = (value: number) => {
     // No extra check needed here unless you want to prevent changing after saving
 };
 
+// Function to load songs for the picker using store.fetchSongs (with pagination and backend filters)
+const loadSongsForPicker = async () => {
+    await store.fetchSongs({
+        category: pickerFilters.category || undefined,
+        type: pickerFilters.type || undefined,
+        search: pickerFilters.search || undefined,
+        // Level and Difficulty are filtered client-side, so don't send them to backend fetch
+        // level: pickerFilters.level || undefined,
+        // difficulty: pickerFilters.difficulty || undefined,
+        page: pickerFilters.page,
+        limit: pickerFilters.limit,
+    });
+     // Display error if fetching songs failed
+    if (store.error) {
+        // Check if the error is specifically from fetching songs, not filter options
+        // This requires checking the error message or having separate error states
+        // For simplicity, let's just show the error if any exists after fetchSongs
+        ElMessage.error(`加载歌曲列表失败: ${store.error}`);
+    }
+};
+
+
 const openSongPicker = (songIndex: number) => {
     currentSongIndexToSelect.value = songIndex;
     selectedSongInPicker.value = null; // Reset picker state
     selectedDifficultyInPicker.value = '';
-    // Reset picker filters
+    // Reset picker filters and pagination
     pickerFilters.category = '';
     pickerFilters.type = '';
     pickerFilters.search = '';
     pickerFilters.level = '';
     pickerFilters.difficulty = '';
+    pickerFilters.page = 1; // Reset to first page
+    pickerFilters.limit = 20; // Reset to default limit
 
     songPickerDialogVisible.value = true;
-    // Fetch all songs if not already loaded (now also fetched on mount)
-    if (store.allSongsForPicker.length === 0 && !store.isLoading.allSongsForPicker) {
-        store.fetchAllSongsForPicker();
-    }
+
     // Fetch filter options if not already loaded (now also fetched on mount)
     if (store.songFilterOptions.categories.length === 0 && !store.isLoading.songFilters) {
          store.fetchSongFilterOptions();
     }
+    // Load the first page of songs for the picker
+    loadSongsForPicker();
 };
 
 const handleSongSelectForPicker = (row: Song) => {
@@ -566,18 +600,34 @@ const saveSelection = async () => {
     }
 };
 
-// Debounced search function for the song picker (applied to the computed property)
-// No need to call a store action here, filtering is client-side
-const debouncedSearchSongs = debounce(() => {
-    // The computed property `filteredSongsForPicker` reacts to `pickerFilters.search`
-    // No explicit action needed here other than the debounce itself
-    console.log("Picker search query changed:", pickerFilters.search);
+// Handles changes in picker filter inputs (Category, Type, Difficulty, Level)
+const handlePickerFilterChange = () => {
+    // Level and Difficulty are filtered client-side, so changing them doesn't reset pagination
+    // Only reset pagination if Category, Type, or Search changes (backend filters)
+    // However, for simplicity and consistency with the provided Songs.vue, let's reset page on *any* filter change.
+    pickerFilters.page = 1; // Reset to first page when filters change
+    loadSongsForPicker();
+};
+
+// Handles changes in the picker's search input (debounced)
+const handlePickerSearchChange = debounce(() => {
+    pickerFilters.page = 1; // Reset to first page on search change
+    loadSongsForPicker();
 }, 300); // Adjust debounce delay as needed
 
-// Watch the search query specifically to apply the debounced function
-watch(() => pickerFilters.search, () => {
-    debouncedSearchSongs();
-});
+
+// Handles changes in the picker's pagination page size
+const handlePickerSizeChange = (newSize: number) => {
+    pickerFilters.limit = newSize;
+    pickerFilters.page = 1; // Reset to first page when size changes
+    loadSongsForPicker();
+};
+
+// Handles changes in the picker's current pagination page
+const handlePickerCurrentPageChange = (newPage: number) => {
+    pickerFilters.page = newPage;
+    loadSongsForPicker();
+};
 
 
 // --- Lifecycle Hooks ---
@@ -590,6 +640,7 @@ onMounted(() => {
         }
         // Fetch all songs for the picker on mount
         // This ensures song details are available for displaying saved selections immediately
+        // This list is NOT used for the picker table data anymore, only for initial display of saved songs.
         if (store.allSongsForPicker.length === 0 && !store.isLoading.allSongsForPicker) {
              store.fetchAllSongsForPicker();
         }
@@ -601,7 +652,7 @@ onMounted(() => {
 // Clean up debounce on component unmount
 import { onUnmounted } from 'vue';
 onUnmounted(() => {
-  debouncedSearchSongs.cancel();
+  handlePickerSearchChange.cancel();
 });
 
 </script>
