@@ -171,6 +171,11 @@ export interface TournamentMatch {
     updated_at?: string; // ISO 8601 timestamp
 
     // From D1 JSON fields (parsed by Worker)
+    team1_player_order_json?: string | null; // Raw JSON string
+    team2_player_order_json?: string | null; // Raw JSON string
+    match_song_list_json?: string | null; // Raw JSON string
+
+    // Frontend convenience fields (parsed from JSON or fetched via JOIN)
     team1_player_order?: number[] | null; // member_id 数组 (number[])
     team2_player_order?: number[] | null; // (number[])
     match_song_list?: MatchSong[] | null; // 这场比赛的歌单 (MatchSong[])
@@ -440,8 +445,9 @@ export interface SaveMatchPlayerSelectionPayloadFrontend {
 }
 
 // Data structure received by the frontend for the user match selection view (GET /api/member/match-selection/:matchId)
+// Corrected: Match type now includes round_name, team1_name, team2_name
 export interface FetchUserMatchSelectionDataFrontend {
-    match: TournamentMatch; // Basic match info
+    match: TournamentMatch; // Basic match info (now includes names)
     myTeam: Team;
     opponentTeam: Team;
     myTeamMembers: Member[]; // Full member list for user's team
@@ -1091,7 +1097,8 @@ export const useAppStore = defineStore('app', {
             this.availableOrderSlotsCount = 0;
 
             try {
-                const response = await api.fetchUserMatchSelectionData(matchId); // Assume api.ts has this function
+                // Corrected: The API call now returns FetchUserMatchSelectionDataFrontend which includes match details with names
+                const response = await api.fetchUserMatchSelectionData(matchId);
                 if (response.success && response.data) {
                     this.upcomingMatchForSelection = response.data;
                     // Populate separate state properties for convenience if needed

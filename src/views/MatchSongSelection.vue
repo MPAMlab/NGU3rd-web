@@ -15,7 +15,6 @@
                     你可以在比赛开始前修改你的选择。
                 </el-alert>
 
-                <!-- 只保留我方队伍的顺序选择和概览 -->
                 <el-row :gutter="20">
                     <!-- Adjusted span to take more width -->
                     <el-col :span="24">
@@ -38,7 +37,7 @@
                                          size="small"
                                          style="width: 80px; text-align: center; margin-right: 10px;"
                                      >
-                                         第 {{ index }} 位
+                                         第 {{ index + 1 }} 位 <!-- Display 1-based index -->
                                      </el-tag>
                                      <el-text v-if="isSlotOccupied(store.upcomingMatchForSelection.myTeam.id, index - 1)">
                                          {{ store.getOccupyingMemberNickname(store.upcomingMatchForSelection.myTeam.id, index - 1) }}
@@ -419,8 +418,9 @@ const filteredSongsForPicker = computed(() => {
 
 const matchTitle = computed(() => {
     const match = store.upcomingMatchForSelection?.match;
+    // Corrected: Access round_name, team1_name, team2_name from the match object
     if (!match) return '比赛选歌';
-    return `${match.round_name} - ${match.team1_name} vs ${match.team2_name}`;
+    return `${match.round_name || '未知轮次'} - ${match.team1_name || '未知队伍'} vs ${match.team2_name || '未知队伍'}`;
 });
 
 
@@ -431,22 +431,24 @@ watch(() => store.userMatchSelection, (newSelection) => {
         selectedOrderIndex.value = newSelection.selected_order_index;
         // Populate selectedSongs based on the fetched selection
         // Use the getter from the store to find the song details
+        // This relies on store.allSongsForPicker being populated BEFORE this watch runs,
+        // which is now handled in onMounted.
         const song1 = store.getSongForPickerById(newSelection.song1_id);
         const song2 = store.getSongForPickerById(newSelection.song2_id);
 
         selectedSongs[0] = {
             song_id: newSelection.song1_id,
-            song_title: song1?.title || '未知歌曲',
+            song_title: song1?.title || '未知歌曲', // Use fetched title or fallback
             selected_difficulty: newSelection.song1_difficulty,
-            fullCoverUrl: song1?.fullCoverUrl,
-            parsedLevels: song1?.parsedLevels,
+            fullCoverUrl: song1?.fullCoverUrl, // Use fetched URL
+            parsedLevels: song1?.parsedLevels, // Use fetched levels
         };
          selectedSongs[1] = {
             song_id: newSelection.song2_id,
-            song_title: song2?.title || '未知歌曲',
+            song_title: song2?.title || '未知歌曲', // Use fetched title or fallback
             selected_difficulty: newSelection.song2_difficulty,
-            fullCoverUrl: song2?.fullCoverUrl,
-            parsedLevels: song2?.parsedLevels,
+            fullCoverUrl: song2?.fullCoverUrl, // Use fetched URL
+            parsedLevels: song2?.parsedLevels, // Use fetched levels
         };
     } else {
         // Reset local state if no selection is found
@@ -501,11 +503,11 @@ const openSongPicker = (songIndex: number) => {
     pickerFilters.difficulty = '';
 
     songPickerDialogVisible.value = true;
-    // Fetch all songs if not already loaded
+    // Fetch all songs if not already loaded (now also fetched on mount)
     if (store.allSongsForPicker.length === 0 && !store.isLoading.allSongsForPicker) {
         store.fetchAllSongsForPicker();
     }
-    // Fetch filter options if not already loaded
+    // Fetch filter options if not already loaded (now also fetched on mount)
     if (store.songFilterOptions.categories.length === 0 && !store.isLoading.songFilters) {
          store.fetchSongFilterOptions();
     }
@@ -585,6 +587,11 @@ onMounted(() => {
         // Fetch filter options on mount as well, they might be needed for the picker
         if (store.songFilterOptions.categories.length === 0 && !store.isLoading.songFilters) {
              store.fetchSongFilterOptions();
+        }
+        // Fetch all songs for the picker on mount
+        // This ensures song details are available for displaying saved selections immediately
+        if (store.allSongsForPicker.length === 0 && !store.isLoading.allSongsForPicker) {
+             store.fetchAllSongsForPicker();
         }
     } else {
         ElMessage.error('无效的比赛ID');

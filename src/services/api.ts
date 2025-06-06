@@ -22,13 +22,13 @@ import type {
     MatchHistoryRound,
     PaginationInfo,
     SongsApiResponseData,
-    SongFiltersApiResponseData,
+    SongFiltersApiResponseData, // This type needs to be updated in store.ts
     InternalProfession, // Although this is backend-internal, it's in your store types
 
     // Import NEW frontend types defined in store.ts
     MatchPlayerSelectionFrontend,
     SaveMatchPlayerSelectionPayloadFrontend,
-    FetchUserMatchSelectionDataFrontend,
+    FetchUserMatchSelectionDataFrontend, // This type needs to be updated in store.ts
     MatchSelectionStatusFrontend,
     CompileMatchSetupResponseFrontend
 } from '@/store'; // Import types from your Pinia store file
@@ -207,11 +207,15 @@ export const deleteMember = (maimaiId: string): Promise<ApiResponse<any>> => {
 
 // --- Songs API ---
 // fetchSongs is public (paginated)
-export const fetchSongs = (params?: { category?: string; type?: string; search?: string; page?: number; limit?: number }): Promise<ApiResponse<SongsApiResponseData>> => {
+// Corrected: Added level and difficulty to the params type
+export const fetchSongs = (params?: { category?: string; type?: string; search?: string; level?: string; difficulty?: string; page?: number; limit?: number }): Promise<ApiResponse<SongsApiResponseData>> => {
     const queryParams = new URLSearchParams();
     if (params?.category) queryParams.append('category', params.category);
     if (params?.type) queryParams.append('type', params.type);
     if (params?.search) queryParams.append('search', params.search);
+    // Corrected: Append level and difficulty if they exist
+    if (params?.level) queryParams.append('level', params.level);
+    if (params?.difficulty) queryParams.append('difficulty', params.difficulty);
     if (params?.page !== undefined && params.page !== null) queryParams.append('page', params.page.toString());
     if (params?.limit !== undefined && params.limit !== null) queryParams.append('limit', params.limit.toString());
     const queryString = queryParams.toString();
@@ -234,6 +238,8 @@ export const fetchAllSongs = (): Promise<ApiResponse<Song[]>> => {
      return callApi<SongsApiResponseData>('/songs').then(response => {
          if (response.success && response.data) {
              // Extract the songs array from the paginated response structure
+             // Note: If backend returns ALL songs without pagination, response.data might just be Song[]
+             // Need to confirm backend behavior. Assuming it's { songs: Song[] } even for all.
              return { success: true, data: response.data.songs, message: response.message };
          }
          // Propagate error or return empty array on failure
@@ -243,7 +249,9 @@ export const fetchAllSongs = (): Promise<ApiResponse<Song[]>> => {
 
 
 // fetchSongFilterOptions is public
+// This function calls /api/songs/filters. The backend handler needs to return levels and difficulties.
 export const fetchSongFilterOptions = (): Promise<ApiResponse<SongFiltersApiResponseData>> => {
+    // Corrected: The return type is now SongFiltersApiResponseData which includes levels and difficulties
     return callApi<SongFiltersApiResponseData>('/songs/filters');
 };
 
@@ -321,6 +329,7 @@ export const fetchUserMatches = (): Promise<ApiResponse<TournamentMatch[]>> => {
 
 // fetchUserMatchSelectionData requires user authentication (handled by backend middleware)
 // Corresponds to GET /api/member/match-selection/:matchId
+// Corrected: The return type is now FetchUserMatchSelectionDataFrontend which includes match details with names
 export const fetchUserMatchSelectionData = (matchId: number): Promise<ApiResponse<FetchUserMatchSelectionDataFrontend>> => {
     return callApi<FetchUserMatchSelectionDataFrontend>(`/member/match-selection/${matchId}`, 'GET');
 };
@@ -370,3 +379,4 @@ export const adminDeleteMember = (memberId: number): Promise<ApiResponse<any>> =
 export const adminUpdateSettings = (payload: { collection_paused: boolean }): Promise<ApiResponse<any>> => {
     return callApi<any>('/admin/settings', 'PUT', payload); // Expects 200 or 204
 };
+
