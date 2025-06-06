@@ -155,7 +155,7 @@
 
         <!-- Song Picker Dialog -->
         <el-dialog v-model="songPickerDialogVisible" title="选择歌曲" width="800px"> <!-- Increased width -->
-             <!-- Added v-if condition here -->
+             <!-- Filter Form -->
              <el-form :inline="true" v-if="store.songFilterOptions">
                  <!-- Category Dropdown -->
                  <el-form-item label="分类">
@@ -239,79 +239,88 @@
 
                  <!-- Search Input -->
                  <el-form-item label="搜索歌名">
-                     <!-- Debounced search is applied to the computed property -->
                      <el-input v-model="pickerFilters.search" placeholder="输入歌名关键字" clearable @input="handlePickerSearchChange" />
                  </el-form-item>
              </el-form>
-             <!-- Added v-else-if for loading state -->
+             <!-- Loading/Error state for filters -->
              <div v-else-if="store.isLoading.songFilters" style="text-align: center; padding: 20px;">
                  <el-spinner />
                  <p>加载筛选选项中...</p>
              </div>
-             <!-- Added v-else for error state -->
              <div v-else style="text-align: center; padding: 20px;">
                  <el-alert type="error" :title="store.error || '加载筛选选项失败'" :closable="false"></el-alert>
              </div>
 
+             <!-- Container for Table and Pagination - Render only when songs are not loading -->
+             <div v-if="!store.isLoading.songs">
+                 <!-- Song Table - Render only if there are songs after client-side filtering -->
+                 <el-table
+                     v-if="filteredSongsForPicker.length > 0"
+                     :data="filteredSongsForPicker"
+                     style="width: 100%; max-height: 400px; overflow-y: auto;"
+                     highlight-current-row
+                     @current-change="handleSongSelectForPicker"
+                     border
+                     stripe
+                 >
+                     <el-table-column type="index" width="50" :index="getPickerTableIndex" />
+                     <el-table-column label="封面" width="80">
+                         <template #default="{ row }">
+                             <el-image
+                               v-if="row.fullCoverUrl"
+                               style="width: 50px; height: 50px"
+                               :src="row.fullCoverUrl"
+                               fit="cover"
+                               lazy
+                             >
+                               <template #error>
+                                 <div class="image-slot">
+                                   <el-icon><Picture /></el-icon>
+                                 </div>
+                               </template>
+                             </el-image>
+                              <div v-else class="image-slot">
+                                   <el-icon><Picture /></el-icon>
+                              </div>
+                         </template>
+                     </el-table-column>
+                     <el-table-column prop="title" label="曲名" />
+                     <el-table-column label="等级" width="150">
+                          <template #default="{ row }">
+                              <div v-if="row.parsedLevels">
+                                  <span v-if="row.parsedLevels.B">B: {{ row.parsedLevels.B }}</span><br v-if="row.parsedLevels.B && (row.parsedLevels.A || row.parsedLevels.E || row.parsedLevels.M || row.parsedLevels.R)">
+                                  <span v-if="row.parsedLevels.A">A: {{ row.parsedLevels.A }}</span><br v-if="row.parsedLevels.A && (row.parsedLevels.E || row.parsedLevels.M || row.parsedLevels.R)">
+                                  <span v-if="row.parsedLevels.E">E: {{ row.parsedLevels.E }}</span><br v-if="row.parsedLevels.E && (row.parsedLevels.M || row.parsedLevels.R)">
+                                  <span v-if="row.parsedLevels.M">M: {{ row.parsedLevels.M }}</span><br v-if="row.parsedLevels.M && row.parsedLevels.R">
+                                  <span v-if="row.parsedLevels.R">R: {{ row.parsedLevels.R }}</span>
+                              </div>
+                              <span v-else>-</span>
+                          </template>
+                     </el-table-column>
+                 </el-table>
 
-             <el-table
-                 :data="filteredSongsForPicker"
-                 v-loading="store.isLoading.songs" <!-- Use store.isLoading.songs for paginated fetch -->
-                 style="width: 100%; max-height: 400px; overflow-y: auto;" <!-- Increased max-height -->
-                 highlight-current-row
-                 @current-change="handleSongSelectForPicker"
-                 border
-                 stripe
-             >
-                 <el-table-column type="index" width="50" :index="getPickerTableIndex" /> <!-- Correct index calculation -->
-                 <el-table-column label="封面" width="80">
-                     <template #default="{ row }">
-                         <el-image
-                           v-if="row.fullCoverUrl"
-                           style="width: 50px; height: 50px"
-                           :src="row.fullCoverUrl"
-                           fit="cover"
-                           lazy
-                         >
-                           <template #error>
-                             <div class="image-slot">
-                               <el-icon><Picture /></el-icon>
-                             </div>
-                           </template>
-                         </el-image>
-                          <div v-else class="image-slot">
-                               <el-icon><Picture /></el-icon>
-                          </div>
-                     </template>
-                 </el-table-column>
-                 <el-table-column prop="title" label="曲名" />
-                 <el-table-column label="等级" width="150">
-                      <template #default="{ row }">
-                          <div v-if="row.parsedLevels">
-                              <span v-if="row.parsedLevels.B">B: {{ row.parsedLevels.B }}</span><br v-if="row.parsedLevels.B && (row.parsedLevels.A || row.parsedLevels.E || row.parsedLevels.M || row.parsedLevels.R)">
-                              <span v-if="row.parsedLevels.A">A: {{ row.parsedLevels.A }}</span><br v-if="row.parsedLevels.A && (row.parsedLevels.E || row.parsedLevels.M || row.parsedLevels.R)">
-                              <span v-if="row.parsedLevels.E">E: {{ row.parsedLevels.E }}</span><br v-if="row.parsedLevels.E && (row.parsedLevels.M || row.parsedLevels.R)">
-                              <span v-if="row.parsedLevels.M">M: {{ row.parsedLevels.M }}</span><br v-if="row.parsedLevels.M && row.parsedLevels.R">
-                              <span v-if="row.parsedLevels.R">R: {{ row.parsedLevels.R }}</span>
-                          </div>
-                          <span v-else>-</span>
-                      </template>
-                 </el-table-column>
-             </el-table>
+                 <!-- Pagination for Picker - Render only if there are songs after client-side filtering -->
+                 <el-pagination
+                   v-if="store.songPagination && store.songPagination.totalItems > 0 && filteredSongsForPicker.length > 0"
+                   background
+                   layout="total, sizes, prev, pager, next, jumper"
+                   :total="store.songPagination.totalItems"
+                   :page-sizes="[10, 20, 50, 100]"
+                   :page-size="pickerFilters.limit"
+                   :current-page="pickerFilters.page"
+                   @size-change="handlePickerSizeChange"
+                   @current-change="handlePickerCurrentPageChange"
+                   style="margin-top: 20px; justify-content: flex-end;"
+                 />
 
-             <!-- Pagination for Picker -->
-             <el-pagination
-               v-if="store.songPagination && store.songPagination.totalItems > 0"
-               background
-               layout="total, sizes, prev, pager, next, jumper"
-               :total="store.songPagination.totalItems"
-               :page-sizes="[10, 20, 50, 100]"
-               :page-size="pickerFilters.limit"
-               :current-page="pickerFilters.page"
-               @size-change="handlePickerSizeChange"
-               @current-change="handlePickerCurrentPageChange"
-               style="margin-top: 20px; justify-content: flex-end;"
-             />
+                 <!-- Empty state for songs -->
+                 <el-empty v-else description="未找到符合条件的歌曲"></el-empty>
+             </div>
+             <!-- Optional: Add loading state for songs if needed, but v-loading on card might be enough -->
+             <!-- <div v-else style="text-align: center; padding: 20px;">
+                  <el-spinner />
+                  <p>加载歌曲列表中...</p>
+             </div> -->
 
 
              <el-form v-if="selectedSongInPicker" style="margin-top: 20px;" label-width="100px">
