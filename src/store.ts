@@ -288,9 +288,6 @@ export interface RoundSummary {
     teamB_profession?: string | null;
     teamA_profession_effect_applied?: string; // e.g., "Attacker: +5 damage"
     teamB_profession_effect_applied?: string;
-    teamA_modified_damage_to_B: number; // Damage A deals to B after A's profession effect (number)
-    teamB_modified_damage_to_A: number; // Damage B deals to A after B's profession effect (number)
-
     teamA_health_before_round: number; // Health at start of this round (number)
     teamB_health_before_round: number; // (number)
 
@@ -489,14 +486,14 @@ export interface AppState {
     matchHistory: MatchHistoryMatch[];
     memberSongPreferences: MemberSongPreference[];
 
-    // --- NEW STATE FOR USER MATCH SELECTION ---
+    // --- NEW STATE FOR USER MATCHES AND SELECTION ---
+    userMatches: TournamentMatch[] | null; // 新增：存储用户队伍的比赛列表
     // Data fetched for the specific match selection page
     upcomingMatchForSelection: FetchUserMatchSelectionDataFrontend | null;
     // User's own selection (redundant with upcomingMatchForSelection.mySelection but potentially useful)
     userMatchSelection: MatchPlayerSelectionFrontend | null;
     // Occupied indices for display (redundant with upcomingMatchForSelection.occupiedOrderIndices but kept for consistency with original AppState)
     occupiedOrderIndices: { team_id: number; selected_order_index: number; member_id: number; member_nickname?: string }[];
-    // Total slots count (redundant with upcomingMatchForSelection.availableOrderSlotsCount but kept for consistency with original AppState)
     availableOrderSlotsCount: number;
     // Full list of songs for the picker component (not paginated)
     allSongsForPicker: Song[];
@@ -511,6 +508,7 @@ export interface AppState {
         matchHistory: boolean;
         memberSongPreferences: boolean;
         // --- NEW LOADING STATES ---
+        userMatches: boolean; // 新增：用户比赛列表加载状态
         userMatchSelection: boolean; // Loading state for fetching user selection data
         savingMatchSelection: boolean; // Loading state for saving user selection
         checkingMatchSelectionStatus: boolean; // Loading state for staff status check
@@ -549,6 +547,7 @@ export const useAppStore = defineStore('app', {
             memberSongPreferences: [],
 
             // --- NEW STATE INITIALIZATION ---
+            userMatches: null, // 初始化为 null
             upcomingMatchForSelection: null,
             userMatchSelection: null,
             occupiedOrderIndices: [],
@@ -561,6 +560,7 @@ export const useAppStore = defineStore('app', {
                 tournamentMatches: false,
                 currentMatch: false, matchHistory: false, memberSongPreferences: false,
                 // --- NEW LOADING STATES INITIALIZATION ---
+                userMatches: false, // 初始化为 false
                 userMatchSelection: false,
                 savingMatchSelection: false,
                 checkingMatchSelectionStatus: false,
@@ -671,6 +671,13 @@ export const useAppStore = defineStore('app', {
             this.kindeUser = null;
             this.userMember = null;
             this.isAdminUser = false;
+            // Also clear user-specific data like userMatches
+            this.userMatches = null;
+            this.upcomingMatchForSelection = null;
+            this.userMatchSelection = null;
+            this.occupiedOrderIndices = [];
+            this.availableOrderSlotsCount = 0;
+            this.memberSongPreferences = [];
         },
         async handleKindeCallback(code: string, state: string) {
              const { handleCallback } = useKindeAuth();
@@ -973,8 +980,13 @@ export const useAppStore = defineStore('app', {
                 if (response.success) {
                     // Clear current match state and refresh lists
                     this.currentMatchState = null;
+                    // Refresh tournamentMatches and matchHistory lists
                     this.fetchTournamentMatches();
                     this.fetchMatchHistory();
+                    // Also refresh userMatches if they are on that page
+                    if (this.isAuthenticated) {
+                         this.fetchUserMatches();
+                    }
                 } else {
                     this.setError(response.error || 'Failed to archive match');
                 }
@@ -1013,7 +1025,44 @@ export const useAppStore = defineStore('app', {
             }
         },
 
-        // --- NEW ACTIONS FOR USER MATCH SELECTION ---
+        // --- NEW ACTIONS FOR USER MATCHES AND SELECTION ---
+
+        // 新增 Action: 获取用户队伍的比赛列表
+        async fetchUserMatches() {
+            // Only fetch if authenticated
+            if (!this.isAuthenticated) {
+                console.warn("fetchUserMatches: User not authenticated. Skipping fetch.");
+                this.userMatches = null; // Clear previous data if user logs out
+                return;
+            }
+            // Only fetch if userMember is available (means user is registered)
+            if (!this.userMember) {
+                 console.warn("fetchUserMatches: User is authenticated but not registered as a member. Skipping fetch.");
+                 this.userMatches = null;
+                 return;
+            }
+
+            this.setLoading('userMatches', true);
+            this.clearError();
+            try {
+                const response = await api.fetchUserMatches(); // Call the new API function
+                if (response.success && response.data) {
+                    this.userMatches = response.data;
+                    console.log("Fetched user matches:", this.userMatches);
+                } else {
+                    this.setError(response.error || 'Failed to fetch user matches.');
+                    this.userMatches = null;
+                    console.error("Failed to fetch user matches:", this.error);
+                }
+            } catch (e: any) {
+                this.setError(e.message || 'An unexpected error occurred while fetching user matches.');
+                this.userMatches = null;
+                console.error("Exception fetching user matches:", e);
+            } finally {
+                this.setLoading('userMatches', false);
+            }
+        },
+
 
         async fetchUserMatchSelectionData(matchId: number) {
             this.setLoading('userMatchSelection', true);

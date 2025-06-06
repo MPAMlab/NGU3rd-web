@@ -1,28 +1,18 @@
 <!-- src/App.vue -->
 <script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router';
-// Import the store
-import { useAppStore } from '@/store'; // Adjust path if necessary
+import { useAppStore } from '@/store';
 
 const store = useAppStore();
 
-// Function to handle logout
 const handleLogout = () => {
     store.logout();
 };
 
-// Function to handle login (can be used for a login button in the nav if desired)
-const handleLogin = () => {
-    store.login();
-};
-
-// You might want to fetch initial data when the app mounts
-// onMounted(() => {
-//   store.fetchTeams();
-//   store.fetchSongs(); // Or fetch songs with default pagination/filters
-//   store.fetchMatchHistory();
-//   // Note: checkAuthStatus is handled by the router guard now
-// });
+// handleLogin is likely not needed in the header if login is on the index page
+// const handleLogin = () => {
+//     store.login();
+// };
 
 </script>
 
@@ -46,6 +36,7 @@ const handleLogin = () => {
 
           <!-- Authenticated User Links (Visible if logged in) -->
           <template v-if="store.isAuthenticated">
+             <RouterLink :to="{ name: 'UserMatches' }" class="hover:text-purple-400 transition">我的比赛</RouterLink> <!-- NEW LINK -->
              <RouterLink :to="{ name: 'MemberSongPrefs' }" class="hover:text-purple-400 transition">我的选曲偏好</RouterLink>
              <!-- Add other user-specific links here -->
           </template>

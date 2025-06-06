@@ -310,7 +310,12 @@ export const archiveMatch = (doId: string): Promise<ApiResponse<{ message?: stri
 // --- Match History API ---
 // fetchMatchHistory is public
 export const fetchMatchHistory = (): Promise<ApiResponse<MatchHistoryMatch[]>> => callApi<MatchHistoryMatch[]>('/match_history');
-
+// --- NEW API CALL FOR USER'S MATCHES ---
+// fetchUserMatches requires user authentication (handled by backend middleware)
+// Corresponds to GET /api/member/matches
+export const fetchUserMatches = (): Promise<ApiResponse<TournamentMatch[]>> => {
+    return callApi<TournamentMatch[]>('/member/matches', 'GET');
+};
 
 // --- NEW API CALLS FOR USER MATCH SELECTION AND STAFF COMPILATION ---
 

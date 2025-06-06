@@ -16,6 +16,7 @@ import NotFoundPage from '@/views/NotFoundPage.vue';
 import KindeCallback from '@/views/KindeCallback.vue'; // Import the KindeCallback view
 import PrivacyPolicyPage from '@/views/PrivacyPolicyPage.vue'; // Assuming this exists
 import MatchSongSelection from '@/views/MatchSongSelection.vue'; // NEW Import
+import UserMatches from '@/views/UserMatches.vue'; // NEW Import
 
 // Extend RouteMeta to include custom fields
 declare module 'vue-router' {
@@ -96,6 +97,12 @@ const routes: Array<RouteRecordRaw> = [
     component: MatchSongSelection,
     props: true, // Pass matchId as a prop
     meta: { title: '比赛选歌', requiresAuth: true }, // Requires user authentication
+  },
+  {
+    path: '/my-matches', 
+    name: 'UserMatches',
+    component: UserMatches,
+    meta: { title: '我的比赛', requiresAuth: true }, // 需要用户认证
   },
   // 404 Page - Must be the last route
   {
