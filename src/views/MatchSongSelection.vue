@@ -2,7 +2,7 @@
 <template>
     <div class="match-selection-view">
         <el-card
-            v-loading="store.isLoading.userMatchSelection || store.isLoading.songs || store.isLoading.savingMatchSelection || store.isLoading.songFilters"
+            v-loading="store.isLoading.userMatchSelection || store.isLoading.songs || store.isLoading.savingMatchSelection"
             :header="matchTitle"
         >
             <div v-if="store.upcomingMatchForSelection">
@@ -155,105 +155,17 @@
 
         <!-- Song Picker Dialog -->
         <el-dialog v-model="songPickerDialogVisible" title="选择歌曲" width="800px"> <!-- Increased width -->
-             <!-- Filter Form -->
-             <el-form :inline="true" v-if="store.songFilterOptions">
-                 <!-- Category Dropdown -->
-                 <el-form-item label="分类">
-                   <el-select
-                     v-model="pickerFilters.category"
-                     placeholder="选择分类"
-                     clearable
-                     filterable
-                     style="width: 150px;"
-                     :loading="store.isLoading.songFilters"
-                     @change="handlePickerFilterChange"
-                   >
-                     <el-option
-                       v-for="item in store.songFilterOptions.categories"
-                       :key="item"
-                       :label="item"
-                       :value="item"
-                     />
-                   </el-select>
-                 </el-form-item>
-
-                 <!-- Type Dropdown -->
-                 <el-form-item label="类型">
-                    <el-select
-                      v-model="pickerFilters.type"
-                      placeholder="选择类型"
-                      clearable
-                      filterable
-                      style="width: 120px;"
-                      :loading="store.isLoading.songFilters"
-                      @change="handlePickerFilterChange"
-                    >
-                      <el-option
-                        v-for="item in store.songFilterOptions.types"
-                        :key="item"
-                        :label="item"
-                        :value="item"
-                      />
-                    </el-select>
-                 </el-form-item>
-
-                 <!-- Difficulty Dropdown -->
-                 <el-form-item label="难度">
-                     <el-select
-                       v-model="pickerFilters.difficulty"
-                       placeholder="选择难度"
-                       clearable
-                       filterable
-                       style="width: 120px;"
-                       :loading="store.isLoading.songFilters"
-                       @change="handlePickerFilterChange"
-                     >
-                       <el-option
-                         v-for="item in store.songFilterOptions.difficulties"
-                         :key="item"
-                         :label="item"
-                         :value="item"
-                       />
-                     </el-select>
-                  </el-form-item>
-
-                 <!-- Level Dropdown -->
-                 <el-form-item label="等级">
-                    <el-select
-                      v-model="pickerFilters.level"
-                      placeholder="选择等级"
-                      clearable
-                      filterable
-                      style="width: 120px;"
-                      :loading="store.isLoading.songFilters"
-                      @change="handlePickerFilterChange"
-                    >
-                      <el-option
-                        v-for="level in store.songFilterOptions.levels"
-                        :key="level"
-                        :label="level"
-                        :value="level"
-                      />
-                    </el-select>
-                 </el-form-item>
-
+             <!-- Filter Form (only search remains) -->
+             <el-form :inline="true">
                  <!-- Search Input -->
                  <el-form-item label="搜索歌名">
-                     <el-input v-model="pickerFilters.search" placeholder="输入歌名关键字" clearable @input="handlePickerSearchChange" />
+                     <el-input v-model="pickerFilters.search" placeholder="输入歌名关键字" clearable @input="handlePickerSearchChange" style="width: 200px;" />
                  </el-form-item>
              </el-form>
-             <!-- Loading/Error state for filters -->
-             <div v-else-if="store.isLoading.songFilters" style="text-align: center; padding: 20px;">
-                 <el-spinner />
-                 <p>加载筛选选项中...</p>
-             </div>
-             <div v-else style="text-align: center; padding: 20px;">
-                 <el-alert type="error" :title="store.error || '加载筛选选项失败'" :closable="false"></el-alert>
-             </div>
 
              <!-- Container for Table and Pagination - Render only when songs are not loading -->
              <div v-if="!store.isLoading.songs">
-                 <!-- Song Table - Render only if there are songs after client-side filtering -->
+                 <!-- Song Table - Render only if there are songs -->
                  <el-table
                      v-if="filteredSongsForPicker.length > 0"
                      :data="filteredSongsForPicker"
@@ -279,7 +191,7 @@
                                  </div>
                                </template>
                              </el-image>
-                              <div v-else class="image-slot">
+                              <div v-else class="image-slot" style="width: 50px; height: 50px;">
                                    <el-icon><Picture /></el-icon>
                               </div>
                          </template>
@@ -299,7 +211,7 @@
                      </el-table-column>
                  </el-table>
 
-                 <!-- Pagination for Picker - Render only if there are songs after client-side filtering -->
+                 <!-- Pagination for Picker - Render only if there are songs -->
                  <el-pagination
                    v-if="store.songPagination && store.songPagination.totalItems > 0 && filteredSongsForPicker.length > 0"
                    background
@@ -316,11 +228,11 @@
                  <!-- Empty state for songs -->
                  <el-empty v-else description="未找到符合条件的歌曲"></el-empty>
              </div>
-             <!-- Optional: Add loading state for songs if needed, but v-loading on card might be enough -->
-             <!-- <div v-else style="text-align: center; padding: 20px;">
+             <!-- Loading state for songs -->
+             <div v-else style="text-align: center; padding: 20px;">
                   <el-spinner />
                   <p>加载歌曲列表中...</p>
-             </div> -->
+             </div>
 
 
              <el-form v-if="selectedSongInPicker" style="margin-top: 20px;" label-width="100px">
@@ -377,13 +289,9 @@ const songPickerDialogVisible = ref(false);
 const currentSongIndexToSelect = ref(0); // 0 for first song, 1 for second
 const selectedSongInPicker = ref<Song | null>(null);
 const selectedDifficultyInPicker = ref('');
-// Picker filter state (client-side filtering + pagination params)
+// Picker filter state (only search and pagination params remain)
 const pickerFilters = reactive({
-    category: '',
-    type: '',
     search: '',
-    level: '', // Client-side filter
-    difficulty: '', // Client-side filter
     page: 1, // Pagination
     limit: 20, // Pagination
 });
@@ -412,34 +320,9 @@ const isSelectionComplete = computed(() => {
     );
 });
 
-// Filter songs for the picker based on Level and Difficulty (client-side filtering on the current page)
+// Filter songs for the picker (now just returns the paginated list from the store)
 const filteredSongsForPicker = computed(() => {
-    let songs = store.songs; // Use the current page of songs from the store
-
-    // Apply Difficulty filter (client-side)
-    if (pickerFilters.difficulty) {
-        songs = songs.filter(song => song.parsedLevels && song.parsedLevels.hasOwnProperty(pickerFilters.difficulty));
-    }
-    // Apply Level filter (client-side)
-    if (pickerFilters.level) {
-        songs = songs.filter(song => {
-            if (!song.parsedLevels) return false;
-            // Check if the selected level matches the level for the selected difficulty (if any)
-            // OR if it matches any level if no difficulty is selected
-            if (pickerFilters.difficulty) {
-                 // Access level using the difficulty key and compare as strings
-                 const levelValue = song.parsedLevels[pickerFilters.difficulty as keyof SongLevel];
-                 return levelValue === pickerFilters.level; // Compare strings directly
-            } else {
-                 // If no difficulty filter, check if the level matches any difficulty's level
-                 // Iterate over values and compare as strings
-                 return Object.values(song.parsedLevels).some(level => level === pickerFilters.level);
-            }
-        });
-    }
-    // Note: Category, Type, Search, Page, Limit are handled by the backend via store.fetchSongs
-
-    return songs;
+    return store.songs; // Use the current page of songs from the store directly
 });
 
 const matchTitle = computed(() => {
@@ -522,22 +405,16 @@ const handleOrderChange = (value: number) => {
     // No extra check needed here unless you want to prevent changing after saving
 };
 
-// Function to load songs for the picker using store.fetchSongs (with pagination and backend filters)
+// Function to load songs for the picker using store.fetchSongs (with pagination and only search filter)
 const loadSongsForPicker = async () => {
     await store.fetchSongs({
-        category: pickerFilters.category || undefined,
-        type: pickerFilters.type || undefined,
         search: pickerFilters.search || undefined,
-        // Level and Difficulty are filtered client-side, so don't send them to backend fetch
-        // level: pickerFilters.level || undefined,
-        // difficulty: pickerFilters.difficulty || undefined,
         page: pickerFilters.page,
         limit: pickerFilters.limit,
     });
      // Display error if fetching songs failed
     if (store.error) {
-        // Check if the error is specifically from fetching songs, not filter options
-        // This requires checking the error message or having separate error states
+        // Check if the error is specifically from fetching songs
         // For simplicity, let's just show the error if any exists after fetchSongs
         ElMessage.error(`加载歌曲列表失败: ${store.error}`);
     }
@@ -548,23 +425,13 @@ const openSongPicker = (songIndex: number) => {
     currentSongIndexToSelect.value = songIndex;
     selectedSongInPicker.value = null; // Reset picker state
     selectedDifficultyInPicker.value = '';
-    // Reset picker filters and pagination
-    pickerFilters.category = '';
-    pickerFilters.type = '';
+    // Reset picker filters and pagination (only search, page, limit)
     pickerFilters.search = '';
-    pickerFilters.level = '';
-    pickerFilters.difficulty = '';
     pickerFilters.page = 1; // Reset to first page
     pickerFilters.limit = 20; // Reset to default limit
 
     songPickerDialogVisible.value = true;
 
-    // Fetch filter options if not already loaded (now also fetched on mount)
-    // This is crucial to populate store.songFilterOptions early
-    // The v-if on the form handles the rendering delay.
-    if (store.songFilterOptions.categories.length === 0 && !store.isLoading.songFilters) {
-         store.fetchSongFilterOptions();
-    }
     // Load the first page of songs for the picker
     loadSongsForPicker();
 };
@@ -622,15 +489,6 @@ const saveSelection = async () => {
     }
 };
 
-// Handles changes in picker filter inputs (Category, Type, Difficulty, Level)
-const handlePickerFilterChange = () => {
-    // Level and Difficulty are filtered client-side, so changing them doesn't reset pagination
-    // Only reset pagination if Category, Type, or Search changes (backend filters)
-    // However, for simplicity and consistency with the provided Songs.vue, let's reset page on *any* filter change.
-    pickerFilters.page = 1; // Reset to first page when filters change
-    loadSongsForPicker();
-};
-
 // Handles changes in the picker's search input (debounced)
 const handlePickerSearchChange = debounce(() => {
     pickerFilters.page = 1; // Reset to first page on search change
@@ -656,12 +514,9 @@ const handlePickerCurrentPageChange = (newPage: number) => {
 onMounted(() => {
     if (matchId.value) {
         store.fetchUserMatchSelectionData(matchId.value);
-        // Fetch filter options on mount as well, they might be needed for the picker
-        // This is crucial to populate store.songFilterOptions early
-        // The v-if on the form handles the rendering delay.
-        if (store.songFilterOptions.categories.length === 0 && !store.isLoading.songFilters) {
-             store.fetchSongFilterOptions();
-        }
+        // No need to fetch filter options anymore
+        // store.fetchSongFilterOptions();
+
         // Fetch all songs for the picker on mount
         // This ensures song details are available for displaying saved selections immediately
         // This list is NOT used for the picker table data anymore, only for initial display of saved songs.
