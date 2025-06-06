@@ -2,7 +2,7 @@
 <template>
     <div class="match-selection-view">
         <el-card
-            v-loading="store.isLoading.userMatchSelection || store.isLoading.allSongsForPicker || store.isLoading.savingMatchSelection"
+            v-loading="store.isLoading.userMatchSelection || store.isLoading.allSongsForPicker || store.isLoading.savingMatchSelection || store.isLoading.songFilters"
             :header="matchTitle"
         >
             <div v-if="store.upcomingMatchForSelection">
@@ -15,8 +15,10 @@
                     你可以在比赛开始前修改你的选择。
                 </el-alert>
 
+                <!-- 只保留我方队伍的顺序选择和概览 -->
                 <el-row :gutter="20">
-                    <el-col :span="12">
+                    <!-- Adjusted span to take more width -->
+                    <el-col :span="24">
                         <el-card :header="`${store.upcomingMatchForSelection.myTeam.name} (我方队伍)`">
                             <p>请选择你的出场顺序：</p>
                             <el-segmented
@@ -48,26 +50,7 @@
                              </div>
                         </el-card>
                     </el-col>
-                    <el-col :span="12">
-                         <el-card :header="`${store.upcomingMatchForSelection.opponentTeam.name} (对方队伍)`">
-                             <p>对方队伍出场顺序概览：</p>
-                             <div v-for="index in store.availableOrderSlotsCount" :key="index" style="margin-bottom: 5px;">
-                                 <el-tag
-                                     :type="isSlotOccupied(store.upcomingMatchForSelection.opponentTeam.id, index - 1) ? 'warning' : 'info'"
-                                     size="small"
-                                     style="width: 80px; text-align: center; margin-right: 10px;"
-                                 >
-                                     第 {{ index }} 位
-                                 </el-tag>
-                                 <el-text v-if="isSlotOccupied(store.upcomingMatchForSelection.opponentTeam.id, index - 1)">
-                                     {{ store.getOccupyingMemberNickname(store.upcomingMatchForSelection.opponentTeam.id, index - 1) }}
-                                 </el-text>
-                                  <el-text v-else type="info">
-                                      (空闲)
-                                  </el-text>
-                             </div>
-                         </el-card>
-                    </el-col>
+                    <!-- Removed the opponent team column -->
                 </el-row>
 
                 <el-card header="我的选曲" style="margin-top: 20px;">
@@ -172,17 +155,97 @@
         </el-card>
 
         <!-- Song Picker Dialog -->
-        <el-dialog v-model="songPickerDialogVisible" title="选择歌曲" width="600px">
+        <el-dialog v-model="songPickerDialogVisible" title="选择歌曲" width="800px"> <!-- Increased width -->
              <el-form :inline="true">
-                 <el-form-item label="搜索歌名">
-                     <el-input v-model="songSearchQuery" placeholder="输入歌名关键字" clearable @input="debouncedSearchSongs" />
+                 <!-- Category Dropdown -->
+                 <el-form-item label="分类">
+                   <el-select
+                     v-model="pickerFilters.category"
+                     placeholder="选择分类"
+                     clearable
+                     filterable
+                     style="width: 150px;"
+                     :loading="store.isLoading.songFilters"
+                   >
+                     <el-option
+                       v-for="item in store.songFilterOptions.categories"
+                       :key="item"
+                       :label="item"
+                       :value="item"
+                     />
+                   </el-select>
                  </el-form-item>
-                  <!-- Add filters here if needed -->
+
+                 <!-- Type Dropdown -->
+                 <el-form-item label="类型">
+                    <el-select
+                      v-model="pickerFilters.type"
+                      placeholder="选择类型"
+                      clearable
+                      filterable
+                      style="width: 120px;"
+                      :loading="store.isLoading.songFilters"
+                    >
+                      <el-option
+                        v-for="item in store.songFilterOptions.types"
+                        :key="item"
+                        :label="item"
+                        :value="item"
+                      />
+                    </el-select>
+                 </el-form-item>
+
+                 <!-- Difficulty Dropdown -->
+                 <el-form-item label="难度">
+                     <el-select
+                       v-model="pickerFilters.difficulty"
+                       placeholder="选择难度"
+                       clearable
+                       filterable
+                       style="width: 120px;"
+                       :loading="store.isLoading.songFilters"
+                     >
+                       <!-- Corrected: Access difficulties from songFilterOptions -->
+                       <el-option
+                         v-for="item in store.songFilterOptions.difficulties"
+                         :key="item"
+                         :label="item"
+                         :value="item"
+                       />
+                     </el-select>
+                  </el-form-item>
+
+                 <!-- Level Dropdown -->
+                 <el-form-item label="等级">
+                    <el-select
+                      v-model="pickerFilters.level"
+                      placeholder="选择等级"
+                      clearable
+                      filterable
+                      style="width: 120px;"
+                      :loading="store.isLoading.songFilters"
+                    >
+                      <!-- Corrected: Access levels from songFilterOptions -->
+                      <el-option
+                        v-for="level in store.songFilterOptions.levels"
+                        :key="level"
+                        :label="level"
+                        :value="level"
+                      />
+                    </el-select>
+                 </el-form-item>
+
+                 <!-- Search Input -->
+                 <el-form-item label="搜索歌名">
+                     <!-- Debounced search is applied to the computed property -->
+                     <el-input v-model="pickerFilters.search" placeholder="输入歌名关键字" clearable />
+                 </el-form-item>
              </el-form>
+
              <el-table
                  :data="filteredSongsForPicker"
                  v-loading="store.isLoading.allSongsForPicker"
-                 style="width: 100%; max-height: 300px; overflow-y: auto;"
+                 style="width: 100%; max-height: 400px; overflow-y: auto;" <!-- Increased max-height -->
                  highlight-current-row
                  @current-change="handleSongSelectForPicker"
                  border
@@ -210,12 +273,18 @@
                      </template>
                  </el-table-column>
                  <el-table-column prop="title" label="曲名" />
-                 <el-table-column label="等级 (M)" width="100">
-                     <template #default="{ row }">
-                         {{ row.parsedLevels?.M || '-' }}
-                     </template>
+                 <el-table-column label="等级" width="150">
+                      <template #default="{ row }">
+                          <div v-if="row.parsedLevels">
+                              <span v-if="row.parsedLevels.B">B: {{ row.parsedLevels.B }}</span><br v-if="row.parsedLevels.B && (row.parsedLevels.A || row.parsedLevels.E || row.parsedLevels.M || row.parsedLevels.R)">
+                              <span v-if="row.parsedLevels.A">A: {{ row.parsedLevels.A }}</span><br v-if="row.parsedLevels.A && (row.parsedLevels.E || row.parsedLevels.M || row.parsedLevels.R)">
+                              <span v-if="row.parsedLevels.E">E: {{ row.parsedLevels.E }}</span><br v-if="row.parsedLevels.E && (row.parsedLevels.M || row.parsedLevels.R)">
+                              <span v-if="row.parsedLevels.M">M: {{ row.parsedLevels.M }}</span><br v-if="row.parsedLevels.M && row.parsedLevels.R">
+                              <span v-if="row.parsedLevels.R">R: {{ row.parsedLevels.R }}</span>
+                          </div>
+                          <span v-else>-</span>
+                      </template>
                  </el-table-column>
-                 <!-- Add other difficulty columns if needed -->
              </el-table>
 
              <el-form v-if="selectedSongInPicker" style="margin-top: 20px;" label-width="100px">
@@ -246,12 +315,13 @@
 
 <script setup lang="ts">
 // Import types directly from store.ts
-import { useAppStore, type Song, type MatchPlayerSelectionFrontend, type SaveMatchPlayerSelectionPayloadFrontend } from '@/store';
+// Corrected: Import SongLevel type
+import { useAppStore, type Song, type MatchPlayerSelectionFrontend, type SaveMatchPlayerSelectionPayloadFrontend, type SongLevel } from '@/store';
 import { onMounted, ref, reactive, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Picture, Delete } from '@element-plus/icons-vue'; // Import Picture and Delete icons
-import { debounce } from 'lodash-es';
+import { debounce } from 'lodash-es'; // Keep debounce for search input
 
 const store = useAppStore();
 const route = useRoute();
@@ -272,7 +342,15 @@ const songPickerDialogVisible = ref(false);
 const currentSongIndexToSelect = ref(0); // 0 for first song, 1 for second
 const selectedSongInPicker = ref<Song | null>(null);
 const selectedDifficultyInPicker = ref('');
-const songSearchQuery = ref('');
+// Picker filter state (client-side filtering)
+const pickerFilters = reactive({
+    category: '',
+    type: '',
+    search: '',
+    level: '',
+    difficulty: '',
+});
+
 
 // --- Computed Properties ---
 
@@ -297,16 +375,46 @@ const isSelectionComplete = computed(() => {
     );
 });
 
-// Filter songs for the picker based on search query (client-side filtering for simplicity)
+// Filter songs for the picker based on search query and other filters (client-side filtering)
 const filteredSongsForPicker = computed(() => {
-    if (!songSearchQuery.value) {
-        return store.allSongsForPicker;
+    let songs = store.allSongsForPicker;
+
+    // Apply Category filter
+    if (pickerFilters.category) {
+        songs = songs.filter(song => song.category === pickerFilters.category);
     }
-    const query = songSearchQuery.value.toLowerCase();
-    return store.allSongsForPicker.filter(song =>
-        song.title.toLowerCase().includes(query)
-        // Add other filters here if needed (e.g., by difficulty level)
-    );
+    // Apply Type filter
+    if (pickerFilters.type) {
+        songs = songs.filter(song => song.type === pickerFilters.type);
+    }
+    // Apply Difficulty filter
+    if (pickerFilters.difficulty) {
+        songs = songs.filter(song => song.parsedLevels && song.parsedLevels.hasOwnProperty(pickerFilters.difficulty));
+    }
+    // Apply Level filter
+    if (pickerFilters.level) {
+        songs = songs.filter(song => {
+            if (!song.parsedLevels) return false;
+            // Check if the selected level matches the level for the selected difficulty (if any)
+            // OR if it matches any level if no difficulty is selected
+            if (pickerFilters.difficulty) {
+                 // Corrected: Access level using the difficulty key and compare as strings
+                 const levelValue = song.parsedLevels[pickerFilters.difficulty as keyof SongLevel];
+                 return levelValue === pickerFilters.level; // Compare strings directly
+            } else {
+                 // If no difficulty filter, check if the level matches any difficulty's level
+                 // Corrected: Iterate over values and compare as strings
+                 return Object.values(song.parsedLevels).some(level => level === pickerFilters.level);
+            }
+        });
+    }
+    // Apply Search filter (case-insensitive)
+    if (pickerFilters.search) {
+        const query = pickerFilters.search.toLowerCase();
+        songs = songs.filter(song => song.title.toLowerCase().includes(query));
+    }
+
+    return songs;
 });
 
 const matchTitle = computed(() => {
@@ -385,11 +493,21 @@ const openSongPicker = (songIndex: number) => {
     currentSongIndexToSelect.value = songIndex;
     selectedSongInPicker.value = null; // Reset picker state
     selectedDifficultyInPicker.value = '';
-    songSearchQuery.value = ''; // Reset search
+    // Reset picker filters
+    pickerFilters.category = '';
+    pickerFilters.type = '';
+    pickerFilters.search = '';
+    pickerFilters.level = '';
+    pickerFilters.difficulty = '';
+
     songPickerDialogVisible.value = true;
     // Fetch all songs if not already loaded
     if (store.allSongsForPicker.length === 0 && !store.isLoading.allSongsForPicker) {
         store.fetchAllSongsForPicker();
+    }
+    // Fetch filter options if not already loaded
+    if (store.songFilterOptions.categories.length === 0 && !store.isLoading.songFilters) {
+         store.fetchSongFilterOptions();
     }
 };
 
@@ -446,22 +564,28 @@ const saveSelection = async () => {
     }
 };
 
-// Debounced search function for the song picker
+// Debounced search function for the song picker (applied to the computed property)
+// No need to call a store action here, filtering is client-side
 const debouncedSearchSongs = debounce(() => {
-    // Client-side filtering is done by the computed property `filteredSongsForPicker`
-    // If you implement server-side search, you would call a store action here
-    console.log("Searching songs (client-side filter):", songSearchQuery.value);
+    // The computed property `filteredSongsForPicker` reacts to `pickerFilters.search`
+    // No explicit action needed here other than the debounce itself
+    console.log("Picker search query changed:", pickerFilters.search);
 }, 300); // Adjust debounce delay as needed
+
+// Watch the search query specifically to apply the debounced function
+watch(() => pickerFilters.search, () => {
+    debouncedSearchSongs();
+});
 
 
 // --- Lifecycle Hooks ---
 onMounted(() => {
     if (matchId.value) {
         store.fetchUserMatchSelectionData(matchId.value);
-        // Fetch all songs for the picker when the page loads
-        // This is now handled inside openSongPicker, but fetching on mount is also fine
-        // Let's keep it in openSongPicker to only fetch when the dialog is opened.
-        // store.fetchAllSongsForPicker();
+        // Fetch filter options on mount as well, they might be needed for the picker
+        if (store.songFilterOptions.categories.length === 0 && !store.isLoading.songFilters) {
+             store.fetchSongFilterOptions();
+        }
     } else {
         ElMessage.error('无效的比赛ID');
     }

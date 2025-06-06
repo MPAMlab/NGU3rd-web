@@ -57,6 +57,7 @@ export interface Member {
 }
 
 // --- 歌曲相关类型 ---
+// Corrected: Levels are strings like "13.0", "13.5"
 export interface SongLevel { // 对应 JSON "等级" 结构
     B?: string; A?: string; E?: string; M?: string; R?: string;
 }
@@ -288,6 +289,9 @@ export interface RoundSummary {
     teamB_profession?: string | null;
     teamA_profession_effect_applied?: string; // e.g., "Attacker: +5 damage"
     teamB_profession_effect_applied?: string;
+    teamA_modified_damage_to_B: number; // Damage A deals to B after A's profession effect (number)
+    teamB_modified_damage_to_A: number; // Damage B deals to A after B's profession effect (number)
+
     teamA_health_before_round: number; // Health at start of this round (number)
     teamB_health_before_round: number; // (number)
 
@@ -393,9 +397,12 @@ export interface SongsApiResponseData {
 }
 
 // Specific response data structure for GET /api/songs/filters
+// Corrected: Added levels and difficulties arrays
 export interface SongFiltersApiResponseData {
     categories: string[];
     types: string[];
+    levels: string[]; // Added
+    difficulties: string[]; // Added
 }
 
 // Define NEW types needed for the frontend user match selection view
@@ -480,7 +487,8 @@ export interface AppState {
     members: Member[];
     songs: Song[]; // This will now hold songs for the *current page*
     songPagination: PaginationInfo | null; // New: Pagination info for songs
-    songFilterOptions: { categories: string[], types: string[] }; // New: Filter options for songs
+    // Corrected: songFilterOptions type now includes levels and difficulties
+    songFilterOptions: SongFiltersApiResponseData; // New: Filter options for songs
     tournamentMatches: TournamentMatch[];
     currentMatchState: MatchState | null; // The live match state from DO/WebSocket
     matchHistory: MatchHistoryMatch[];
@@ -540,7 +548,8 @@ export const useAppStore = defineStore('app', {
             members: [],
             songs: [],
             songPagination: null,
-            songFilterOptions: { categories: [], types: [] },
+            // Corrected: Initialize with empty arrays for levels and difficulties
+            songFilterOptions: { categories: [], types: [], levels: [], difficulties: [] },
             tournamentMatches: [],
             currentMatchState: null,
             matchHistory: [],
@@ -728,7 +737,8 @@ export const useAppStore = defineStore('app', {
             }
         },
 
-        async fetchSongs(params: { category?: string; type?: string; search?: string; page?: number; limit?: number } = {}) {
+        // Corrected: Added level and difficulty to the payload type
+        async fetchSongs(params: { category?: string; type?: string; search?: string; level?: string; difficulty?: string; page?: number; limit?: number } = {}) {
             this.setLoading('songs', true);
             this.clearError();
             try {
@@ -739,7 +749,10 @@ export const useAppStore = defineStore('app', {
                 };
                 Object.keys(requestParams).forEach(key => {
                     const value = requestParams[key as keyof typeof requestParams];
-                    if (value === undefined || value === null || value === '') {
+                    // Keep empty strings for filters like category, type, search, level, difficulty
+                    // as the backend might expect them or handle them correctly.
+                    // Only remove undefined or null.
+                    if (value === undefined || value === null) {
                         delete requestParams[key as keyof typeof requestParams];
                     }
                 });
@@ -767,12 +780,17 @@ export const useAppStore = defineStore('app', {
             try {
                 const response = await api.fetchSongFilterOptions();
                  if (response.success && response.data) {
+                     // Corrected: Assign the full response data which now includes levels and difficulties
                      this.songFilterOptions = response.data;
                  } else {
+                     // Corrected: Throw error if fetching filter options fails
                      throw new Error(response.error || 'Failed to fetch filter options');
                  }
             } catch (err: any) {
                  console.error("Store: Error fetching song filter options:", err);
+                 this.setError(err.message || 'An unknown error occurred while fetching song filter options');
+                 // Optionally reset filter options to empty arrays on error
+                 this.songFilterOptions = { categories: [], types: [], levels: [], difficulties: [] };
             } finally {
                  this.setLoading('songFilters', false);
             }

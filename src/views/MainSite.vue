@@ -70,13 +70,13 @@ const handleSignup = () => {
 
             <!-- Login/Signup buttons shown only if not authenticated -->
             <div v-if="!store.isAuthenticated" class="mt-8 space-y-4">
-                <p class="text-lg font-semibold">立即加入比赛！</p>
+                <!--<p class="text-lg font-semibold">立即加入比赛！</p>
                 <button
                     @click="handleSignup"
                     class="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105"
                 >
                     注册并加入队伍
-                </button>
+                </button>-->
                  <button
                     @click="handleLogin"
                     class="w-full md:w-auto bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 ml-0 md:ml-4"
