@@ -37,7 +37,7 @@
                                          size="small"
                                          style="width: 80px; text-align: center; margin-right: 10px;"
                                      >
-                                         第 {{ index + 1 }} 位 <!-- Display 1-based index -->
+                                         第 {{ index }} 位 <!-- Display 1-based index -->
                                      </el-tag>
                                      <el-text v-if="isSlotOccupied(store.upcomingMatchForSelection.myTeam.id, index - 1)">
                                          {{ store.getOccupyingMemberNickname(store.upcomingMatchForSelection.myTeam.id, index - 1) }}
