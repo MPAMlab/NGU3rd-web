@@ -113,7 +113,7 @@
             <el-form :model="scoreForm">
               <el-row :gutter="20">
                 <el-col :span="12">
-                  <!-- MODIFIED: Use computed property for profession -->
+                  <!-- Use computed property for profession display -->
                   <el-card :header="`${currentMatch.player1_nickname || '选手 A'} (${player1ProfessionDisplay})`">
                     <el-form-item label="完成率">
                       <el-input-number v-model="scoreForm.player1.percentage" :precision="4" :step="0.0001" :min="0" :max="101" />%
@@ -121,7 +121,7 @@
                   </el-card>
                 </el-col>
                 <el-col :span="12">
-                   <!-- MODIFIED: Use computed property for profession -->
+                   <!-- Use computed property for profession display -->
                   <el-card :header="`${currentMatch.player2_nickname || '选手 B'} (${player2ProfessionDisplay})`">
                     <el-form-item label="完成率">
                       <el-input-number v-model="scoreForm.player2.percentage" :precision="4" :step="0.0001" :min="0" :max="101" />%
@@ -136,7 +136,7 @@
             <div v-if="currentMatch.results">
               <el-row :gutter="20">
                 <el-col :span="12">
-                  <!-- Use profession from results if available, fallback to computed property -->
+                  <!-- Use profession from results if available (should be Chinese from backend now), fallback to computed property (Chinese) -->
                   <el-card :header="`${currentMatch.results.player1.nickname || '选手 A'} (${currentMatch.results.player1.profession || player1ProfessionDisplay})`">
                     <p><strong>完成率:</strong> {{ currentMatch.player1_percentage?.toFixed(4) || '0' }}%</p>
                     <p><strong>原始得分:</strong> {{ typeof currentMatch.results.player1.originalScore === 'number' ? currentMatch.results.player1.originalScore.toFixed(4) : 'N/A' }}</p>
@@ -149,7 +149,7 @@
                   </el-card>
                 </el-col>
                 <el-col :span="12">
-                   <!-- Use profession from results if available, fallback to computed property -->
+                   <!-- Use profession from results if available (should be Chinese from backend now), fallback to computed property (Chinese) -->
                    <el-card :header="`${currentMatch.results.player2.nickname || '选手 B'} (${currentMatch.results.player2.profession || player2ProfessionDisplay})`">
                      <p><strong>完成率:</strong> {{ currentMatch.player2_percentage?.toFixed(4) || '0' }}%</p>
                     <p><strong>原始得分:</strong> {{ typeof currentMatch.results.player2.originalScore === 'number' ? currentMatch.results.player2.originalScore.toFixed(4) : 'N/A' }}</p>
@@ -210,9 +210,19 @@
   // --- Data Fetching ---
   onMounted(() => {
     store.fetchSemifinalMatches();
-    store.fetchMembers(); // This fetches members with professions
+    store.fetchMembers(); // This fetches members with professions (English job names)
     store.fetchTeams();
   });
+
+  // --- Profession Mapping (English from DB/Store to Chinese for Backend Payload) ---
+  // Define the mapping from English job (from store.members) to Chinese Profession (for backend payload)
+  // IMPORTANT: Confirm these English keys match the 'job' values in your members data
+  const professionMap: Record<string, Profession> = {
+      'defender': '矩盾手',
+      'supporter': '炼星师', // Assuming 'supporter' maps to '炼星师'
+      'attacker': '绝剑士', // Assuming 'attacker' maps to '绝剑士'
+      // Add other mappings if necessary
+  };
 
   // --- Create Match Dialog ---
   const createMatchDialogVisible = ref(false);
@@ -240,8 +250,9 @@
       return store.members.filter(member => member.team_code === newMatchForm.team2_code);
   });
 
+  // formatMemberLabel still uses the raw job string from member (English)
   const formatMemberLabel = (member: Member): string => {
-      const profession = member.job || '未知职业';
+      const profession = member.job || '未知职业'; // This will show English job name in dropdown
       const element = member.color || '未知元素';
       return `${member.nickname} (${element}, ${profession})`;
   };
@@ -295,17 +306,21 @@
     }
   });
 
-  // NEW: Computed properties to get player professions from store.members
+  // Computed properties to get player professions from store.members and map to Chinese for display
   const player1ProfessionDisplay = computed(() => {
       if (!currentMatch.value || !currentMatch.value.player1_id) return '未知职业';
       const member = store.members.find(m => m.id === currentMatch.value?.player1_id);
-      return member?.job || '未知职业';
+      const englishJob = member?.job || '';
+      // Use the map for display as well
+      return professionMap[englishJob] || englishJob || '未知职业'; // Fallback to English if mapping fails
   });
 
   const player2ProfessionDisplay = computed(() => {
       if (!currentMatch.value || !currentMatch.value.player2_id) return '未知职业';
       const member = store.members.find(m => m.id === currentMatch.value?.player2_id);
-      return member?.job || '未知职业';
+      const englishJob = member?.job || '';
+      // Use the map for display as well
+      return professionMap[englishJob] || englishJob || '未知职业'; // Fallback to English if mapping fails
   });
 
 
@@ -314,20 +329,23 @@
     scoreForm.player1.percentage = match.player1_percentage || 0;
     scoreForm.player2.percentage = match.player2_percentage || 0;
 
-    // No need to set profession in form, it's derived via computed properties now
-
     scoreDialogVisible.value = true;
   };
 
   const submitScores = async () => {
     if (!currentMatch.value) return;
 
-    // MODIFIED: Get the actual professions by looking up in store.members
+    // Get the actual professions (English job names) by looking up in store.members
     const player1Member = store.members.find(m => m.id === currentMatch.value?.player1_id);
     const player2Member = store.members.find(m => m.id === currentMatch.value?.player2_id);
 
-    const player1Profession = player1Member?.job;
-    const player2Profession = player2Member?.job;
+    const player1EnglishJob = player1Member?.job;
+    const player2EnglishJob = player2Member?.job;
+
+    // --- NEW: Map English job names to Chinese Profession names for the payload ---
+    const player1ProfessionForPayload = player1EnglishJob ? professionMap[player1EnglishJob] : null;
+    const player2ProfessionForPayload = player2EnglishJob ? professionMap[player2EnglishJob] : null;
+    // --- END NEW ---
 
 
     // Basic validation for percentage input
@@ -335,11 +353,12 @@
          ElMessage.warning('完成率不能为 0');
          return;
     }
-     // Check if professions were successfully fetched and are valid
-     // Use the professions found from store.members
-     if (!player1Profession || !player2Profession || !['defender', 'supporter', 'attacker'].includes(player1Profession) || !['defender', 'supporter', 'attacker'].includes(player2Profession)) {
+
+     // Check if professions were successfully fetched AND mapped to valid Chinese professions
+     // Use the MAPPED professions for validation against the Chinese list
+     if (!player1ProfessionForPayload || !player2ProfessionForPayload || !['矩盾手', '炼星师', '绝剑士'].includes(player1ProfessionForPayload) || !['矩盾手', '炼星师', '绝剑士'].includes(player2ProfessionForPayload)) {
           ElMessage.error('无法获取选手职业信息或职业无效，请检查选手数据');
-          console.error("Attempted to submit scores with invalid professions:", { player1Profession, player2Profession });
+          console.error("Attempted to submit scores with invalid or unmapped professions:", { player1EnglishJob, player2EnglishJob, player1ProfessionForPayload, player2ProfessionForPayload });
           return;
      }
 
@@ -347,12 +366,12 @@
     const payload: SubmitSemifinalScoresPayload = {
       player1: {
         id: currentMatch.value.player1_id,
-        profession: player1Profession as Profession, // Use profession from store.members lookup
+        profession: player1ProfessionForPayload, // Use the MAPPED Chinese profession
         percentage: scoreForm.player1.percentage
       },
       player2: {
         id: currentMatch.value.player2_id,
-        profession: player2Profession as Profession, // Use profession from store.members lookup
+        profession: player2ProfessionForPayload, // Use the MAPPED Chinese profession
         percentage: scoreForm.player2.percentage
       }
     };
