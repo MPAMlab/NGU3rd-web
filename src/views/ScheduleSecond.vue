@@ -19,7 +19,7 @@
           </el-table-column>
           <el-table-column prop="status" label="状态" width="120">
             <template #default="{ row }">
-              <el-tag :type="matchStatusTagType(row.status)">{{ matchStatusText(row.status) }}</el-tag>
+                <el-tag :type="matchStatusTagType(row.status)">{{ matchStatusText(row.status) }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="300">
@@ -53,24 +53,19 @@
           </el-table-column>
         </el-table>
 
-        <!-- Create Match Dialog -->
+        <!-- Create Match Dialog (No changes needed here for the profession display issue) -->
         <el-dialog v-model="createMatchDialogVisible" title="创建新复赛" width="500px">
           <el-form :model="newMatchForm" ref="newMatchFormRef" label-width="100px">
             <el-form-item label="轮次名称" prop="round_name" :rules="[{ required: true, message: '请输入轮次名称', trigger: 'blur' }]">
               <el-input v-model="newMatchForm.round_name" />
             </el-form-item>
 
-            <!-- Team and Player Selection for Player 1 -->
-            <!-- MODIFICATION: Use team_code instead of team_id -->
-            <!-- FIX: Bind v-model directly to newMatchForm.team1_code for validation -->
             <el-form-item label="队伍 A" prop="team1_code" :rules="[{ required: true, message: '请选择队伍 A', trigger: 'change' }]">
                 <el-select v-model="newMatchForm.team1_code" placeholder="选择队伍 A" @change="newMatchForm.player1_id = null">
-                    <!-- Assuming Team interface has 'code' and 'name' -->
                     <el-option v-for="team in store.teams" :key="team.code" :label="team.name" :value="team.code" />
                 </el-select>
             </el-form-item>
             <el-form-item label="选手 A" prop="player1_id" :rules="[{ required: true, message: '请选择选手 A', trigger: 'change' }]">
-              <!-- MODIFICATION: Disable based on newMatchForm.team1_code -->
               <el-select v-model="newMatchForm.player1_id" placeholder="选择选手 A" :disabled="!newMatchForm.team1_code">
                 <el-option
                     v-for="member in filteredMembersTeam1"
@@ -81,17 +76,12 @@
               </el-select>
             </el-form-item>
 
-            <!-- Team and Player Selection for Player 2 -->
-             <!-- MODIFICATION: Use team_code instead of team_id -->
-             <!-- FIX: Bind v-model directly to newMatchForm.team2_code for validation -->
              <el-form-item label="队伍 B" prop="team2_code" :rules="[{ required: true, message: '请选择队伍 B', trigger: 'change' }]">
                 <el-select v-model="newMatchForm.team2_code" placeholder="选择队伍 B" @change="newMatchForm.player2_id = null">
-                     <!-- Assuming Team interface has 'code' and 'name' -->
                     <el-option v-for="team in store.teams" :key="team.code" :label="team.name" :value="team.code" />
                 </el-select>
             </el-form-item>
             <el-form-item label="选手 B" prop="player2_id" :rules="[{ required: true, message: '请选择选手 B', trigger: 'change' }]">
-               <!-- MODIFICATION: Disable based on newMatchForm.team2_code -->
               <el-select v-model="newMatchForm.player2_id" placeholder="选择选手 B" :disabled="!newMatchForm.team2_code">
                 <el-option
                     v-for="member in filteredMembersTeam2"
@@ -101,7 +91,6 @@
                 ></el-option>
               </el-select>
             </el-form-item>
-
 
             <el-form-item label="计划时间" prop="scheduled_time">
               <el-date-picker
@@ -124,36 +113,32 @@
             <el-form :model="scoreForm">
               <el-row :gutter="20">
                 <el-col :span="12">
-                  <!-- Display player 1 info including profession from match data -->
-                  <el-card :header="`${currentMatch.player1_nickname || '选手 A'} (${currentMatch.player1_profession || '未知职业'})`">
-                    <!-- Removed manual profession select -->
+                  <!-- MODIFIED: Use computed property for profession -->
+                  <el-card :header="`${currentMatch.player1_nickname || '选手 A'} (${player1ProfessionDisplay})`">
                     <el-form-item label="完成率">
                       <el-input-number v-model="scoreForm.player1.percentage" :precision="4" :step="0.0001" :min="0" :max="101" />%
                     </el-form-item>
                   </el-card>
                 </el-col>
                 <el-col :span="12">
-                   <!-- Display player 2 info including profession from match data -->
-                  <el-card :header="`${currentMatch.player2_nickname || '选手 B'} (${currentMatch.player2_profession || '未知职业'})`">
-                    <!-- Removed manual profession select -->
+                   <!-- MODIFIED: Use computed property for profession -->
+                  <el-card :header="`${currentMatch.player2_nickname || '选手 B'} (${player2ProfessionDisplay})`">
                     <el-form-item label="完成率">
                       <el-input-number v-model="scoreForm.player2.percentage" :precision="4" :step="0.0001" :min="0" :max="101" />%
                     </el-form-item>
                   </el-card>
                 </el-col>
               </el-row>
-            </el-form> <!-- FIX: Added closing tag for el-form -->
+            </el-form>
             <el-divider>计分结果</el-divider>
 
             <!-- Display results fetched from backend after submission -->
             <div v-if="currentMatch.results">
               <el-row :gutter="20">
                 <el-col :span="12">
-                  <!-- Use profession from results if available, fallback to match data -->
-                  <el-card :header="`${currentMatch.results.player1.nickname || '选手 A'} (${currentMatch.results.player1.profession || currentMatch.player1_profession || '未知职业'})`">
-                    <!-- Display submitted percentage from the match object -->
+                  <!-- Use profession from results if available, fallback to computed property -->
+                  <el-card :header="`${currentMatch.results.player1.nickname || '选手 A'} (${currentMatch.results.player1.profession || player1ProfessionDisplay})`">
                     <p><strong>完成率:</strong> {{ currentMatch.player1_percentage?.toFixed(4) || '0' }}%</p>
-                    <!-- Ensure results properties are numbers before toFixed -->
                     <p><strong>原始得分:</strong> {{ typeof currentMatch.results.player1.originalScore === 'number' ? currentMatch.results.player1.originalScore.toFixed(4) : 'N/A' }}</p>
                     <p><strong>技能加成:</strong> {{ typeof currentMatch.results.player1.bonusScore === 'number' ? currentMatch.results.player1.bonusScore.toFixed(4) : 'N/A' }}</p>
                     <p><strong>最终得分:</strong> {{ typeof currentMatch.results.player1.totalScore === 'number' ? currentMatch.results.player1.totalScore.toFixed(4) : 'N/A' }}</p>
@@ -164,11 +149,9 @@
                   </el-card>
                 </el-col>
                 <el-col :span="12">
-                   <!-- Use profession from results if available, fallback to match data -->
-                   <el-card :header="`${currentMatch.results.player2.nickname || '选手 B'} (${currentMatch.results.player2.profession || currentMatch.player2_profession || '未知职业'})`">
-                     <!-- Display submitted percentage from the match object -->
+                   <!-- Use profession from results if available, fallback to computed property -->
+                   <el-card :header="`${currentMatch.results.player2.nickname || '选手 B'} (${currentMatch.results.player2.profession || player2ProfessionDisplay})`">
                      <p><strong>完成率:</strong> {{ currentMatch.player2_percentage?.toFixed(4) || '0' }}%</p>
-                     <!-- Ensure results properties are numbers before toFixed -->
                     <p><strong>原始得分:</strong> {{ typeof currentMatch.results.player2.originalScore === 'number' ? currentMatch.results.player2.originalScore.toFixed(4) : 'N/A' }}</p>
                     <p><strong>技能加成:</strong> {{ typeof currentMatch.results.player2.bonusScore === 'number' ? currentMatch.results.player2.bonusScore.toFixed(4) : 'N/A' }}</p>
                     <p><strong>最终得分:</strong> {{ typeof currentMatch.results.player2.totalScore === 'number' ? currentMatch.results.player2.totalScore.toFixed(4) : 'N/A' }}</p>
@@ -216,7 +199,7 @@
   </template>
 
   <script setup lang="ts">
-  import { useAppStore, type SemifinalMatch, type CreateSemifinalMatchPayloadFrontend, type SubmitSemifinalScoresPayload, type Profession, type Member, type Team } from '@/store'; // Import Team type
+  import { useAppStore, type SemifinalMatch, type CreateSemifinalMatchPayloadFrontend, type SubmitSemifinalScoresPayload, type Profession, type Member, type Team } from '@/store';
   import { onMounted, ref, reactive, computed } from 'vue';
   import { useRouter } from 'vue-router';
   import { ElMessage, type FormInstance } from 'element-plus';
@@ -226,62 +209,48 @@
 
   // --- Data Fetching ---
   onMounted(() => {
-    store.fetchSemifinalMatches(); // Fetch only semifinal matches from the new table
-    store.fetchMembers(); // Needed for player selects and display
-    store.fetchTeams(); // Needed for team selects
+    store.fetchSemifinalMatches();
+    store.fetchMembers(); // This fetches members with professions
+    store.fetchTeams();
   });
 
   // --- Create Match Dialog ---
   const createMatchDialogVisible = ref(false);
   const newMatchFormRef = ref<FormInstance>();
-  // Use the frontend payload type for the form
   const newMatchForm = reactive<CreateSemifinalMatchPayloadFrontend & { team1_code: string | null; team2_code: string | null }>({
     round_name: '',
     player1_id: null,
     player2_id: null,
     scheduled_time: null,
-    // FIX: Add team_code properties to the form object for validation
     team1_code: null,
     team2_code: null,
   });
 
-  // Removed selectedTeam1Code and selectedTeam2Code refs
-
-  // Computed properties to filter members by selected team code
   const filteredMembersTeam1 = computed(() => {
-      // FIX: Use newMatchForm.team1_code directly
       if (!newMatchForm.team1_code) {
           return [];
       }
-      // MODIFICATION: Filter by team_code
       return store.members.filter(member => member.team_code === newMatchForm.team1_code);
   });
 
   const filteredMembersTeam2 = computed(() => {
-      // FIX: Use newMatchForm.team2_code directly
       if (!newMatchForm.team2_code) {
           return [];
       }
-       // MODIFICATION: Filter by team_code
       return store.members.filter(member => member.team_code === newMatchForm.team2_code);
   });
 
-  // Helper to format member label for select options
   const formatMemberLabel = (member: Member): string => {
-      // Assuming member object has nickname, job, and color (for element)
       const profession = member.job || '未知职业';
-      const element = member.color || '未知元素'; // MODIFICATION: Use color for element
+      const element = member.color || '未知元素';
       return `${member.nickname} (${element}, ${profession})`;
   };
 
-
   const openCreateMatchDialog = () => {
-    // Reset form and team selections
     newMatchForm.round_name = '';
     newMatchForm.player1_id = null;
     newMatchForm.player2_id = null;
     newMatchForm.scheduled_time = null;
-    // FIX: Reset team codes on the form object
     newMatchForm.team1_code = null;
     newMatchForm.team2_code = null;
     createMatchDialogVisible.value = true;
@@ -295,11 +264,6 @@
           ElMessage.warning('选手 A 和选手 B 不能是同一个选手');
           return;
         }
-        // Call the store action to create a semifinal match
-        // The payload only needs player IDs, backend fetches professions etc.
-        // Note: The backend payload type CreateSemifinalMatchPayloadFrontend does NOT include team_code.
-        // We only added team_code to the frontend form object for validation purposes.
-        // Ensure your store action `createSemifinalMatch` correctly extracts only the necessary fields (round_name, player1_id, player2_id, scheduled_time) for the API call.
         const payloadToSend = {
             round_name: newMatchForm.round_name,
             player1_id: newMatchForm.player1_id,
@@ -311,7 +275,6 @@
           ElMessage.success('复赛创建成功');
           createMatchDialogVisible.value = false;
         } else {
-          // Assuming store.error contains the backend error message
           ElMessage.error(`创建失败: ${store.error || '未知错误'}`);
         }
       } else {
@@ -322,29 +285,36 @@
 
   // --- Score Dialog ---
   const scoreDialogVisible = ref(false);
-  const currentMatch = ref<SemifinalMatch | null>(null); // Store the full SemifinalMatch object
+  const currentMatch = ref<SemifinalMatch | null>(null);
   const scoreForm = reactive({
     player1: {
-      // Profession is not selected here, it's derived from currentMatch
       percentage: 0
     },
     player2: {
-      // Profession is not selected here, it's derived from currentMatch
       percentage: 0
     }
   });
 
+  // NEW: Computed properties to get player professions from store.members
+  const player1ProfessionDisplay = computed(() => {
+      if (!currentMatch.value || !currentMatch.value.player1_id) return '未知职业';
+      const member = store.members.find(m => m.id === currentMatch.value?.player1_id);
+      return member?.job || '未知职业';
+  });
+
+  const player2ProfessionDisplay = computed(() => {
+      if (!currentMatch.value || !currentMatch.value.player2_id) return '未知职业';
+      const member = store.members.find(m => m.id === currentMatch.value?.player2_id);
+      return member?.job || '未知职业';
+  });
+
+
   const openScoreDialog = (match: SemifinalMatch) => {
     currentMatch.value = match;
-    // Reset form, populate if results already exist (e.g., reopening dialog)
-    // Use the percentage stored on the match object itself if available
     scoreForm.player1.percentage = match.player1_percentage || 0;
     scoreForm.player2.percentage = match.player2_percentage || 0;
 
-    // Profession is NOT set in the form, it's taken from currentMatch for display and payload
-    // scoreForm.player1.profession = (match.player1_profession as Profession) || '绝剑士'; // No longer needed in form
-    // scoreForm.player2.profession = (match.player2_profession as Profession) || '绝剑士'; // No longer needed in form
-
+    // No need to set profession in form, it's derived via computed properties now
 
     scoreDialogVisible.value = true;
   };
@@ -352,18 +322,21 @@
   const submitScores = async () => {
     if (!currentMatch.value) return;
 
-    // Get the actual professions from the currentMatch object (fetched from backend)
-    const player1Profession = currentMatch.value.player1_profession;
-    const player2Profession = currentMatch.value.player2_profession;
+    // MODIFIED: Get the actual professions by looking up in store.members
+    const player1Member = store.members.find(m => m.id === currentMatch.value?.player1_id);
+    const player2Member = store.members.find(m => m.id === currentMatch.value?.player2_id);
+
+    const player1Profession = player1Member?.job;
+    const player2Profession = player2Member?.job;
+
 
     // Basic validation for percentage input
-    // Allow 0 percentage if needed, but the original code had this check. Keeping it for now.
-    // If 0 percentage is valid, remove this check.
     if (scoreForm.player1.percentage === 0 || scoreForm.player2.percentage === 0) {
          ElMessage.warning('完成率不能为 0');
          return;
     }
      // Check if professions were successfully fetched and are valid
+     // Use the professions found from store.members
      if (!player1Profession || !player2Profession || !['矩盾手', '炼星师', '绝剑士'].includes(player1Profession) || !['矩盾手', '炼星师', '绝剑士'].includes(player2Profession)) {
           ElMessage.error('无法获取选手职业信息或职业无效，请检查选手数据');
           console.error("Attempted to submit scores with invalid professions:", { player1Profession, player2Profession });
@@ -373,35 +346,29 @@
 
     const payload: SubmitSemifinalScoresPayload = {
       player1: {
-        id: currentMatch.value.player1_id, // Use player_id from the match object
-        profession: player1Profession as Profession, // Use profession from match data (fetched from backend)
+        id: currentMatch.value.player1_id,
+        profession: player1Profession as Profession, // Use profession from store.members lookup
         percentage: scoreForm.player1.percentage
       },
       player2: {
-        id: currentMatch.value.player2_id, // Use player_id from the match object
-        profession: player2Profession as Profession, // Use profession from match data (fetched from backend)
+        id: currentMatch.value.player2_id,
+        profession: player2Profession as Profession, // Use profession from store.members lookup
         percentage: scoreForm.player2.percentage
       }
     };
 
-    // Call the store action to submit scores to the backend
     const result = await store.submitSemifinalResults(currentMatch.value.id, payload);
 
     if (result) {
       ElMessage.success('比赛结果已提交并计算');
-      // The store action already updates the specific match in the list and currentMatch if it's the same.
-      // The dialog will automatically update because currentMatch is reactive.
-      // Keep dialog open to show results, or close if preferred
-      // scoreDialogVisible.value = false;
+      // Dialog stays open to show results
     } else {
-      // Assuming store.error contains the backend error message
       ElMessage.error(`提交失败: ${store.error || '未知错误'}`);
     }
   };
 
   const archiveMatch = async (matchId: number) => {
       await store.archiveSemifinalMatch(matchId);
-      // The store action shows message and updates the list/current match
   }
 
 
