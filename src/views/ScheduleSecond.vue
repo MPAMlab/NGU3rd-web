@@ -140,7 +140,7 @@
                   </el-card>
                 </el-col>
               </el-row>
-
+            </el-form>
             <el-divider>计分结果</el-divider>
 
             <!-- Display results fetched from backend after submission -->
