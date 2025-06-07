@@ -85,12 +85,12 @@ const routes: Array<RouteRecordRaw> = [
     component: MatchHistory,
     meta: { title: '比赛历史' }, // Public
   },
-  {
-    path: '/member-song-prefs',
-    name: 'MemberSongPrefs',
-    component: MemberSongPrefs,
-    meta: { title: '选手选曲偏好', requiresAuth: true }, // Requires user authentication
-  },
+  //{
+ //   path: '/member-song-prefs',
+ //   name: 'MemberSongPrefs',
+ //   component: MemberSongPrefs,
+ //   meta: { title: '选手选曲偏好', requiresAuth: true }, // Requires user authentication
+ // },
   {
     path: '/match-selection/:matchId', // NEW Route
     name: 'MatchSongSelection',
