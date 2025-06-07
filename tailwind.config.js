@@ -1,21 +1,25 @@
 // tailwind.config.js
 /** @type {import('tailwindcss').Config} */
-export default {
+module.exports = {
   content: [
     "./index.html",
     "./src/**/*.{vue,js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
-      fontFamily: {
-        sans: ['Poppins', 'sans-serif'], // Use Poppins as default sans font
-      },
-      // Add custom colors if needed, matching your prototypes
+      // Add custom colors or other theme extensions if needed
       colors: {
-        'element-fire': '#ef4444', // red-500
-        'element-wood': '#10b981', // green-500
-        'element-water': '#3b82f6', // blue-500
-      }
+        // Example: Define colors based on your prototype
+        'dark-bg': '#0f172a', // Example dark background
+        'card-bg': 'rgba(255, 255, 255, 0.05)', // Example glass background
+        'purple-accent': '#8b5cf6', // Example accent color
+        'fire-element': '#ef4444',
+        'wood-element': '#10b981',
+        'water-element': '#3b82f6',
+      },
+      aspectRatio: {
+        '16/9': '16 / 9', // Add 16:9 aspect ratio utility
+      },
     },
   },
   plugins: [],

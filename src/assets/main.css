@@ -6,7 +6,8 @@
 /* Custom styles from prototypes */
 body {
     font-family: 'Poppins', sans-serif;
-    background: linear-gradient(135deg, #0f172a, #1e293b);
+    /* Background will be set on the main container div in the component for OBS */
+    /* background: linear-gradient(135deg, #0f172a, #1e293b); */
     min-height: 100vh;
     color: white; /* Default text color */
 }
@@ -18,6 +19,7 @@ body {
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
 }
 
+/* Sidebar styles (from user panel prototype - keep if used elsewhere) */
 .sidebar-item {
     transition: all 0.3s ease;
 }
@@ -29,15 +31,17 @@ body {
     border-left: 3px solid #8b5cf6;
 }
 
+/* Element colors */
 .element-fire { color: #ef4444; } /* red-500 */
 .element-wood { color: #10b981; } /* green-500 */
 .element-water { color: #3b82f6; } /* blue-500 */
 
+/* Background gradients (from user panel prototype - keep if used elsewhere) */
 .bg-element-fire { background: linear-gradient(135deg, #ef4444, #f87171); }
 .bg-element-wood { background: linear-gradient(135deg, #10b981, #34d399); }
 .bg-element-water { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
 
-/* Card 3D (from user panel prototype - keep for potential future use or inspiration) */
+/* Card 3D (from user panel prototype - keep if used elsewhere) */
 .card-3d {
     transform-style: preserve-3d;
     transition: all 0.3s ease;
@@ -74,22 +78,54 @@ body {
     50% { opacity: 0.5; }
     100% { opacity: 1; }
 }
+
+/* Health Bar Styles */
 .health-bar {
-    height: 8px; /* Adjusted height for better visibility */
+    height: 8px;
     border-radius: 4px;
     overflow: hidden;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.1); /* Background for empty part */
 }
-.health-fill-team1 {
+.health-fill-team1 { /* Used for Team A / Player 1 */
     height: 100%;
     background: linear-gradient(90deg, #3b82f6, #60a5fa); /* blue-500 to blue-400 */
     transition: width 0.5s ease-in-out;
 }
-.health-fill-team2 {
+.health-fill-team2 { /* Used for Team B / Player 2 */
     height: 100%;
     background: linear-gradient(90deg, #ef4444, #f87171); /* red-500 to red-400 */
     transition: width 0.5s ease-in-out;
 }
+
+/* Player Status Dot (Small circle next to name) */
+.status-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+.status-dot.available { background-color: #10b981; } /* Green */
+.status-dot.used { background-color: #ef4444; } /* Red */
+
+
+/* Status Tag Styles (Replacing Element Plus Tag/Alert for status display) */
+.status-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem; /* px-3 py-1 */
+    font-size: 0.75rem; /* text-xs */
+    font-weight: 500; /* font-medium */
+    border-radius: 9999px; /* rounded-full */
+}
+.status-tag.info { background-color: rgba(107, 114, 128, 0.3); color: #9ca3af; } /* gray-500/30, gray-400 */
+.status-tag.warning { background-color: rgba(251, 191, 36, 0.3); color: #fcd34d; } /* yellow-500/30, yellow-300 */
+.status-tag.success { background-color: rgba(52, 211, 153, 0.3); color: #86efac; } /* green-500/30, green-300 */
+.status-tag.danger { background-color: rgba(239, 68, 68, 0.3); color: #fca5a5; } /* red-500/30, red-300 */
+
+
+/* Portrait Warning (keep if used elsewhere) */
 .camera-feed-vertical {
     aspect-ratio: 9/16; /* Vertical 16:9 */
     background-color: #000;
@@ -100,8 +136,6 @@ body {
 .portrait-warning {
     display: none; /* Hidden by default, shown by JS/CSS media query */
 }
-
-/* Media query for portrait orientation */
 @media (orientation: portrait) {
     /* Hide main content in portrait */
     .live-container, .results-overlay {
@@ -120,7 +154,7 @@ body {
     }
 }
 
-/* Results Page Styles */
+/* Results Page Styles (keep if used elsewhere) */
 .results-overlay {
     position: fixed;
     top: 0;
@@ -153,12 +187,13 @@ body {
     100% { transform: scale(1); opacity: 1; }
 }
 
-/* View Transition (for Live/Results overlay) */
+/* View Transition (for Live/Results overlay - keep if used elsewhere) */
 .view-transition {
     transition: opacity 0.5s ease-in-out;
 }
 
-/* OBS Capture Area - Attempting 16:9 ratio for main content */
+/* OBS Capture Area - Attempting 16:9 ratio for main content (keep if used elsewhere) */
+/* Note: For OBS browser source, setting the source size is usually better */
 .obs-capture-area {
     width: 100%;
     max-height: 100vh; /* Max height is viewport height */
@@ -175,17 +210,18 @@ body {
     min-height: 0; /* Allow flex item to shrink below content size */
 }
 
-.current-player-badge {
+/* Current Player Badge (keep if used elsewhere, but status-dot is used in live pages) */
+/* .current-player-badge {
     display: inline-block;
     width: 8px;
     height: 8px;
-    background-color: #3b82f6; /* Example badge color */
+    background-color: #3b82f6;
     border-radius: 50%;
     margin-left: 8px;
     flex-shrink: 0;
-}
+} */
 
-/* Admin Edit Round Specific Styles */
+/* Admin Edit Round Specific Styles (keep if used elsewhere) */
 .input-glass {
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.2);
@@ -230,15 +266,17 @@ select.input-glass option {
    opacity: 0.8;
 }
 
+/* Team Backgrounds (keep if used elsewhere) */
 .team-a {
    background: linear-gradient(135deg, #6366f1, #4f46e5); /* indigo-500 to indigo-600 */
 }
 .team-b {
    background: linear-gradient(135deg, #f43f5e, #e11d48); /* rose-500 to rose-600 */
 }
-.health-bar-bg {
+/* Health Bar Background (redundant with .health-bar background) */
+/* .health-bar-bg {
    background: rgba(0, 0, 0, 0.3);
-}
+} */
 .match-card {
    transition: all 0.3s ease;
 }
@@ -251,12 +289,13 @@ select.input-glass option {
 .song-item:hover {
    background: rgba(255, 255, 255, 0.1);
 }
-.circle-pulse {
+/* Circle Pulse (redundant with live-indicator) */
+/* .circle-pulse {
    animation: pulse 2s infinite;
-}
-/* @keyframes pulse is already defined above */
+} */
 
 
+/* Table Styles (keep if used elsewhere) */
 table {
    width: 100%;
    border-collapse: collapse;
@@ -278,29 +317,32 @@ tbody tr:hover {
    background: rgba(255, 255, 255, 0.03);
 }
 
-.alert-danger {
-   background: rgba(239, 68, 68, 0.1); /* red-500 with alpha */
+/* Alert Styles (keep if used elsewhere, status-tag is used in live pages) */
+/* .alert-danger {
+   background: rgba(239, 68, 68, 0.1);
    border: 1px solid rgba(239, 68, 68, 0.3);
-   color: #f87171; /* red-400 */
+   color: #f87171;
    padding: 12px;
    border-radius: 8px;
    margin-bottom: 20px;
 }
 .alert-success {
-   background: rgba(16, 185, 129, 0.1); /* green-500 with alpha */
+   background: rgba(16, 185, 129, 0.1);
    border: 1px solid rgba(16, 185, 129, 0.3);
-   color: #6ee7b7; /* green-300 */
+   color: #6ee7b7;
    padding: 12px;
    border-radius: 8px;
    margin-bottom: 20px;
-}
+} */
 
-.player-card.current {
-    border: 2px solid #8b5cf6; /* Highlight current player */
+
+/* Player Card Current (keep if used elsewhere, live pages use border-l highlight) */
+/* .player-card.current {
+    border: 2px solid #8b5cf6;
     background: rgba(139, 92, 246, 0.1);
-}
+} */
 
-/* Vue Transition Styles */
+/* Vue Transition Styles (keep if used elsewhere) */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.3s ease;
@@ -310,4 +352,8 @@ tbody tr:hover {
 .fade-leave-to {
   opacity: 0;
 }
+
+/* Specific styles for live pages layout */
+/* These are mostly handled by Tailwind classes in the components */
+/* Add any necessary overrides here if Tailwind classes aren't sufficient */
 
