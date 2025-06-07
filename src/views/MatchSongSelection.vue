@@ -240,12 +240,10 @@
                  <!-- Empty state for songs -->
                  <el-empty v-else description="未找到符合条件的歌曲"></el-empty>
              </div>
-             <!-- Loading state for songs -->
-             <div v-else style="text-align: center; padding: 20px;">
-                  <el-spinner />
-                  <p>加载歌曲列表中...</p>
-             </div>
-
+            <!-- Loading state for songs -->
+            <div v-else v-loading="true" style="text-align: center; padding: 20px;">
+                <p>加载歌曲列表中...</p>
+            </div>
 
              <el-form v-if="selectedSongInPicker" style="margin-top: 20px;" label-width="100px">
                  <el-form-item label="已选歌曲">
