@@ -71,20 +71,17 @@
                     </div>
                 </div>
 
-                <!-- Center Column -->
-                <div class="glass rounded-xl p-6 w-2/4 flex flex-col items-center">
-                    <h3 class="text-xl font-bold text-white mb-4 text-center">当前歌曲</h3>
-
-                    <!-- Current Song Info -->
-                    <div class="text-center mb-6 bg-white/5 rounded-lg p-4 w-full">
-                        <h4 class="text-2xl font-bold text-white mb-2">等待歌曲信息...</h4>
-                        <p class="text-gray-300">请等待比赛开始或分数提交</p>
-                    </div>
-
-                    <!-- Single Vertical 16:9 Chroma Key Area -->
-                    <div class="camera-container mb-6">
-                        <div class="camera-frame bg-[#00FF00] flex items-center justify-center text-black font-bold">
-                            摄像头视角
+                <!-- Center Column with Two Vertical 9:16 Chroma Key Areas -->
+                <div class="glass rounded-xl p-6 w-2/4 flex flex-col items-center justify-center">
+                    <div class="flex space-x-6 items-center justify-center w-full">
+                        <!-- First Camera Frame -->
+                        <div class="camera-container">
+                            <div class="camera-frame bg-[#00FF00]"></div>
+                        </div>
+                        
+                        <!-- Second Camera Frame -->
+                        <div class="camera-container">
+                            <div class="camera-frame bg-[#00FF00]"></div>
                         </div>
                     </div>
                 </div>
@@ -215,9 +212,9 @@ const archiveMatch = async () => {
     animation: pulse 2s infinite;
 }
 
-/* Vertical 16:9 Camera Container */
+/* Vertical 9:16 Camera Container */
 .camera-container {
-    width: 270px; /* Adjust width as needed */
+    width: 270px; /* Increased width */
     height: 480px; /* This creates the 9:16 ratio (vertical) */
 }
 
