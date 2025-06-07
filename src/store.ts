@@ -1,8 +1,9 @@
 // src/store.ts
-
 import { defineStore } from 'pinia';
-import * as api from './services/api';
+import * as api from './services/api'; // Import API functions
+// Import the Kinde Auth composable
 import { useKindeAuth } from '@/composables/useKindeAuth';
+import { ElMessage } from 'element-plus'; // Import ElMessage for notifications
 
 // --- ALL FRONTEND TYPE DEFINITIONS GO HERE ---
 
@@ -116,7 +117,7 @@ export interface SaveMemberSongPreferencePayload {
     song_id: number;
     selected_difficulty: string;
 }
-// --- 比赛核心类型 (初赛/决赛) ---
+// --- 比赛核心类型 (初赛/决赛 - tournament_matches) ---
 
 // 代表比赛歌单中的一首歌及其相关信息 (存储在 tournament_matches.match_song_list_json)
 export interface MatchSong {
@@ -520,12 +521,12 @@ export interface SemifinalMatch {
     final_score_player2?: number | null; // NULLABLE until calculated
     results_json?: string | null; // Raw JSON blob (backend sends this)
 
-    -- Denormalized fields from JOINs for convenience (backend sends these)
+    // Denormalized fields from JOINs for convenience (backend sends these)
     player1_nickname?: string;
     player2_nickname?: string;
     winner_player_nickname?: string;
 
-    -- Frontend convenience (parsed from JSON)
+    // Frontend convenience (parsed from JSON)
     results?: { // Parsed results_json
         player1: SemifinalScoreResult;
         player2: SemifinalScoreResult;
@@ -572,16 +573,16 @@ export interface AppState {
     songFilterOptions: SongFiltersApiResponseData; // New: Filter options for songs
     tournamentMatches: TournamentMatch[]; // For Qualifier/Final
     semifinalMatches: SemifinalMatch[]; // <-- ADDED: For Semifinals
-    currentMatchState: MatchState | null; // For LiveMatch (DO-based)
-    currentSemifinalMatch: SemifinalMatch | null; // <-- ADDED: For LiveMatchSecond (DB-based)
+    currentMatchState: MatchState | null; // The live match state from DO/WebSocket (Qualifier/Final)
+    currentSemifinalMatch: SemifinalMatch | null; // <-- ADDED: For LiveMatchSecond (DB-based Semifinal)
 
-    matchHistory: MatchHistoryMatch[];
+    matchHistory: MatchHistoryMatch[]; // Assuming this shows TournamentMatch history
     memberSongPreferences: MemberSongPreference[];
 
     // --- NEW STATE FOR USER MATCHES AND SELECTION ---
     userMatches: TournamentMatch[] | null; // 新增：存储用户队伍的比赛列表 (Assuming userMatches only shows TournamentMatch, not SemifinalMatch)
     // Data fetched for the specific match selection page
-    upcomingMatchForSelection: FetchUserMatchSelectionDataFrontend | null;
+    upcomingMatchForSelection: FetchUserMatchSelectionDataFrontend | null; // For TournamentMatch selection
     // User's own selection (redundant with upcomingMatchForSelection.mySelection but potentially useful)
     userMatchSelection: MatchPlayerSelectionFrontend | null; // This will be populated from upcomingMatchForSelection.mySelection
     // Occupied indices for display (redundant with upcomingMatchForSelection.occupiedOrderIndices but kept for consistency with original AppState)
@@ -594,8 +595,8 @@ export interface AppState {
         members: boolean;
         songs: boolean; // Used for both Songs view and Picker dialog
         songFilters: boolean; // New: Loading state for filter options
-        tournamentMatches: boolean; // For Qualifier/Final
-        semifinalMatches: boolean; // <-- ADDED: For Semifinals
+        tournamentMatches: boolean; // For Qualifier/Final list
+        semifinalMatches: boolean; // <-- ADDED: For Semifinals list
         currentMatch: boolean; // Loading state for fetching initial match state (DO)
         currentSemifinalMatch: boolean; // <-- ADDED: Loading state for fetching semifinal match state (DB)
         matchHistory: boolean;
@@ -604,16 +605,18 @@ export interface AppState {
         userMatches: boolean; // 新增：用户比赛列表加载状态
         userMatchSelection: boolean; // Loading state for fetching user selection data
         savingMatchSelection: boolean; // Loading state for saving user selection
-        checkingMatchSelectionStatus: boolean; // Loading state for staff status check
-        compilingMatchSetup: boolean; // Loading state for staff compilation
+        checkingMatchSelectionStatus: boolean; // Loading state for staff status check (TournamentMatch)
+        compilingMatchSetup: boolean; // Loading state for staff compilation (TournamentMatch)
         // REMOVED: allSongsForPicker: boolean;
+        creatingMatch: boolean; // For creating any tournament match (Qualifier/Final)
         creatingSemifinalMatch: boolean; // <-- ADDED
         submittingSemifinalResults: boolean; // <-- ADDED
+        archivingMatch: boolean; // For DO match (Qualifier/Final)
         archivingSemifinalMatch: boolean; // <-- ADDED
         [key: string]: boolean; // For generic loading states
     };
     error: string | null;
-    currentMatchWebSocket: WebSocket | null; // The active WebSocket connection
+    currentMatchWebSocket: WebSocket | null; // The active WebSocket connection (For DO matches)
     connectedDoName: string | null; // The DO name (e.g., "match-1") the WebSocket is connected to
 
     // --- Kinde Auth State (from composable) ---
@@ -642,12 +645,12 @@ export const useAppStore = defineStore('app', {
             currentMatchState: null, // For DO matches
             currentSemifinalMatch: null, // <-- ADDED for Semifinal matches
 
-            matchHistory: [],
+            matchHistory: [], // Assuming this shows TournamentMatch history
             memberSongPreferences: [],
 
             // --- NEW STATE INITIALIZATION ---
             userMatches: null, // Assuming userMatches only shows TournamentMatch
-            upcomingMatchForSelection: null,
+            upcomingMatchForSelection: null, // For TournamentMatch selection
             userMatchSelection: null, // Will be populated from upcomingMatchForSelection
             occupiedOrderIndices: [],
             availableOrderSlotsCount: 0,
@@ -656,8 +659,8 @@ export const useAppStore = defineStore('app', {
             isLoading: {
                 teams: false, members: false, songs: false,
                 songFilters: false,
-                tournamentMatches: false,
-                semifinalMatches: false, // <-- ADDED
+                tournamentMatches: false, // Qualifier/Final list
+                semifinalMatches: false, // <-- ADDED Semifinals list
                 currentMatch: false, // DO match
                 currentSemifinalMatch: false, // <-- ADDED Semifinal match
                 matchHistory: false, memberSongPreferences: false,
@@ -668,8 +671,10 @@ export const useAppStore = defineStore('app', {
                 checkingMatchSelectionStatus: false,
                 compilingMatchSetup: false,
                 // REMOVED: allSongsForPicker: false,
+                creatingMatch: false, // For creating any tournament match (Qualifier/Final)
                 creatingSemifinalMatch: false, // <-- ADDED
                 submittingSemifinalResults: false, // <-- ADDED
+                archivingMatch: false, // For DO match (Qualifier/Final)
                 archivingSemifinalMatch: false, // <-- ADDED
             },
             error: null,
@@ -914,7 +919,7 @@ export const useAppStore = defineStore('app', {
             this.clearError();
             try {
                 // Call the new API endpoint for semifinals
-                const response = await api.callApi<SemifinalMatch[]>('/semifinal-matches', 'GET');
+                const response = await api.fetchSemifinalMatches(); // Use the new api function
                 if (response.success && response.data) {
                     this.semifinalMatches = response.data;
                 } else {
@@ -958,7 +963,7 @@ export const useAppStore = defineStore('app', {
              this.currentSemifinalMatch = null; // Clear previous data
              try {
                  // Call the new backend API endpoint
-                 const response = await api.callApi<SemifinalMatch>(`/semifinal-matches/${matchId}`, 'GET');
+                 const response = await api.fetchSemifinalMatch(matchId); // Use the new api function
 
                  if (response.success && response.data) {
                      this.currentSemifinalMatch = response.data;
@@ -1019,7 +1024,7 @@ export const useAppStore = defineStore('app', {
             }
         },
 
-        // --- Tournament & Match Actions (Keep existing, they use api.ts which will be updated) ---
+        // --- Tournament & Match Actions (Qualifier/Final) ---
         // These actions will now require Admin Auth via the backend middleware
         // createTournamentMatch is for Qualifier/Final
         async createTournamentMatch(payload: CreateTournamentMatchPayload) {
@@ -1028,8 +1033,9 @@ export const useAppStore = defineStore('app', {
             try {
                 const response = await api.createTournamentMatch(payload);
                 if (response.success && response.data) {
-                    // Refresh the list after creation
-                    this.fetchTournamentMatches(); // Refresh Qualifier/Final list
+                    // Add new match to the beginning of the list and sort by creation date
+                    this.tournamentMatches.unshift(response.data);
+                    this.tournamentMatches.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                     return response.data;
                 } else {
                     this.setError(response.error || 'Failed to create tournament match');
@@ -1050,16 +1056,13 @@ export const useAppStore = defineStore('app', {
              try {
                  // Call the new API endpoint for creating semifinals
                  // Map frontend payload to backend payload structure if needed, but they are similar now
-                 const backendPayload: CreateSemifinalMatchPayload = {
+                 const backendPayload: CreateSemifinalMatchPayloadFrontend = { // Backend payload matches frontend payload for this endpoint
                      round_name: payload.round_name,
                      player1_id: payload.player1_id!, // Assume non-null after form validation
                      player2_id: payload.player2_id!, // Assume non-null after form validation
                      scheduled_time: payload.scheduled_time,
-                     // team_id fields are not used for semifinal creation in the new table
-                     team1_id: null,
-                     team2_id: null,
                  };
-                 const response = await api.callApi<SemifinalMatch>('/semifinal-matches', 'POST', backendPayload);
+                 const response = await api.createSemifinalMatch(backendPayload); // Use the new api function
 
                  if (response.success) {
                      // Refresh the semifinal list after creation
@@ -1396,13 +1399,14 @@ export const useAppStore = defineStore('app', {
             }
         },
 
+
         // --- NEW ACTION: Submit Semifinal Results ---
         async submitSemifinalResults(matchId: number, payload: SubmitSemifinalScoresPayload) {
             this.setLoading('submittingSemifinalResults', true);
             this.clearError();
             try {
                 // Call the new backend API endpoint
-                const response = await api.callApi<SubmitSemifinalScoresResponse>(`/semifinal-matches/${matchId}/submit-scores`, 'POST', payload);
+                const response = await api.submitSemifinalResults(matchId, payload); // Use the new api function
 
                 if (response.success && response.data?.semifinalMatch) {
                     // Update the specific match in the store's semifinal list
@@ -1410,6 +1414,11 @@ export const useAppStore = defineStore('app', {
                     if (index !== -1) {
                         // Update the match data, including the parsed results
                         const updatedMatch = response.data.semifinalMatch;
+                         // The backend should ideally send the parsed results directly,
+                         // but if it sends results_json, parse it here.
+                         // Assuming backend sends parsed 'results' field directly now based on SubmitSemifinalScoresResponse type
+                         // If backend still sends results_json, uncomment parsing:
+                         /*
                          if (updatedMatch.results_json) {
                              try {
                                  updatedMatch.results = JSON.parse(updatedMatch.results_json);
@@ -1418,6 +1427,7 @@ export const useAppStore = defineStore('app', {
                                  updatedMatch.results = null;
                              }
                          }
+                         */
                         this.semifinalMatches[index] = updatedMatch;
                     } else {
                         // If not found, maybe refetch the list
@@ -1427,6 +1437,9 @@ export const useAppStore = defineStore('app', {
                     // If the user is currently viewing this match in LiveMatchSecond, update that state too
                     if (this.currentSemifinalMatch?.id === matchId) {
                          const updatedMatch = response.data.semifinalMatch;
+                         // Assuming backend sends parsed 'results' field directly now
+                         // If backend still sends results_json, uncomment parsing:
+                         /*
                          if (updatedMatch.results_json) {
                              try {
                                  updatedMatch.results = JSON.parse(updatedMatch.results_json);
@@ -1435,16 +1448,17 @@ export const useAppStore = defineStore('app', {
                                  updatedMatch.results = null;
                              }
                          }
+                         */
                          this.currentSemifinalMatch = updatedMatch;
                     }
 
                     return response.data; // Return the full response data
                 } else {
-                    this.error = response.error || 'Failed to submit semifinal results';
+                    this.setError(response.error || 'Failed to submit semifinal results');
                     return null; // Indicate failure
                 }
             } catch (e: any) {
-                this.error = e.message || 'An error occurred while submitting semifinal results';
+                this.setError(e.message || 'An error occurred while submitting semifinal results');
                 return null;
             } finally {
                 this.setLoading('submittingSemifinalResults', false);
@@ -1456,7 +1470,7 @@ export const useAppStore = defineStore('app', {
              this.setLoading('archivingSemifinalMatch', true);
              this.clearError();
              try {
-                 const response = await api.callApi<ApiResponse>(`/semifinal-matches/${matchId}/archive`, 'POST');
+                 const response = await api.archiveSemifinalMatch(matchId); // Use the new api function
                  if (response.success) {
                      ElMessage.success('比赛已归档');
                      // Update the match status in the store's semifinal list
@@ -1470,11 +1484,11 @@ export const useAppStore = defineStore('app', {
                      }
                      return true;
                  } else {
-                     this.error = response.error || 'Failed to archive match';
+                     this.setError(response.error || 'Failed to archive match');
                      return false;
                  }
              } catch (e: any) {
-                 this.error = e.message || 'An error occurred while archiving match';
+                 this.setError(e.message || 'An error occurred while archiving match');
                  return false;
              } finally {
                  this.setLoading('archivingSemifinalMatch', false);
