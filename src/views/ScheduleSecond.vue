@@ -62,15 +62,16 @@
 
             <!-- Team and Player Selection for Player 1 -->
             <!-- MODIFICATION: Use team_code instead of team_id -->
+            <!-- FIX: Bind v-model directly to newMatchForm.team1_code for validation -->
             <el-form-item label="队伍 A" prop="team1_code" :rules="[{ required: true, message: '请选择队伍 A', trigger: 'change' }]">
-                <el-select v-model="selectedTeam1Code" placeholder="选择队伍 A" @change="newMatchForm.player1_id = null">
+                <el-select v-model="newMatchForm.team1_code" placeholder="选择队伍 A" @change="newMatchForm.player1_id = null">
                     <!-- Assuming Team interface has 'code' and 'name' -->
                     <el-option v-for="team in store.teams" :key="team.code" :label="team.name" :value="team.code" />
                 </el-select>
             </el-form-item>
             <el-form-item label="选手 A" prop="player1_id" :rules="[{ required: true, message: '请选择选手 A', trigger: 'change' }]">
-              <!-- MODIFICATION: Disable based on selectedTeam1Code -->
-              <el-select v-model="newMatchForm.player1_id" placeholder="选择选手 A" :disabled="!selectedTeam1Code">
+              <!-- MODIFICATION: Disable based on newMatchForm.team1_code -->
+              <el-select v-model="newMatchForm.player1_id" placeholder="选择选手 A" :disabled="!newMatchForm.team1_code">
                 <el-option
                     v-for="member in filteredMembersTeam1"
                     :key="member.id"
@@ -82,15 +83,16 @@
 
             <!-- Team and Player Selection for Player 2 -->
              <!-- MODIFICATION: Use team_code instead of team_id -->
+             <!-- FIX: Bind v-model directly to newMatchForm.team2_code for validation -->
              <el-form-item label="队伍 B" prop="team2_code" :rules="[{ required: true, message: '请选择队伍 B', trigger: 'change' }]">
-                <el-select v-model="selectedTeam2Code" placeholder="选择队伍 B" @change="newMatchForm.player2_id = null">
+                <el-select v-model="newMatchForm.team2_code" placeholder="选择队伍 B" @change="newMatchForm.player2_id = null">
                      <!-- Assuming Team interface has 'code' and 'name' -->
                     <el-option v-for="team in store.teams" :key="team.code" :label="team.name" :value="team.code" />
                 </el-select>
             </el-form-item>
             <el-form-item label="选手 B" prop="player2_id" :rules="[{ required: true, message: '请选择选手 B', trigger: 'change' }]">
-               <!-- MODIFICATION: Disable based on selectedTeam2Code -->
-              <el-select v-model="newMatchForm.player2_id" placeholder="选择选手 B" :disabled="!selectedTeam2Code">
+               <!-- MODIFICATION: Disable based on newMatchForm.team2_code -->
+              <el-select v-model="newMatchForm.player2_id" placeholder="选择选手 B" :disabled="!newMatchForm.team2_code">
                 <el-option
                     v-for="member in filteredMembersTeam2"
                     :key="member.id"
@@ -140,7 +142,7 @@
                   </el-card>
                 </el-col>
               </el-row>
-            </el-form>
+            </el-form> <!-- FIX: Added closing tag for el-form -->
             <el-divider>计分结果</el-divider>
 
             <!-- Display results fetched from backend after submission -->
@@ -233,33 +235,35 @@
   const createMatchDialogVisible = ref(false);
   const newMatchFormRef = ref<FormInstance>();
   // Use the frontend payload type for the form
-  const newMatchForm = reactive<CreateSemifinalMatchPayloadFrontend>({
+  const newMatchForm = reactive<CreateSemifinalMatchPayloadFrontend & { team1_code: string | null; team2_code: string | null }>({
     round_name: '',
     player1_id: null,
     player2_id: null,
     scheduled_time: null,
+    // FIX: Add team_code properties to the form object for validation
+    team1_code: null,
+    team2_code: null,
   });
 
-  // State for team selection in the create dialog (UI only)
-  // MODIFICATION: Use team_code instead of team_id
-  const selectedTeam1Code = ref<string | null>(null);
-  const selectedTeam2Code = ref<string | null>(null);
+  // Removed selectedTeam1Code and selectedTeam2Code refs
 
   // Computed properties to filter members by selected team code
   const filteredMembersTeam1 = computed(() => {
-      if (!selectedTeam1Code.value) {
+      // FIX: Use newMatchForm.team1_code directly
+      if (!newMatchForm.team1_code) {
           return [];
       }
       // MODIFICATION: Filter by team_code
-      return store.members.filter(member => member.team_code === selectedTeam1Code.value);
+      return store.members.filter(member => member.team_code === newMatchForm.team1_code);
   });
 
   const filteredMembersTeam2 = computed(() => {
-      if (!selectedTeam2Code.value) {
+      // FIX: Use newMatchForm.team2_code directly
+      if (!newMatchForm.team2_code) {
           return [];
       }
        // MODIFICATION: Filter by team_code
-      return store.members.filter(member => member.team_code === selectedTeam2Code.value);
+      return store.members.filter(member => member.team_code === newMatchForm.team2_code);
   });
 
   // Helper to format member label for select options
@@ -277,9 +281,9 @@
     newMatchForm.player1_id = null;
     newMatchForm.player2_id = null;
     newMatchForm.scheduled_time = null;
-    // MODIFICATION: Reset team codes
-    selectedTeam1Code.value = null;
-    selectedTeam2Code.value = null;
+    // FIX: Reset team codes on the form object
+    newMatchForm.team1_code = null;
+    newMatchForm.team2_code = null;
     createMatchDialogVisible.value = true;
   };
 
@@ -293,12 +297,22 @@
         }
         // Call the store action to create a semifinal match
         // The payload only needs player IDs, backend fetches professions etc.
-        const result = await store.createSemifinalMatch(newMatchForm);
+        // Note: The backend payload type CreateSemifinalMatchPayloadFrontend does NOT include team_code.
+        // We only added team_code to the frontend form object for validation purposes.
+        // Ensure your store action `createSemifinalMatch` correctly extracts only the necessary fields (round_name, player1_id, player2_id, scheduled_time) for the API call.
+        const payloadToSend = {
+            round_name: newMatchForm.round_name,
+            player1_id: newMatchForm.player1_id,
+            player2_id: newMatchForm.player2_id,
+            scheduled_time: newMatchForm.scheduled_time,
+        };
+        const result = await store.createSemifinalMatch(payloadToSend);
         if (result) {
           ElMessage.success('复赛创建成功');
           createMatchDialogVisible.value = false;
         } else {
-          ElMessage.error(`创建失败: ${store.error}`);
+          // Assuming store.error contains the backend error message
+          ElMessage.error(`创建失败: ${store.error || '未知错误'}`);
         }
       } else {
         console.log('Form validation failed');
@@ -343,6 +357,8 @@
     const player2Profession = currentMatch.value.player2_profession;
 
     // Basic validation for percentage input
+    // Allow 0 percentage if needed, but the original code had this check. Keeping it for now.
+    // If 0 percentage is valid, remove this check.
     if (scoreForm.player1.percentage === 0 || scoreForm.player2.percentage === 0) {
          ElMessage.warning('完成率不能为 0');
          return;
@@ -378,7 +394,8 @@
       // Keep dialog open to show results, or close if preferred
       // scoreDialogVisible.value = false;
     } else {
-      ElMessage.error(`提交失败: ${store.error}`);
+      // Assuming store.error contains the backend error message
+      ElMessage.error(`提交失败: ${store.error || '未知错误'}`);
     }
   };
 
