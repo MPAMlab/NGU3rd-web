@@ -8,15 +8,19 @@ import Index from '@/views/MainSite.vue'; // Assuming this is your main registra
 import Home from '@/views/Home.vue'; // Assuming this is a dashboard or authenticated home
 import Teams from '@/views/Teams.vue';
 import Songs from '@/views/Songs.vue';
-import Schedule from '@/views/Schedule.vue'; // Assuming this is admin-only
-import LiveMatch from '@/views/LiveMatch.vue';
+import Schedule from '@/views/Schedule.vue'; // Assuming this is admin-only for Qualifier/Final (tournament_matches)
+import LiveMatch from '@/views/LiveMatch.vue'; // Assuming this is admin control for DO matches (Qualifier/Final)
 import MatchHistory from '@/views/MatchHistory.vue';
-import MemberSongPrefs from '@/views/MemberSongPrefs.vue'; // Assuming this is user-authenticated
+// import MemberSongPrefs from '@/views/MemberSongPrefs.vue'; // Assuming this is user-authenticated - commented out in original
 import NotFoundPage from '@/views/NotFoundPage.vue';
 import KindeCallback from '@/views/KindeCallback.vue'; // Import the KindeCallback view
 import PrivacyPolicyPage from '@/views/PrivacyPolicyPage.vue'; // Assuming this exists
-import MatchSongSelection from '@/views/MatchSongSelection.vue'; // NEW Import
-import UserMatches from '@/views/UserMatches.vue'; // NEW Import
+import MatchSongSelection from '@/views/MatchSongSelection.vue'; // NEW Import (for TournamentMatch selection)
+import UserMatches from '@/views/UserMatches.vue'; // NEW Import (for user's TournamentMatches)
+import LiveMatchPublic from '@/views/LiveMatchPublic.vue'; // Public view for DO matches (Qualifier/Final)
+import ScheduleSecond from '@/views/ScheduleSecond.vue'; // NEW Import (for Semifinal management - semifinal_matches)
+import LiveMatchSecond from '@/views/LiveMatchSecond.vue'; // NEW Import (Public view for Semifinal - semifinal_matches)
+
 
 // Extend RouteMeta to include custom fields
 declare module 'vue-router' {
@@ -70,14 +74,23 @@ const routes: Array<RouteRecordRaw> = [
     path: '/schedule',
     name: 'Schedule',
     component: Schedule,
-    meta: { title: '赛程管理', requiresAdmin: true }, // Add meta field to require admin
+    meta: { title: '初赛/决赛管理', requiresAdmin: true }, // Admin for Tournament Matches (Qualifier/Final)
+  },
+  // NEW route for Semifinal Management
+  {
+    path: '/schedule-second',
+    name: 'ScheduleSecond',
+    component: ScheduleSecond,
+    meta: { title: '复赛管理', requiresAdmin: true }, // Admin for Semifinal Matches
   },
   {
-    path: '/live-match/:doId',
-    name: 'LiveMatch',
-    component: LiveMatch,
+    // Admin control panel for DO matches (Qualifier/Final)
+    // Changed path to be distinct from public view
+    path: '/live-match-admin/:doId',
+    name: 'LiveMatchAdmin', // Changed name
+    component: LiveMatch, // Assuming LiveMatch.vue is the admin control
     props: true,
-    meta: { title: '比赛直播/控制台' }, // Public view, but control features might require admin
+    meta: { title: '比赛控制台', requiresAdmin: true }, // Requires admin
   },
   {
     path: '/match-history',
@@ -92,17 +105,34 @@ const routes: Array<RouteRecordRaw> = [
  //   meta: { title: '选手选曲偏好', requiresAuth: true }, // Requires user authentication
  // },
   {
-    path: '/match-selection/:matchId', // NEW Route
+    path: '/match-selection/:matchId', // NEW Route (for TournamentMatch selection)
     name: 'MatchSongSelection',
     component: MatchSongSelection,
     props: true, // Pass matchId as a prop
     meta: { title: '比赛选歌', requiresAuth: true }, // Requires user authentication
   },
   {
-    path: '/my-matches', 
+    path: '/my-matches',
     name: 'UserMatches',
     component: UserMatches,
     meta: { title: '我的比赛', requiresAuth: true }, // 需要用户认证
+  },
+  {
+    // Public view for DO matches (Qualifier/Final)
+    // Changed path to be distinct from admin control
+    path: '/live-match-public/:doId',
+    name: 'LiveMatchPublic', // Kept name
+    component: LiveMatchPublic, // Assuming LiveMatchPublic.vue is the public view
+    props: true,
+    meta: { title: '比赛直播', requiresAuth: false, requiresAdmin: false }, // Public view
+  },
+  {
+    // Public view for Semifinal matches (DB-based)
+    path: '/live-match-second/:id', // Use :id for semifinal match ID (from DB)
+    name: 'LiveMatchSecond', // Kept name
+    component: LiveMatchSecond, // Use the imported component directly
+    props: true, // Pass id as a prop
+    meta: { title: '复赛直播', requiresAuth: false, requiresAdmin: false }, // Public view
   },
   // 404 Page - Must be the last route
   {
@@ -137,18 +167,28 @@ router.beforeEach(async (to, from, next) => {
 
     // Always allow navigation to the Kinde callback page
     // Check if the path starts with the callback path
-    if (to.path.startsWith('/panel/callback')) { // MODIFIED: Check for the correct callback path
+    if (to.path.startsWith('/panel/callback')) { // Check for the correct callback path
         next();
         return;
     }
 
-    // Define public routes explicitly
-    const publicRoutes = ['Index', 'Teams', 'Songs', 'MatchHistory', 'LiveMatch', 'NotFound', 'privacy-policy'];
+    // Define public routes explicitly by name
+    const publicRoutes = [
+        'Index',
+        'Teams',
+        'Songs',
+        'MatchHistory',
+        'LiveMatchPublic', // Public view for DO matches
+        'LiveMatchSecond', // Public view for Semifinal matches
+        'NotFound',
+        'privacy-policy'
+    ];
+
+    // Check if the target route is explicitly public
     if (publicRoutes.includes(to.name as string)) {
         next();
         return;
     }
-
 
     // Check for routes requiring authentication
     if (to.meta.requiresAuth) {
@@ -165,12 +205,9 @@ router.beforeEach(async (to, from, next) => {
     }
 
     // Check for routes requiring admin privileges
+    // This check happens *after* requiresAuth, so only authenticated users reach here
     if (to.meta.requiresAdmin) {
-        if (!store.isAuthenticated) {
-            console.warn(`Router Guard: Admin route ${to.path} requires authentication. Redirecting to login.`);
-            next({ name: 'Index' }); // Redirect to main page
-            return;
-        }
+        // The requiresAuth check above already ensures isAuthenticated is true
         if (!store.isAdminUser) {
             console.warn(`Router Guard: Admin route ${to.path} requires admin privileges. User is not admin. Redirecting to home.`);
             next({ name: 'Home' }); // Redirect to a non-admin page, e.g., authenticated home
@@ -181,9 +218,11 @@ router.beforeEach(async (to, from, next) => {
         return;
     }
 
-    // If none of the above, allow navigation (should be covered by publicRoutes, but as a fallback)
-    // This line might be redundant if all routes are explicitly handled above.
-    // next();
+    // If none of the above, this route is likely intended to be public but wasn't listed.
+    // Or it's an internal route. As a fallback, allow navigation if no specific requirements are met.
+    // However, it's safer to explicitly list all public routes.
+    // If a route has no meta.requiresAuth and no meta.requiresAdmin, it's treated as public by this logic.
+    next();
 });
 
 

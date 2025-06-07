@@ -1,7 +1,7 @@
 // src/store.ts
+
 import { defineStore } from 'pinia';
-import * as api from './services/api'; // Import API functions
-// Import the Kinde Auth composable
+import * as api from './services/api';
 import { useKindeAuth } from '@/composables/useKindeAuth';
 
 // --- ALL FRONTEND TYPE DEFINITIONS GO HERE ---
@@ -116,7 +116,7 @@ export interface SaveMemberSongPreferencePayload {
     song_id: number;
     selected_difficulty: string;
 }
-// --- 比赛核心类型 ---
+// --- 比赛核心类型 (初赛/决赛) ---
 
 // 代表比赛歌单中的一首歌及其相关信息 (存储在 tournament_matches.match_song_list_json)
 export interface MatchSong {
@@ -157,10 +157,10 @@ export interface ConfirmMatchSetupPayload {
     match_song_list: MatchSong[]; // 这场比赛最终确定的歌单 (MatchSong[])
 }
 
-// 赛程表条目 (对应 tournament_matches 表)
+// 赛程表条目 (对应 tournament_matches 表 - 初赛/决赛)
 export interface TournamentMatch {
     id: number; // D1 auto-increment ID (number)
-    round_name: string; // e.g., '初赛 - 第1轮'
+    round_name: string; // e.g., '初赛 - 第1轮', '决赛'
     team1_id: number; // FK to teams.id (number)
     team2_id: number; // FK to teams.id (number)
     status: 'scheduled' | 'pending_song_confirmation' | 'ready_to_start' | 'live' | 'completed' | 'archived'; // Status of the scheduled match entry
@@ -388,13 +388,27 @@ export type InternalProfession = 'attacker' | 'defender' | 'supporter' | null;
 
 // --- NEW TYPES FOR PAGINATION AND SONG FILTERS ---
 
+export interface PaginationInfo {
+    currentPage: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+}
+
 // Specific response data structure for GET /api/songs
 export interface SongsApiResponseData {
     songs: Song[]; // Array of songs for the current page
     pagination: PaginationInfo; // Pagination metadata
 }
 
-
+// Specific response data structure for GET /api/songs/filters
+// Corrected: Added levels and difficulties arrays
+export interface SongFiltersApiResponseData {
+    categories: string[];
+    types: string[];
+    levels: string[]; // Added
+    difficulties: string[]; // Added
+}
 
 // Define NEW types needed for the frontend user match selection view
 // Represents a player's song selections and order for a specific match (matches the DB table)
@@ -410,15 +424,15 @@ export interface MatchPlayerSelectionFrontend { // Frontend representation of pl
     selected_order_index: number; // 0-based index (0 for 1st, 1 for 2nd, etc.)
     created_at?: string;
     updated_at?: string;
-    // Frontend convenience fields (might be populated by API or store logic)
-    song1_title?: string;
-    song2_title?: string;
-    song1_fullCoverUrl?: string;
-    song2_fullCoverUrl?: string;
-    song1_parsedLevels?: SongLevel;
-    song2_parsedLevels?: SongLevel;
-    member_nickname?: string;
-    team_name?: string;
+    // Frontend convenience fields (populated by Worker) - These should come from the backend now
+    song1_title?: string; // <-- Should be populated by backend
+    song2_title?: string; // <-- Should be populated by backend
+    song1_fullCoverUrl?: string; // <-- Should be populated by backend
+    song2_fullCoverUrl?: string; // <-- Should be populated by backend
+    song1_parsedLevels?: SongLevel; // <-- Should be populated by backend
+    song2_parsedLevels?: SongLevel; // <-- Should be populated by backend
+    member_nickname?: string; // <-- Should be populated by backend
+    team_name?: string; // <-- Should be populated by backend
 }
 
 // Payload for saving a player's match selection (Frontend sends this)
@@ -437,12 +451,12 @@ export interface FetchUserMatchSelectionDataFrontend {
     myTeam: Team;
     opponentTeam: Team;
     myTeamMembers: Member[]; // Full member list for user's team
-    opponentTeamMembers: Member[]; // Full member list for opponent's team
-    mySelection: MatchPlayerSelectionFrontend | null; // User's existing selection
+    opponentTeamMembers: Member[]; // Full member list for opponent's members
+    mySelection: MatchPlayerSelectionFrontend | null; // User's existing selection (now includes song details)
     // Occupied indices need member_id and nickname for frontend display
     occupiedOrderIndices: { team_id: number; selected_order_index: number; member_id: number; member_nickname?: string }[];
     availableOrderSlotsCount: number; // Total number of slots available per team (e.g., 3 for 3v3)
-    // Note: allSongs is NOT included here, frontend fetches it separately
+    // REMOVED: song1Details, song2Details - These details are now expected to be *within* mySelection
 }
 
 // Data structure received by the frontend for checking selection status (Staff view) (GET /api/tournament_matches/:matchId/selection-status)
@@ -472,24 +486,82 @@ export interface CompileMatchSetupResponseFrontend {
     tournamentMatch?: TournamentMatch; // Optional: return the updated match
 }
 
-// --- NEW TYPES FOR PAGINATION AND SONG FILTERS ---
 
-export interface PaginationInfo {
-    currentPage: number;
-    pageSize: number;
-    totalItems: number;
-    totalPages: number;
+// --- NEW TYPES FOR SEMIFINAL MATCHES (Frontend) ---
+
+// Player Profession Type (Frontend) - Must match backend string values
+export type Profession = '矩盾手' | '炼星师' | '绝剑士';
+
+// Semifinal Score Calculation Result (Frontend) - Must match backend structure
+export interface SemifinalScoreResult {
+  id: number;
+  nickname: string;
+  profession: Profession;
+  originalScore: number; // 原始得分（小数点后四位）
+  bonusScore: number; // 职业技能加成
+  totalScore: number; // 最终得分
+  log: string[]; // 计分日志
+}
+
+// Semifinal Match Table Structure (Frontend) - Must match backend structure + frontend convenience
+export interface SemifinalMatch {
+    id: number;
+    round_name: string;
+    player1_id: number; // FK to members.id
+    player2_id: number; // FK to members.id
+    status: 'scheduled' | 'completed' | 'archived'; // Status of the semifinal match
+    scheduled_time?: string | null; // Optional: ISO 8601 string
+    winner_player_id?: number | null; // NULLABLE, FK to members.id
+    player1_percentage?: number | null; // NULLABLE until submitted
+    player2_percentage?: number | null; // NULLABLE until submitted
+    player1_profession?: Profession | null; // NULLABLE until submitted
+    player2_profession?: Profession | null; // NULLABLE until submitted
+    final_score_player1?: number | null; // NULLABLE until calculated
+    final_score_player2?: number | null; // NULLABLE until calculated
+    results_json?: string | null; // Raw JSON blob (backend sends this)
+
+    -- Denormalized fields from JOINs for convenience (backend sends these)
+    player1_nickname?: string;
+    player2_nickname?: string;
+    winner_player_nickname?: string;
+
+    -- Frontend convenience (parsed from JSON)
+    results?: { // Parsed results_json
+        player1: SemifinalScoreResult;
+        player2: SemifinalScoreResult;
+    } | null;
+}
+
+// Payload for creating a new Semifinal Match (Frontend form -> Backend API)
+export interface CreateSemifinalMatchPayloadFrontend {
+    round_name: string;
+    player1_id: number | null; // Allow null in form state before selection
+    player2_id: number | null; // Allow null in form state before selection
+    scheduled_time?: string | null;
+}
+
+// Payload for submitting Semifinal Scores (Frontend -> Backend API)
+export interface SubmitSemifinalScoresPayload {
+    player1: {
+        id: number;
+        profession: Profession;
+        percentage: number;
+    };
+    player2: {
+        id: number;
+        profession: Profession;
+        percentage: number;
+    };
+}
+
+// Response from submitting Semifinal Scores (Backend API -> Frontend)
+export interface SubmitSemifinalScoresResponse {
+    success: boolean;
+    message: string;
+    semifinalMatch?: SemifinalMatch; // Return the updated match data
 }
 
 
-
-// Specific response data structure for GET /api/songs/filters
-export interface SongFiltersApiResponseData {
-    categories: string[];
-    types: string[];
-    levels: string[]; // <-- ADDED
-    difficulties: string[]; // <-- ADDED
-}
 // --- PINIA STORE STATE INTERFACE ---
 export interface AppState {
     teams: Team[];
@@ -498,30 +570,34 @@ export interface AppState {
     songPagination: PaginationInfo | null; // New: Pagination info for songs
     // Corrected: songFilterOptions type now includes levels and difficulties
     songFilterOptions: SongFiltersApiResponseData; // New: Filter options for songs
-    tournamentMatches: TournamentMatch[];
-    currentMatchState: MatchState | null; // The live match state from DO/WebSocket
+    tournamentMatches: TournamentMatch[]; // For Qualifier/Final
+    semifinalMatches: SemifinalMatch[]; // <-- ADDED: For Semifinals
+    currentMatchState: MatchState | null; // For LiveMatch (DO-based)
+    currentSemifinalMatch: SemifinalMatch | null; // <-- ADDED: For LiveMatchSecond (DB-based)
+
     matchHistory: MatchHistoryMatch[];
     memberSongPreferences: MemberSongPreference[];
 
     // --- NEW STATE FOR USER MATCHES AND SELECTION ---
-    userMatches: TournamentMatch[] | null; // 新增：存储用户队伍的比赛列表
+    userMatches: TournamentMatch[] | null; // 新增：存储用户队伍的比赛列表 (Assuming userMatches only shows TournamentMatch, not SemifinalMatch)
     // Data fetched for the specific match selection page
     upcomingMatchForSelection: FetchUserMatchSelectionDataFrontend | null;
     // User's own selection (redundant with upcomingMatchForSelection.mySelection but potentially useful)
-    userMatchSelection: MatchPlayerSelectionFrontend | null;
+    userMatchSelection: MatchPlayerSelectionFrontend | null; // This will be populated from upcomingMatchForSelection.mySelection
     // Occupied indices for display (redundant with upcomingMatchForSelection.occupiedOrderIndices but kept for consistency with original AppState)
     occupiedOrderIndices: { team_id: number; selected_order_index: number; member_id: number; member_nickname?: string }[];
     availableOrderSlotsCount: number;
-    // Full list of songs for the picker component (not paginated)
-    allSongsForPicker: Song[];
+    // REMOVED: allSongsForPicker: Song[]; // No longer needed if picker uses paginated fetch
 
     isLoading: {
         teams: boolean;
         members: boolean;
-        songs: boolean;
+        songs: boolean; // Used for both Songs view and Picker dialog
         songFilters: boolean; // New: Loading state for filter options
-        tournamentMatches: boolean;
-        currentMatch: boolean; // Loading state for fetching initial match state
+        tournamentMatches: boolean; // For Qualifier/Final
+        semifinalMatches: boolean; // <-- ADDED: For Semifinals
+        currentMatch: boolean; // Loading state for fetching initial match state (DO)
+        currentSemifinalMatch: boolean; // <-- ADDED: Loading state for fetching semifinal match state (DB)
         matchHistory: boolean;
         memberSongPreferences: boolean;
         // --- NEW LOADING STATES ---
@@ -530,7 +606,10 @@ export interface AppState {
         savingMatchSelection: boolean; // Loading state for saving user selection
         checkingMatchSelectionStatus: boolean; // Loading state for staff status check
         compilingMatchSetup: boolean; // Loading state for staff compilation
-        allSongsForPicker: boolean; // Loading state for the full song list
+        // REMOVED: allSongsForPicker: boolean;
+        creatingSemifinalMatch: boolean; // <-- ADDED
+        submittingSemifinalResults: boolean; // <-- ADDED
+        archivingSemifinalMatch: boolean; // <-- ADDED
         [key: string]: boolean; // For generic loading states
     };
     error: string | null;
@@ -555,35 +634,43 @@ export const useAppStore = defineStore('app', {
         return {
             teams: [],
             members: [],
-            songs: [],
-            songPagination: null,
-            // Corrected: Initialize with empty arrays for levels and difficulties
-            songFilterOptions: { categories: [], types: [], levels: [], difficulties: [] },
-            tournamentMatches: [],
-            currentMatchState: null,
+            songs: [], // Will hold paginated songs
+            songPagination: null, // Will hold pagination info
+            songFilterOptions: { categories: [], types: [], levels: [], difficulties: [] }, // Initialize with empty arrays
+            tournamentMatches: [], // For Qualifier/Final
+            semifinalMatches: [], // <-- ADDED
+            currentMatchState: null, // For DO matches
+            currentSemifinalMatch: null, // <-- ADDED for Semifinal matches
+
             matchHistory: [],
             memberSongPreferences: [],
 
             // --- NEW STATE INITIALIZATION ---
-            userMatches: null, // 初始化为 null
+            userMatches: null, // Assuming userMatches only shows TournamentMatch
             upcomingMatchForSelection: null,
-            userMatchSelection: null,
+            userMatchSelection: null, // Will be populated from upcomingMatchForSelection
             occupiedOrderIndices: [],
             availableOrderSlotsCount: 0,
-            allSongsForPicker: [],
+            // REMOVED: allSongsForPicker: [],
 
             isLoading: {
                 teams: false, members: false, songs: false,
                 songFilters: false,
                 tournamentMatches: false,
-                currentMatch: false, matchHistory: false, memberSongPreferences: false,
+                semifinalMatches: false, // <-- ADDED
+                currentMatch: false, // DO match
+                currentSemifinalMatch: false, // <-- ADDED Semifinal match
+                matchHistory: false, memberSongPreferences: false,
                 // --- NEW LOADING STATES INITIALIZATION ---
-                userMatches: false, // 初始化为 false
+                userMatches: false,
                 userMatchSelection: false,
                 savingMatchSelection: false,
                 checkingMatchSelectionStatus: false,
                 compilingMatchSetup: false,
-                allSongsForPicker: false,
+                // REMOVED: allSongsForPicker: false,
+                creatingSemifinalMatch: false, // <-- ADDED
+                submittingSemifinalResults: false, // <-- ADDED
+                archivingSemifinalMatch: false, // <-- ADDED
             },
             error: null,
             currentMatchWebSocket: null,
@@ -594,16 +681,11 @@ export const useAppStore = defineStore('app', {
             isAuthenticated: isAuthenticated.value,
             kindeUser: kindeUser.value,
             userMember: userMember.value,
-            isAdminUser: isAdminUser.value,
+            isAdminUser: isAdminUser.value, // Corrected property name
         };
     },
 
     getters: {
-        // Helper to find a song in the allSongsForPicker list by ID
-        getSongForPickerById: (state) => (songId: number | null | undefined): Song | undefined => {
-            if (songId === null || songId === undefined) return undefined;
-            return state.allSongsForPicker.find(song => song.id === songId);
-        },
         // Helper to find a member nickname by ID (used in Schedule view and MatchSongSelection overview)
         getMemberNicknameById: (state) => (memberId: number | null | undefined): string => {
              if (memberId === null || memberId === undefined) return '未知选手';
@@ -756,12 +838,10 @@ export const useAppStore = defineStore('app', {
                     page: params.page || 1,
                     limit: params.limit || 20
                 };
+                // Clean up undefined/null values before sending
                 Object.keys(requestParams).forEach(key => {
                     const value = requestParams[key as keyof typeof requestParams];
-                    // Keep empty strings for filters like category, type, search, level, difficulty
-                    // as the backend might expect them or handle them correctly.
-                    // Only remove undefined or null.
-                    if (value === undefined || value === null) {
+                    if (value === undefined || value === null || value === '') { // Also remove empty strings for filters
                         delete requestParams[key as keyof typeof requestParams];
                     }
                 });
@@ -772,13 +852,14 @@ export const useAppStore = defineStore('app', {
                     this.songs = response.data.songs;
                     this.songPagination = response.data.pagination;
                 } else {
-                    throw new Error(response.error || 'Failed to fetch songs');
+                    // Throw error if API call was not successful
+                    throw new Error(response.error || 'Failed to fetch songs.');
                 }
             } catch (err: any) {
                 console.error("Store: Error fetching songs:", err);
-                this.setError(err.message || 'An unknown error occurred while fetching songs');
-                this.songs = [];
-                this.songPagination = null;
+                this.setError(err.message || 'An unknown error occurred while fetching songs.');
+                this.songs = []; // Clear songs on error
+                this.songPagination = null; // Clear pagination on error
             } finally {
                 this.setLoading('songs', false);
             }
@@ -786,6 +867,7 @@ export const useAppStore = defineStore('app', {
 
         async fetchSongFilterOptions() {
             this.setLoading('songFilters', true);
+            // Don't clear main error, this is a secondary fetch
             try {
                 const response = await api.fetchSongFilterOptions();
                  if (response.success && response.data) {
@@ -805,10 +887,14 @@ export const useAppStore = defineStore('app', {
             }
         },
 
+        // REMOVED: fetchAllSongsForPicker action
+
+        // Fetch Tournament Matches (Qualifier/Final) - Does NOT fetch Semifinals anymore
         async fetchTournamentMatches() {
             this.setLoading('tournamentMatches', true);
             this.clearError();
             try {
+                // Assuming backend /api/tournament_matches now only returns non-semifinal matches
                 const response = await api.fetchTournamentMatches();
                 if (response.success && response.data) {
                     this.tournamentMatches = response.data;
@@ -822,6 +908,26 @@ export const useAppStore = defineStore('app', {
             }
         },
 
+        // --- NEW ACTION: Fetch Semifinal Matches ---
+        async fetchSemifinalMatches() {
+            this.setLoading('semifinalMatches', true);
+            this.clearError();
+            try {
+                // Call the new API endpoint for semifinals
+                const response = await api.callApi<SemifinalMatch[]>('/semifinal-matches', 'GET');
+                if (response.success && response.data) {
+                    this.semifinalMatches = response.data;
+                } else {
+                    this.setError(response.error || 'Failed to fetch semifinal matches');
+                }
+            } catch (e: any) {
+                this.setError(e.message || 'An error occurred while fetching semifinal matches');
+            } finally {
+                this.setLoading('semifinalMatches', false);
+            }
+        },
+
+
         async fetchMatchState(doId: string) {
             this.setLoading('currentMatch', true);
             this.clearError();
@@ -833,9 +939,8 @@ export const useAppStore = defineStore('app', {
                     this.currentMatchState = response.data; // Assuming response.data is the MatchState object
                     console.log(`[Store HTTP] Successfully fetched initial match state for DO ${doId}:`, this.currentMatchState);
                 } else {
-                    this.setError(response.error || `Failed to fetch match state for ${doId}`);
-                    this.currentMatchState = null;
-                    console.error(`[Store HTTP] Failed to fetch match state for DO ${doId}:`, response.error);
+                    // Throw error if API call was not successful
+                    throw new Error(response.error || `Failed to fetch match state for ${doId}`);
                 }
             } catch (err: any) {
                 this.setError(err.message);
@@ -845,6 +950,40 @@ export const useAppStore = defineStore('app', {
                 this.setLoading('currentMatch', false);
             }
         },
+
+        // --- NEW ACTION: Fetch a specific Semifinal Match (for Live view) ---
+        async fetchSemifinalMatchData(matchId: number) {
+             this.setLoading('currentSemifinalMatch', true);
+             this.clearError();
+             this.currentSemifinalMatch = null; // Clear previous data
+             try {
+                 // Call the new backend API endpoint
+                 const response = await api.callApi<SemifinalMatch>(`/semifinal-matches/${matchId}`, 'GET');
+
+                 if (response.success && response.data) {
+                     this.currentSemifinalMatch = response.data;
+                     // Manually parse results_json if backend sends it raw
+                     if (this.currentSemifinalMatch.results_json) {
+                         try {
+                             this.currentSemifinalMatch.results = JSON.parse(this.currentSemifinalMatch.results_json);
+                         } catch (e) {
+                             console.error("Store: Failed to parse semifinal_results_json", e);
+                             this.currentSemifinalMatch.results = null;
+                         }
+                     }
+                     return true;
+                 } else {
+                     this.error = response.error || 'Failed to fetch semifinal match data';
+                     return false;
+                 }
+             } catch (e: any) {
+                 this.error = e.message || 'An error occurred while fetching semifinal match data';
+                 return false;
+             } finally {
+                 this.setLoading('currentSemifinalMatch', false);
+             }
+        },
+
 
         async fetchMatchHistory() {
             this.setLoading('matchHistory', true);
@@ -882,14 +1021,15 @@ export const useAppStore = defineStore('app', {
 
         // --- Tournament & Match Actions (Keep existing, they use api.ts which will be updated) ---
         // These actions will now require Admin Auth via the backend middleware
+        // createTournamentMatch is for Qualifier/Final
         async createTournamentMatch(payload: CreateTournamentMatchPayload) {
+            this.setLoading('creatingMatch', true); // Use generic creatingMatch loading state
             this.clearError();
             try {
                 const response = await api.createTournamentMatch(payload);
                 if (response.success && response.data) {
-                    // Add new match to the beginning of the list and sort by creation date
-                    this.tournamentMatches.unshift(response.data);
-                    this.tournamentMatches.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                    // Refresh the list after creation
+                    this.fetchTournamentMatches(); // Refresh Qualifier/Final list
                     return response.data;
                 } else {
                     this.setError(response.error || 'Failed to create tournament match');
@@ -898,8 +1038,45 @@ export const useAppStore = defineStore('app', {
             } catch (err: any) {
                 this.setError(err.message);
                 return null;
+            } finally {
+                 this.setLoading('creatingMatch', false);
             }
         },
+
+        // --- NEW ACTION: Create Semifinal Match ---
+        async createSemifinalMatch(payload: CreateSemifinalMatchPayloadFrontend) {
+             this.setLoading('creatingSemifinalMatch', true); // Use specific loading state
+             this.clearError();
+             try {
+                 // Call the new API endpoint for creating semifinals
+                 // Map frontend payload to backend payload structure if needed, but they are similar now
+                 const backendPayload: CreateSemifinalMatchPayload = {
+                     round_name: payload.round_name,
+                     player1_id: payload.player1_id!, // Assume non-null after form validation
+                     player2_id: payload.player2_id!, // Assume non-null after form validation
+                     scheduled_time: payload.scheduled_time,
+                     // team_id fields are not used for semifinal creation in the new table
+                     team1_id: null,
+                     team2_id: null,
+                 };
+                 const response = await api.callApi<SemifinalMatch>('/semifinal-matches', 'POST', backendPayload);
+
+                 if (response.success) {
+                     // Refresh the semifinal list after creation
+                     await this.fetchSemifinalMatches();
+                     return true; // Indicate success
+                 } else {
+                     this.error = response.error || 'Failed to create semifinal match';
+                     return false; // Indicate failure
+                 }
+             } catch (e: any) {
+                 this.error = e.message || 'An error occurred while creating semifinal match';
+                 return false;
+             } finally {
+                 this.setLoading('creatingSemifinalMatch', false);
+             }
+        },
+
 
         async confirmMatchSetup(matchId: number, payload: ConfirmMatchSetupPayload) {
             this.clearError();
@@ -1008,7 +1185,7 @@ export const useAppStore = defineStore('app', {
                     // Clear current match state and refresh lists
                     this.currentMatchState = null;
                     // Refresh tournamentMatches and matchHistory lists
-                    this.fetchTournamentMatches();
+                    this.fetchTournamentMatches(); // Refresh Qualifier/Final
                     this.fetchMatchHistory();
                     // Also refresh userMatches if they are on that page
                     if (this.isAuthenticated) {
@@ -1072,7 +1249,8 @@ export const useAppStore = defineStore('app', {
             this.setLoading('userMatches', true);
             this.clearError();
             try {
-                const response = await api.fetchUserMatches(); // Call the new API function
+                // Assuming this API only returns TournamentMatch (Qualifier/Final)
+                const response = await api.fetchUserMatches(); // Call the existing API function
                 if (response.success && response.data) {
                     this.userMatches = response.data;
                     console.log("Fetched user matches:", this.userMatches);
@@ -1111,8 +1289,8 @@ export const useAppStore = defineStore('app', {
                     console.log(`Store: Fetched user match selection data for match ${matchId}`, response.data);
                     return response.data;
                 } else {
-                    this.setError(response.error || `Failed to fetch selection data for match ${matchId}`);
-                    return null;
+                    // Throw error if API call was not successful
+                    throw new Error(response.error || `Failed to fetch selection data for match ${matchId}`);
                 }
             } catch (err: any) {
                 this.setError(err.message);
@@ -1135,22 +1313,9 @@ export const useAppStore = defineStore('app', {
                     // Also update it within the upcomingMatchForSelection if it exists
                     if (this.upcomingMatchForSelection) {
                          this.upcomingMatchForSelection.mySelection = response.data.selection;
-                         // Need to refetch occupied indices or update locally if possible
-                         // For simplicity, let's refetch the whole selection data after saving
-                         // Or, if the backend returns the updated occupied list, use that.
-                         // Assuming backend returns the saved selection, we'll refetch for simplicity.
-                         // A more optimized approach would be to update occupied indices locally.
-                         // If the backend returns the updated occupied list in the save response:
-                         // if (response.data.updatedOccupiedIndices) {
-                         //     this.occupiedOrderIndices = response.data.updatedOccupiedIndices;
-                         //     if (this.upcomingMatchForSelection) {
-                         //          this.upcomingMatchForSelection.occupiedOrderIndices = response.data.updatedOccupiedIndices;
-                         //     }
-                         // } else {
-                             // Fallback: refetch all data
-                             // Refetching ensures occupied indices are up-to-date
-                             this.fetchUserMatchSelectionData(matchId);
-                         // }
+                         // Refetching ensures occupied indices are up-to-date after saving
+                         // This is simpler than trying to update occupied indices locally.
+                         this.fetchUserMatchSelectionData(matchId);
                     }
                     console.log(`Store: Saved user match selection for match ${matchId}`, response.data.selection);
                     // Corrected: Return the saved selection object itself
@@ -1168,29 +1333,7 @@ export const useAppStore = defineStore('app', {
             }
         },
 
-        async fetchAllSongsForPicker() {
-             this.setLoading('allSongsForPicker', true);
-             this.clearError();
-             try {
-                 // Assuming api.ts has a function to fetch all songs (potentially handling pagination internally)
-                 // Or you might need to call fetchSongs repeatedly with pagination params
-                 // For this example, let's assume a simple api.fetchAllSongs() exists.
-                 // If not, you'd need more complex logic here or in api.ts
-                 const response = await api.fetchAllSongs(); // Assume this fetches ALL songs
-                 if (response.success && response.data) {
-                     this.allSongsForPicker = response.data; // Assuming data is an array of Song[]
-                     console.log(`Store: Fetched ${this.allSongsForPicker.length} songs for picker.`);
-                 } else {
-                     this.setError(response.error || 'Failed to fetch all songs for picker');
-                     this.allSongsForPicker = [];
-                 }
-             } catch (err: any) {
-                 this.setError(err.message);
-                 this.allSongsForPicker = [];
-             } finally {
-                 this.setLoading('allSongsForPicker', false);
-             }
-        },
+        // REMOVED: fetchAllSongsForPicker action
 
         // --- NEW ACTIONS FOR STAFF MATCH COMPILATION ---
 
@@ -1203,8 +1346,8 @@ export const useAppStore = defineStore('app', {
                     console.log(`Store: Fetched match selection status for match ${matchId}`, response.data);
                     return response.data; // Return data directly, not stored in global state
                 } else {
-                    this.setError(response.error || `Failed to fetch selection status for match ${matchId}`);
-                    return null;
+                    // Throw error if API call was not successful
+                    throw new Error(response.error || `Failed to fetch selection status for match ${matchId}`);
                 }
             } catch (err: any) {
                 this.setError(err.message);
@@ -1251,6 +1394,91 @@ export const useAppStore = defineStore('app', {
             } finally {
                 this.setLoading('compilingMatchSetup', false);
             }
+        },
+
+        // --- NEW ACTION: Submit Semifinal Results ---
+        async submitSemifinalResults(matchId: number, payload: SubmitSemifinalScoresPayload) {
+            this.setLoading('submittingSemifinalResults', true);
+            this.clearError();
+            try {
+                // Call the new backend API endpoint
+                const response = await api.callApi<SubmitSemifinalScoresResponse>(`/semifinal-matches/${matchId}/submit-scores`, 'POST', payload);
+
+                if (response.success && response.data?.semifinalMatch) {
+                    // Update the specific match in the store's semifinal list
+                    const index = this.semifinalMatches.findIndex(m => m.id === matchId);
+                    if (index !== -1) {
+                        // Update the match data, including the parsed results
+                        const updatedMatch = response.data.semifinalMatch;
+                         if (updatedMatch.results_json) {
+                             try {
+                                 updatedMatch.results = JSON.parse(updatedMatch.results_json);
+                             } catch (e) {
+                                 console.error("Store: Failed to parse results_json after submit", e);
+                                 updatedMatch.results = null;
+                             }
+                         }
+                        this.semifinalMatches[index] = updatedMatch;
+                    } else {
+                        // If not found, maybe refetch the list
+                        this.fetchSemifinalMatches();
+                    }
+
+                    // If the user is currently viewing this match in LiveMatchSecond, update that state too
+                    if (this.currentSemifinalMatch?.id === matchId) {
+                         const updatedMatch = response.data.semifinalMatch;
+                         if (updatedMatch.results_json) {
+                             try {
+                                 updatedMatch.results = JSON.parse(updatedMatch.results_json);
+                             } catch (e) {
+                                 console.error("Store: Failed to parse results_json for current match after submit", e);
+                                 updatedMatch.results = null;
+                             }
+                         }
+                         this.currentSemifinalMatch = updatedMatch;
+                    }
+
+                    return response.data; // Return the full response data
+                } else {
+                    this.error = response.error || 'Failed to submit semifinal results';
+                    return null; // Indicate failure
+                }
+            } catch (e: any) {
+                this.error = e.message || 'An error occurred while submitting semifinal results';
+                return null;
+            } finally {
+                this.setLoading('submittingSemifinalResults', false);
+            }
+        },
+
+        // --- NEW ACTION: Archive Semifinal Match ---
+        async archiveSemifinalMatch(matchId: number) {
+             this.setLoading('archivingSemifinalMatch', true);
+             this.clearError();
+             try {
+                 const response = await api.callApi<ApiResponse>(`/semifinal-matches/${matchId}/archive`, 'POST');
+                 if (response.success) {
+                     ElMessage.success('比赛已归档');
+                     // Update the match status in the store's semifinal list
+                     const index = this.semifinalMatches.findIndex(m => m.id === matchId);
+                     if (index !== -1) {
+                          this.semifinalMatches[index].status = 'archived';
+                     }
+                     // If viewing the match, update its status
+                     if (this.currentSemifinalMatch?.id === matchId) {
+                          this.currentSemifinalMatch.status = 'archived';
+                     }
+                     return true;
+                 } else {
+                     this.error = response.error || 'Failed to archive match';
+                     return false;
+                 }
+             } catch (e: any) {
+                 this.error = e.message || 'An error occurred while archiving match';
+                 return false;
+             } finally {
+                 this.setLoading('archivingSemifinalMatch', false);
+             }
         },
 
 

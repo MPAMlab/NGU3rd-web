@@ -30,7 +30,16 @@ import type {
     SaveMatchPlayerSelectionPayloadFrontend,
     FetchUserMatchSelectionDataFrontend, // This type needs to be updated in store.ts
     MatchSelectionStatusFrontend,
-    CompileMatchSetupResponseFrontend
+    CompileMatchSetupResponseFrontend,
+
+    // Import NEW types for semifinal from store.ts (from File 1)
+    SemifinalMatch, // <-- Import SemifinalMatch
+    CreateSemifinalMatchPayloadFrontend, // <-- Import Frontend Payload
+    SubmitSemifinalScoresPayload, // <-- Import Submit Payload
+    SubmitSemifinalScoresResponse, // <-- Import Submit Response
+    SemifinalScoreResult, // <-- Import Result Type
+    Profession // <-- Import Profession Type
+
 } from '@/store'; // Import types from your Pinia store file
 
 // API_BASE_URL remains the same
@@ -271,11 +280,17 @@ export const fetchMemberSongPreferences = (memberId: number, stage: string): Pro
 };
 
 
-// --- Tournament/Match API ---
-// fetchTournamentMatches is public
-export const fetchTournamentMatches = (): Promise<ApiResponse<TournamentMatch[]>> => callApi<TournamentMatch[]>('/tournament_matches');
+// --- Tournament/Match API (Qualifier/Final) ---
+// fetchTournamentMatches is public (now only fetches non-semifinal matches)
+// Assuming backend /api/tournament_matches without stage filter returns non-semifinal
+export const fetchTournamentMatches = (): Promise<ApiResponse<TournamentMatch[]>> => {
+     // If backend needs a specific param to exclude semifinals, add it here
+     // e.g., return callApi<TournamentMatch[]>('/tournament_matches?exclude_stage=semifinal');
+     return callApi<TournamentMatch[]>('/tournament_matches');
+};
 
 // createTournamentMatch requires Admin authentication (handled by backend middleware)
+// This is for Qualifier/Final
 export const createTournamentMatch = (payload: CreateTournamentMatchPayload): Promise<ApiResponse<TournamentMatch>> => {
     return callApi<TournamentMatch>('/tournament_matches', 'POST', payload);
 };
@@ -303,7 +318,7 @@ export const nextRound = (doId: string): Promise<ApiResponse<{ message?: string;
     return callApi<{ message?: string; matchState?: MatchState }>(`/live-match/${doId}/next-round`, 'POST');
 };
 
-export const selectTiebreakerSong = (doId: string, payload: SelectTiebreakerSongPayload): Promise<ApiResponse<{ message?: string; matchState?: MatchState }>> => {
+export const selectTiebreakerSong = (doId: string, payload: SelectTiebreakerSongPayload): Promise<ApiResponse<{ message?: string; roundSummary?: RoundSummary; matchState?: MatchState }>> => {
     return callApi<{ message?: string; roundSummary?: RoundSummary; matchState?: MatchState }>(`/live-match/${doId}/select-tiebreaker-song`, 'POST', payload);
 };
 
@@ -315,9 +330,46 @@ export const archiveMatch = (doId: string): Promise<ApiResponse<{ message?: stri
     return callApi<{ message?: string }>(`/live-match/${doId}/archive`, 'POST');
 };
 
+
+// --- NEW Semifinal Match API ---
+
+// Create Semifinal Match (Admin)
+export const createSemifinalMatch = (payload: CreateSemifinalMatchPayloadFrontend): Promise<ApiResponse<SemifinalMatch>> => {
+    // This endpoint is protected by adminAuthMiddleware on the backend
+    // The backend payload might be slightly different, ensure mapping if needed
+    // Assuming backend payload is similar enough to CreateSemifinalMatchPayloadFrontend
+    return callApi<SemifinalMatch>('/semifinal-matches', 'POST', payload);
+};
+
+// Fetch Semifinal Matches (Admin)
+export const fetchSemifinalMatches = (): Promise<ApiResponse<SemifinalMatch[]>> => {
+    // This endpoint is protected by adminAuthMiddleware on the backend
+    return callApi<SemifinalMatch[]>('/semifinal-matches', 'GET');
+};
+
+// Submit Semifinal Scores (Admin)
+export const submitSemifinalResults = (matchId: number, payload: SubmitSemifinalScoresPayload): Promise<ApiResponse<SubmitSemifinalScoresResponse>> => {
+    // This endpoint is protected by adminAuthMiddleware on the backend
+    return callApi<SubmitSemifinalScoresResponse>(`/semifinal-matches/${matchId}/submit-scores`, 'POST', payload);
+};
+
+// Fetch a specific Semifinal Match (Public view)
+export const fetchSemifinalMatch = (matchId: number): Promise<ApiResponse<SemifinalMatch>> => {
+    // This endpoint is public
+    return callApi<SemifinalMatch>(`/semifinal-matches/${matchId}`, 'GET');
+};
+
+// Archive Semifinal Match (Admin)
+export const archiveSemifinalMatch = (matchId: number): Promise<ApiResponse<any>> => {
+    // This endpoint is protected by adminAuthMiddleware on the backend
+    return callApi<any>(`/semifinal-matches/${matchId}/archive`, 'POST');
+};
+
+
 // --- Match History API ---
 // fetchMatchHistory is public
 export const fetchMatchHistory = (): Promise<ApiResponse<MatchHistoryMatch[]>> => callApi<MatchHistoryMatch[]>('/match_history');
+
 // --- NEW API CALL FOR USER'S MATCHES ---
 // fetchUserMatches requires user authentication (handled by backend middleware)
 // Corresponds to GET /api/member/matches
@@ -378,4 +430,3 @@ export const adminDeleteMember = (memberId: number): Promise<ApiResponse<any>> =
 export const adminUpdateSettings = (payload: { collection_paused: boolean }): Promise<ApiResponse<any>> => {
     return callApi<any>('/admin/settings', 'PUT', payload); // Expects 200 or 204
 };
-
