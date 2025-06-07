@@ -282,8 +282,7 @@ import { useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Picture, Delete } from '@element-plus/icons-vue'; // Import Picture and Delete icons
 import { debounce } from 'lodash-es'; // Keep debounce for search input
-// Import specific component styles that might not be auto-imported correctly
-import 'element-plus/es/components/spinner/style/css';
+
 const store = useAppStore();
 const route = useRoute();
 const matchId = computed(() => parseInt(route.params.matchId as string));
