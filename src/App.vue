@@ -45,7 +45,8 @@ const handleLogout = () => {
           <template v-if="store.isAdminUser">
              <RouterLink :to="{ name: 'Home' }" class="hover:text-purple-400 transition">后台首页</RouterLink>
              <!-- <RouterLink :to="{ name: 'Teams' }" class="hover:text-purple-400 transition">队伍管理</RouterLink> -->
-             <RouterLink :to="{ name: 'Schedule' }" class="hover:text-purple-400 transition">赛程管理</RouterLink>
+             <RouterLink :to="{ name: 'Schedule' }" class="hover:text-purple-400 transition">初赛/决赛管理</RouterLink> <!-- Updated text for clarity -->
+             <RouterLink :to="{ name: 'ScheduleSecond' }" class="hover:text-purple-400 transition">复赛管理</RouterLink> <!-- NEW LINK for Semifinals -->
              <!-- Add other admin links here -->
           </template>
 

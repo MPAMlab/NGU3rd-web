@@ -1,3 +1,4 @@
+<!-- src/views/Teams.vue -->
 <template>
     <div class="teams-view">
       <el-card header="队伍列表" v-loading="store.isLoading.teams">
