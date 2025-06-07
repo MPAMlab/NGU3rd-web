@@ -37,7 +37,7 @@ const handleLogout = () => {
           <!-- Authenticated User Links (Visible if logged in) -->
           <template v-if="store.isAuthenticated">
              <RouterLink :to="{ name: 'UserMatches' }" class="hover:text-purple-400 transition">我的比赛</RouterLink> <!-- NEW LINK -->
-             <RouterLink :to="{ name: 'MemberSongPrefs' }" class="hover:text-purple-400 transition">我的选曲偏好</RouterLink>
+             <!--<RouterLink :to="{ name: 'MemberSongPrefs' }" class="hover:text-purple-400 transition">我的选曲偏好</RouterLink> -->
              <!-- Add other user-specific links here -->
           </template>
 
