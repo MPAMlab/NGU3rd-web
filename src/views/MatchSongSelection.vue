@@ -31,6 +31,7 @@
                             </el-text>
                              <div style="margin-top: 15px;">
                                  <p>队伍出场顺序概览：</p>
+                                 <!-- Corrected: Display index directly as v-for index is 1-based -->
                                  <div v-for="index in store.availableOrderSlotsCount" :key="index" style="margin-bottom: 5px;">
                                      <el-tag
                                          :type="getOrderSlotTagType(index - 1)"
@@ -54,7 +55,8 @@
 
                 <el-card header="我的选曲" style="margin-top: 20px;">
                     <el-row :gutter="20">
-                        <el-col :span="12">
+                        <!-- Added responsive spans: stack on xs/sm, side-by-side on md+ -->
+                        <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
                             <h4>我的第一首歌</h4>
                             <div v-if="selectedSongs[0].song_id" class="selected-song-item">
                                 <el-image
@@ -91,7 +93,8 @@
                             </div>
                             <el-button v-else type="primary" @click="openSongPicker(0)">选择歌曲 1</el-button>
                         </el-col>
-                        <el-col :span="12">
+                        <!-- Added responsive spans: stack on xs/sm, side-by-side on md+ -->
+                        <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
                             <h4>我的第二首歌</h4>
                              <div v-if="selectedSongs[1].song_id" class="selected-song-item">
                                 <el-image
@@ -241,6 +244,7 @@
                  <el-empty v-else description="未找到符合条件的歌曲"></el-empty>
              </div>
             <!-- Loading state for songs -->
+            <!-- Corrected: Use v-loading directive directly on the div -->
             <div v-else v-loading="true" style="text-align: center; padding: 20px;">
                 <p>加载歌曲列表中...</p>
             </div>
@@ -280,6 +284,7 @@ import { useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Picture, Delete } from '@element-plus/icons-vue'; // Import Picture and Delete icons
 import { debounce } from 'lodash-es'; // Keep debounce for search input
+import { onUnmounted } from 'vue'; // Import onUnmounted
 
 const store = useAppStore();
 const route = useRoute();
@@ -319,9 +324,10 @@ const pickerFilters = reactive({
 const orderOptions = computed(() => {
     const count = store.availableOrderSlotsCount;
     if (count <= 0) return [];
+    // Map 0-based index to 1-based label
     return Array.from({ length: count }, (_, i) => ({
         label: `第 ${i + 1} 位`,
-        value: i,
+        value: i, // Value remains 0-based for internal logic
         // Disable if occupied by a teammate using the store getter
         disabled: store.isOrderIndexOccupiedByTeammate(i),
     }));
@@ -509,7 +515,8 @@ const saveSelection = async () => {
         ElMessage.success('选歌和顺序保存成功！');
         // The watch on store.userMatchSelection will update the local state
     } else {
-        ElMessage.error(`保存失败: ${store.error}`);
+        // Use store.error for the specific save error if available, otherwise a generic message
+        ElMessage.error(`保存失败: ${store.error || '未知错误'}`);
     }
 };
 
@@ -545,7 +552,6 @@ onMounted(() => {
 });
 
 // Clean up debounce on component unmount
-import { onUnmounted } from 'vue';
 onUnmounted(() => {
   handlePickerSearchChange.cancel();
 });
@@ -556,8 +562,22 @@ onUnmounted(() => {
 .match-selection-view {
     max-width: 900px;
     margin: 20px auto;
-    padding: 20px;
+    padding: 20px; /* Default padding */
 }
+
+/* Responsive padding for smaller screens */
+@media (max-width: 768px) { /* Adjust breakpoint as needed */
+    .match-selection-view {
+        padding: 15px 10px;
+    }
+}
+
+@media (max-width: 576px) { /* Adjust breakpoint as needed */
+    .match-selection-view {
+        padding: 10px 5px;
+    }
+}
+
 
 .selected-song-item {
     display: flex;
@@ -567,11 +587,47 @@ onUnmounted(() => {
     border: 1px solid #ebeef5;
     border-radius: 4px;
     background-color: #f9fafc;
+    /* Added for responsiveness */
+    flex-wrap: wrap; /* Allow items to wrap on smaller screens */
 }
 
 .song-info {
     flex-grow: 1;
+    /* Added for responsiveness */
+    /* Ensure song info doesn't push button off-screen before wrapping */
+    min-width: 0; /* Allow flex item to shrink */
 }
+
+.selected-song-item .el-button {
+    /* Keep default margin-left: auto for larger screens */
+    margin-left: auto;
+}
+
+/* Responsive styles for selected song item on smaller screens */
+@media (max-width: 576px) { /* Adjust breakpoint as needed */
+    .selected-song-item {
+        flex-direction: column; /* Stack items vertically */
+        align-items: flex-start; /* Align items to the start */
+    }
+
+    .selected-song-item .el-image,
+    .selected-song-item .image-slot {
+        margin-right: 0 !important; /* Remove right margin */
+        margin-bottom: 10px; /* Add bottom margin */
+    }
+
+    .song-info {
+        width: 100%; /* Take full width */
+        margin-bottom: 10px; /* Add space below info */
+    }
+
+    .selected-song-item .el-button {
+        margin-left: 0; /* Remove auto margin */
+        margin-top: 0; /* Remove top margin if any */
+        width: 100%; /* Make button full width */
+    }
+}
+
 
 .image-slot {
   display: flex;
