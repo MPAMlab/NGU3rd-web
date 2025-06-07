@@ -76,7 +76,7 @@
                     :key="member.id"
                     :label="formatMemberLabel(member)"
                     :value="member.id"
-                />
+                ></el-option>
               </el-select>
             </el-form-item>
 
@@ -96,7 +96,7 @@
                     :key="member.id"
                     :label="formatMemberLabel(member)"
                     :value="member.id"
-                />
+                ></el-option>
               </el-select>
             </el-form-item>
 
