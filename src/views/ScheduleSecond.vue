@@ -337,7 +337,7 @@
     }
      // Check if professions were successfully fetched and are valid
      // Use the professions found from store.members
-     if (!player1Profession || !player2Profession || !['矩盾手', '炼星师', '绝剑士'].includes(player1Profession) || !['矩盾手', '炼星师', '绝剑士'].includes(player2Profession)) {
+     if (!player1Profession || !player2Profession || !['defender', 'supporter', 'attacker'].includes(player1Profession) || !['defender', 'supporter', 'attacker'].includes(player2Profession)) {
           ElMessage.error('无法获取选手职业信息或职业无效，请检查选手数据');
           console.error("Attempted to submit scores with invalid professions:", { player1Profession, player2Profession });
           return;
