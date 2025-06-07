@@ -72,47 +72,20 @@
                 </div>
 
                 <!-- Center Column -->
-                <div class="glass rounded-xl p-6 w-2/4 flex flex-col">
+                <div class="glass rounded-xl p-6 w-2/4 flex flex-col items-center">
                     <h3 class="text-xl font-bold text-white mb-4 text-center">当前歌曲</h3>
 
                     <!-- Current Song Info -->
-                    <div class="text-center mb-6 bg-white/5 rounded-lg p-4">
+                    <div class="text-center mb-6 bg-white/5 rounded-lg p-4 w-full">
                         <h4 class="text-2xl font-bold text-white mb-2">等待歌曲信息...</h4>
                         <p class="text-gray-300">请等待比赛开始或分数提交</p>
                     </div>
 
-                    <!-- Player Views (16:9 Aspect Ratio) -->
-                    <div class="flex gap-4 mb-6">
-                        <!-- Player 1 View -->
-                        <div class="w-1/2 aspect-video">
-                            <div class="h-full bg-[#00FF00] rounded-lg flex items-center justify-center text-black font-bold">
-                                选手 A 视角
-                            </div>
+                    <!-- Single Vertical 16:9 Chroma Key Area -->
+                    <div class="camera-container mb-6">
+                        <div class="camera-frame bg-[#00FF00] flex items-center justify-center text-black font-bold">
+                            摄像头视角
                         </div>
-                        <!-- Player 2 View -->
-                        <div class="w-1/2 aspect-video">
-                            <div class="h-full bg-[#00FF00] rounded-lg flex items-center justify-center text-black font-bold">
-                                选手 B 视角
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Score Comparison -->
-                    <div v-if="store.currentSemifinalMatch.results" class="bg-white/5 rounded-lg p-4 text-center">
-                        <h4 class="font-bold mb-3 text-white">最终得分对比</h4>
-                        <p class="text-2xl font-bold text-white">
-                            {{ store.currentSemifinalMatch.results.player1.totalScore.toFixed(4) }}
-                            <span class="text-gray-400 mx-3">vs</span>
-                            {{ store.currentSemifinalMatch.results.player2.totalScore.toFixed(4) }}
-                        </p>
-                        <p v-if="store.currentSemifinalMatch.winner_player_id" class="mt-3 text-lg">
-                            <span class="font-bold" :class="store.currentSemifinalMatch.winner_player_id === store.currentSemifinalMatch.player1_id ? 'text-green-400' : 'text-red-400'">
-                                {{ store.currentSemifinalMatch.winner_player_id === store.currentSemifinalMatch.player1_id ? store.currentSemifinalMatch.player1_nickname : store.currentSemifinalMatch.player2_nickname }}
-                            </span> 获胜!
-                        </p>
-                    </div>
-                    <div v-else class="bg-white/5 rounded-lg p-4 text-center text-white">
-                        <p>等待比赛结果...</p>
                     </div>
                 </div>
 
@@ -240,6 +213,18 @@ const archiveMatch = async () => {
 
 .live-indicator {
     animation: pulse 2s infinite;
+}
+
+/* Vertical 16:9 Camera Container */
+.camera-container {
+    width: 270px; /* Adjust width as needed */
+    height: 480px; /* This creates the 9:16 ratio (vertical) */
+}
+
+.camera-frame {
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
 }
 
 @keyframes pulse {
