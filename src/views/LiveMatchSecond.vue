@@ -1,7 +1,7 @@
 <!-- src/views/LiveMatchSecond.vue -->
 <template>
     <div class="live-match-view bg-gradient-to-b from-[#0f172a] to-[#1e293b] min-h-screen font-sans">
-        <div class="container-full mx-auto px-4 py-6">
+        <div class="container mx-auto px-4 py-6">
             <!-- Header -->
             <div class="flex justify-between items-center mb-6">
                 <!-- Logo -->
@@ -73,7 +73,7 @@
 
                 <!-- Center Column with Two Vertical 9:16 Chroma Key Areas -->
                 <div class="glass rounded-xl p-6 w-2/4 flex flex-col items-center justify-center">
-                    <div class="flex camera-wrapper">
+                    <div class="flex space-x-6 items-center justify-center w-full">
                         <!-- First Camera Frame -->
                         <div class="camera-container">
                             <div class="camera-frame bg-[#00FF00]"></div>
@@ -177,11 +177,6 @@ const archiveMatch = async () => {
 </script>
 
 <style scoped>
-.container-full {
-    max-width: 1920px;
-    width: 100%;
-}
-
 .glass {
     background: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(10px);
@@ -217,18 +212,10 @@ const archiveMatch = async () => {
     animation: pulse 2s infinite;
 }
 
-.camera-wrapper {
-    display: flex;
-    justify-content: center;
-    gap: 16px;
-    width: 100%;
-    height: 100%;
-}
-
-/* Vertical 9:16 Camera Container - Maximized for a 1920x1080 layout */
+/* Vertical 9:16 Camera Container */
 .camera-container {
-    width: 380px; /* Significantly larger width */
-    height: 675px; /* Maintaining 9:16 ratio: 380 * (16/9) = 675.5 */
+    width: 380px; /* Increased width */
+    height: 675px; /* This creates the 9:16 ratio (vertical) */
 }
 
 .camera-frame {
