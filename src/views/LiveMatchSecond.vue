@@ -78,7 +78,6 @@
 
                     <!-- Logo Placeholder (Bottom Left) -->
                     <div class="w-full h-20 bg-gray-800 rounded-lg flex items-center justify-center text-gray-500 text-sm">
-                        Logo Placeholder (Player 1)
                          <!-- Insert Player 1 Logo Image Here -->
                          <img src="https://ngu3rd.mpam-lab.xyz/logo.webp" alt="NGU Logo" class="max-h-full max-w-full">
                     </div>
@@ -167,37 +166,11 @@
 
                     <!-- Logo Placeholder (Bottom Right) -->
                     <div class="w-full h-20 bg-gray-800 rounded-lg flex items-center justify-center text-gray-500 text-sm">
-                        Logo Placeholder (Player 2)
                          <!-- Insert Player 2 Logo Image Here -->
                          <img src="https://ngu3rd.mpam-lab.xyz/DSLH-logo2.png" alt="DSLH Logo" class="max-h-full max-w-full"> 
                     </div>
                 </div>
             </div>
-
-            <!-- Scoring Details Section -->
-            <div v-if="store.currentSemifinalMatch?.results" class="glass rounded-xl p-6 mt-6">
-                 <h4 class="font-bold text-lg mb-4">计分详情</h4>
-                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-300">
-                     <div>
-                         <h5 class="font-medium mb-2 text-white">{{ store.currentSemifinalMatch.results.player1.nickname }} 计分日志:</h5>
-                         <ul class="list-disc list-inside space-y-1">
-                             <li v-for="(log, index) in store.currentSemifinalMatch.results.player1.log" :key="`p1-log-${index}`">{{ log }}</li>
-                             <li v-if="!store.currentSemifinalMatch.results.player1.log || store.currentSemifinalMatch.results.player1.log.length === 0">暂无日志</li>
-                         </ul>
-                     </div>
-                     <div>
-                         <h5 class="font-medium mb-2 text-white">{{ store.currentSemifinalMatch.results.player2.nickname }} 计分日志:</h5>
-                         <ul class="list-disc list-inside space-y-1">
-                             <li v-for="(log, index) in store.currentSemifinalMatch.results.player2.log" :key="`p2-log-${index}`">{{ log }}</li>
-                             <li v-if="!store.currentSemifinalMatch.results.player2.log || store.currentSemifinalMatch.results.player2.log.length === 0">暂无日志</li>
-                         </ul>
-                     </div>
-                 </div>
-            </div>
-             <div v-else-if="!store.isLoading.currentSemifinalMatch && store.currentSemifinalMatch" class="glass rounded-xl p-6 mt-6 empty-state">
-                 暂无计分详情
-             </div>
-
 
             <div v-if="store.isAdminUser && store.currentSemifinalMatch?.status === 'completed'" class="mt-6 text-center">
                 <!-- Styled button replacing el-button -->

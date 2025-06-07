@@ -1,9 +1,10 @@
 <!-- src/App.vue -->
 <script setup lang="ts">
-import { RouterLink, RouterView } from 'vue-router';
+import { RouterLink, RouterView, useRoute } from 'vue-router'; // Import useRoute
 import { useAppStore } from '@/store';
 
 const store = useAppStore();
+const route = useRoute(); // Get the current route object
 
 const handleLogout = () => {
     store.logout();
@@ -18,7 +19,9 @@ const handleLogout = () => {
 
 <template>
   <div id="app" class="bg-gray-900 text-white min-h-screen flex flex-col">
-    <header class="bg-gray-800 text-white p-4 shadow-md">
+
+    <!-- Header - Conditionally render based on route meta -->
+    <header v-if="!route.meta.hideAppLayout" class="bg-gray-800 text-white p-4 shadow-md">
       <div class="container mx-auto flex justify-between items-center">
         <!-- Site Title / Logo -->
         <RouterLink :to="{ name: 'Index' }" class="text-2xl font-bold text-purple-400 hover:text-purple-300 transition">
@@ -68,12 +71,13 @@ const handleLogout = () => {
     </header>
 
     <!-- Main Content Area -->
-    <main class="flex-grow container mx-auto px-4 py-8">
+    <!-- Add conditional class to remove padding/margins when layout is hidden -->
+    <main class="flex-grow" :class="{ 'no-layout-padding': route.meta.hideAppLayout }">
       <RouterView />
     </main>
 
-    <!-- Footer (Optional) -->
-    <footer class="bg-gray-800 text-gray-400 text-center p-4 mt-8">
+    <!-- Footer (Optional) - Conditionally render based on route meta -->
+    <footer v-if="!route.meta.hideAppLayout" class="bg-gray-800 text-gray-400 text-center p-4 mt-8">
       <div class="container mx-auto">
         <p>&copy; 2025 NGU Team, MPAM Laboratory. All rights reserved.</p>
         <RouterLink :to="{ name: 'privacy-policy' }" class="text-gray-400 hover:text-purple-400 transition text-sm">隐私政策</RouterLink>
@@ -84,4 +88,16 @@ const handleLogout = () => {
 
 <style scoped>
 /* Add or adjust global styles for App.vue if needed */
+
+/* Define the class to remove padding/margins for full-screen views */
+main.no-layout-padding {
+  /* Override Tailwind container and padding classes */
+  max-width: none !important; /* Remove max-width */
+  margin-left: 0 !important; /* Remove horizontal auto margin */
+  margin-right: 0 !important;
+  padding-left: 0 !important; /* Remove horizontal padding */
+  padding-right: 0 !important;
+  padding-top: 0 !important; /* Remove vertical padding */
+  padding-bottom: 0 !important;
+}
 </style>
