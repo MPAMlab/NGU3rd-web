@@ -80,7 +80,7 @@
                     <div class="w-full h-20 bg-gray-800 rounded-lg flex items-center justify-center text-gray-500 text-sm">
                         Logo Placeholder (Player 1)
                          <!-- Insert Player 1 Logo Image Here -->
-                        <!-- <img src="your-player1-logo-link.png" alt="Player 1 Logo" class="max-h-full max-w-full"> -->
+                         <img src="https://ngu3rd.mpam-lab.xyz/logo.webp" alt="NGU Logo" class="max-h-full max-w-full">
                     </div>
                 </div>
 
@@ -169,7 +169,7 @@
                     <div class="w-full h-20 bg-gray-800 rounded-lg flex items-center justify-center text-gray-500 text-sm">
                         Logo Placeholder (Player 2)
                          <!-- Insert Player 2 Logo Image Here -->
-                        <!-- <img src="your-player2-logo-link.png" alt="Player 2 Logo" class="max-h-full max-w-full"> -->
+                         <img src="https://ngu3rd.mpam-lab.xyz/DSLH-logo2.png" alt="DSLH Logo" class="max-h-full max-w-full"> 
                     </div>
                 </div>
             </div>

@@ -101,7 +101,7 @@
                     <div class="w-full h-20 bg-gray-800 rounded-lg flex items-center justify-center text-gray-500 text-sm">
                         Logo Placeholder (Team A)
                         <!-- Insert Team A Logo Image Here -->
-                        <!-- <img src="your-team-a-logo-link.png" alt="Team A Logo" class="max-h-full max-w-full"> -->
+                        <img src="https://ngu3rd.mpam-lab.xyz/logo.webp" alt="NGU Logo" class="max-h-full max-w-full">
                     </div>
                 </div>
 
@@ -227,7 +227,7 @@
                     <div class="w-full h-20 bg-gray-800 rounded-lg flex items-center justify-center text-gray-500 text-sm">
                         Logo Placeholder (Team B)
                          <!-- Insert Team B Logo Image Here -->
-                        <!-- <img src="your-team-b-logo-link.png" alt="Team B Logo" class="max-h-full max-w-full"> -->
+                        <img src="https://ngu3rd.mpam-lab.xyz/DSLH-logo2.png" alt="DSLH Logo" class="max-h-full max-w-full"> 
                     </div>
                 </div>
             </div>
