@@ -388,27 +388,13 @@ export type InternalProfession = 'attacker' | 'defender' | 'supporter' | null;
 
 // --- NEW TYPES FOR PAGINATION AND SONG FILTERS ---
 
-export interface PaginationInfo {
-    currentPage: number;
-    pageSize: number;
-    totalItems: number;
-    totalPages: number;
-}
-
 // Specific response data structure for GET /api/songs
 export interface SongsApiResponseData {
     songs: Song[]; // Array of songs for the current page
     pagination: PaginationInfo; // Pagination metadata
 }
 
-// Specific response data structure for GET /api/songs/filters
-// Corrected: Added levels and difficulties arrays
-export interface SongFiltersApiResponseData {
-    categories: string[];
-    types: string[];
-    levels: string[]; // Added
-    difficulties: string[]; // Added
-}
+
 
 // Define NEW types needed for the frontend user match selection view
 // Represents a player's song selections and order for a specific match (matches the DB table)
@@ -486,7 +472,24 @@ export interface CompileMatchSetupResponseFrontend {
     tournamentMatch?: TournamentMatch; // Optional: return the updated match
 }
 
+// --- NEW TYPES FOR PAGINATION AND SONG FILTERS ---
 
+export interface PaginationInfo {
+    currentPage: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+}
+
+
+
+// Specific response data structure for GET /api/songs/filters
+export interface SongFiltersApiResponseData {
+    categories: string[];
+    types: string[];
+    levels: string[]; // <-- ADDED
+    difficulties: string[]; // <-- ADDED
+}
 // --- PINIA STORE STATE INTERFACE ---
 export interface AppState {
     teams: Team[];

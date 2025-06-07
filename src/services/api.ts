@@ -333,7 +333,6 @@ export const fetchUserMatches = (): Promise<ApiResponse<TournamentMatch[]>> => {
 export const fetchUserMatchSelectionData = (matchId: number): Promise<ApiResponse<FetchUserMatchSelectionDataFrontend>> => {
     return callApi<FetchUserMatchSelectionDataFrontend>(`/member/match-selection/${matchId}`, 'GET');
 };
-
 // saveMatchPlayerSelection requires user authentication (handled by backend middleware)
 // Corresponds to POST /api/member/match-selection/:matchId
 // Backend returns { selection: MatchPlayerSelection }

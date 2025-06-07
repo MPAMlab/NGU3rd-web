@@ -77,6 +77,7 @@
                                         size="small"
                                         style="width: 120px; margin-top: 5px;"
                                     >
+                                        <!-- Iterate over parsedLevels from the selected song -->
                                         <el-option
                                             v-for="(level, diff) in selectedSongs[0].parsedLevels"
                                             :key="diff"
@@ -113,6 +114,7 @@
                                         size="small"
                                         style="width: 120px; margin-top: 5px;"
                                     >
+                                        <!-- Iterate over parsedLevels from the selected song -->
                                         <el-option
                                             v-for="(level, diff) in selectedSongs[1].parsedLevels"
                                             :key="diff"
@@ -161,14 +163,23 @@
                  <el-form-item label="搜索歌名">
                      <el-input v-model="pickerFilters.search" placeholder="输入歌名关键字" clearable @input="handlePickerSearchChange" style="width: 200px;" />
                  </el-form-item>
+                 <!-- Optional: Add other filters like category, type, level if needed in the picker -->
+                 <!--
+                 <el-form-item label="分类">
+                   <el-select v-model="pickerFilters.category" placeholder="选择分类" clearable filterable @change="handlePickerFilterChange" style="width: 150px;">
+                     <el-option v-for="item in store.songFilterOptions.categories" :key="item" :label="item" :value="item" />
+                   </el-select>
+                 </el-form-item>
+                 -->
              </el-form>
 
              <!-- Container for Table and Pagination - Render only when songs are not loading -->
              <div v-if="!store.isLoading.songs">
                  <!-- Song Table - Render only if there are songs -->
+                 <!-- Use store.songs directly, as loadSongsForPicker populates it -->
                  <el-table
-                     v-if="filteredSongsForPicker.length > 0"
-                     :data="filteredSongsForPicker"
+                     v-if="store.songs.length > 0"
+                     :data="store.songs"
                      style="width: 100%; max-height: 400px; overflow-y: auto;"
                      highlight-current-row
                      @current-change="handleSongSelectForPicker"
@@ -212,8 +223,9 @@
                  </el-table>
 
                  <!-- Pagination for Picker - Render only if there are songs -->
+                 <!-- Bind to store.songPagination -->
                  <el-pagination
-                   v-if="store.songPagination && store.songPagination.totalItems > 0 && filteredSongsForPicker.length > 0"
+                   v-if="store.songPagination && store.songPagination.totalItems > 0 && store.songs.length > 0"
                    background
                    layout="total, sizes, prev, pager, next, jumper"
                    :total="store.songPagination.totalItems"
@@ -241,6 +253,7 @@
                  </el-form-item>
                  <el-form-item label="选择难度" prop="selected_difficulty" :rules="[{ required: true, message: '请选择难度', trigger: 'change' }]">
                      <el-select v-model="selectedDifficultyInPicker" placeholder="选择难度">
+                         <!-- Iterate over parsedLevels from the selected song in the picker -->
                          <el-option
                              v-for="(level, diff) in selectedSongInPicker.parsedLevels"
                              :key="diff"
@@ -269,7 +282,8 @@ import { useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Picture, Delete } from '@element-plus/icons-vue'; // Import Picture and Delete icons
 import { debounce } from 'lodash-es'; // Keep debounce for search input
-
+// Import specific component styles that might not be auto-imported correctly
+import 'element-plus/es/components/spinner/style/css';
 const store = useAppStore();
 const route = useRoute();
 const matchId = computed(() => parseInt(route.params.matchId as string));
@@ -279,6 +293,7 @@ const matchId = computed(() => parseInt(route.params.matchId as string));
 const selectedOrderIndex = ref<number | null>(null);
 
 // State for the two selected songs
+// These will be populated from the fetched userMatchSelection
 const selectedSongs = reactive([
     { song_id: null as number | null, song_title: '', selected_difficulty: '', fullCoverUrl: undefined as string | undefined, parsedLevels: undefined as any },
     { song_id: null as number | null, song_title: '', selected_difficulty: '', fullCoverUrl: undefined as string | undefined, parsedLevels: undefined as any },
@@ -294,6 +309,10 @@ const pickerFilters = reactive({
     search: '',
     page: 1, // Pagination
     limit: 20, // Pagination
+    // Optional: Add other filters here if needed in the picker dialog
+    // category: '',
+    // type: '',
+    // level: '',
 });
 
 
@@ -321,6 +340,7 @@ const isSelectionComplete = computed(() => {
 });
 
 // Filter songs for the picker (now just returns the paginated list from the store)
+// The store.songs list is populated by loadSongsForPicker based on pickerFilters
 const filteredSongsForPicker = computed(() => {
     return store.songs; // Use the current page of songs from the store directly
 });
@@ -334,6 +354,7 @@ const matchTitle = computed(() => {
 
 // Helper for picker table index calculation
 const getPickerTableIndex = (index: number) => {
+    // Use pickerFilters for index calculation
     return (pickerFilters.page - 1) * pickerFilters.limit + index + 1;
 };
 
@@ -341,34 +362,32 @@ const getPickerTableIndex = (index: number) => {
 // --- Watchers ---
 // Watch for changes in userMatchSelection from the store and update local state
 watch(() => store.userMatchSelection, (newSelection) => {
+    console.log("userMatchSelection changed:", newSelection);
     if (newSelection) {
         selectedOrderIndex.value = newSelection.selected_order_index;
         // Populate selectedSongs based on the fetched selection
-        // Use the getter from the store to find the song details
-        // This relies on store.allSongsForPicker being populated BEFORE this watch runs,
-        // which is now handled in onMounted.
-        const song1 = store.getSongForPickerById(newSelection.song1_id);
-        const song2 = store.getSongForPickerById(newSelection.song2_id);
-
+        // Use the denormalized fields provided by the backend directly from newSelection
         selectedSongs[0] = {
             song_id: newSelection.song1_id,
-            song_title: song1?.title || '未知歌曲', // Use fetched title or fallback
+            song_title: newSelection.song1_title || '未知歌曲', // Use denormalized title from backend
             selected_difficulty: newSelection.song1_difficulty,
-            fullCoverUrl: song1?.fullCoverUrl, // Use fetched URL
-            parsedLevels: song1?.parsedLevels, // Use fetched levels
+            fullCoverUrl: newSelection.song1_fullCoverUrl, // Use denormalized URL from backend
+            parsedLevels: newSelection.song1_parsedLevels, // Use denormalized levels from backend
         };
          selectedSongs[1] = {
             song_id: newSelection.song2_id,
-            song_title: song2?.title || '未知歌曲', // Use fetched title or fallback
+            song_title: newSelection.song2_title || '未知歌曲', // Use denormalized title from backend
             selected_difficulty: newSelection.song2_difficulty,
-            fullCoverUrl: song2?.fullCoverUrl, // Use fetched URL
-            parsedLevels: song2?.parsedLevels, // Use fetched levels
+            fullCoverUrl: newSelection.song2_fullCoverUrl, // Use denormalized URL from backend
+            parsedLevels: newSelection.song2_parsedLevels, // Use denormalized levels from backend
         };
+        console.log("Updated selectedSongs state from userMatchSelection:", selectedSongs);
     } else {
         // Reset local state if no selection is found
         selectedOrderIndex.value = null;
         selectedSongs[0] = { song_id: null, song_title: '', selected_difficulty: '', fullCoverUrl: undefined, parsedLevels: undefined };
         selectedSongs[1] = { song_id: null, song_title: '', selected_difficulty: '', fullCoverUrl: undefined, parsedLevels: undefined };
+         console.log("Reset selectedSongs state as userMatchSelection is null.");
     }
 }, { immediate: true }); // Run immediately on component mount
 
@@ -407,16 +426,22 @@ const handleOrderChange = (value: number) => {
 
 // Function to load songs for the picker using store.fetchSongs (with pagination and only search filter)
 const loadSongsForPicker = async () => {
+    // Use pickerFilters for the API call
     await store.fetchSongs({
         search: pickerFilters.search || undefined,
         page: pickerFilters.page,
         limit: pickerFilters.limit,
+        // Optional: Pass other picker filters here if added to pickerFilters state
+        // category: pickerFilters.category || undefined,
+        // type: pickerFilters.type || undefined,
+        // level: pickerFilters.level || undefined,
     });
      // Display error if fetching songs failed
-    if (store.error) {
-        // Check if the error is specifically from fetching songs
-        // For simplicity, let's just show the error if any exists after fetchSongs
-        ElMessage.error(`加载歌曲列表失败: ${store.error}`);
+    if (store.error && store.isLoading.songs === false) { // Only show error if loading has finished
+        // Note: store.error might also contain errors from fetchUserMatchSelectionData
+        // A more robust approach would be to have separate error states in the store.
+        // For now, let's just show the error if any exists after fetchSongs
+        // ElMessage.error(`加载歌曲列表失败: ${store.error}`); // Avoid showing error twice if userMatchSelection fails
     }
 };
 
@@ -429,6 +454,7 @@ const openSongPicker = (songIndex: number) => {
     pickerFilters.search = '';
     pickerFilters.page = 1; // Reset to first page
     pickerFilters.limit = 20; // Reset to default limit
+    // Optional: Reset other picker filters here
 
     songPickerDialogVisible.value = true;
 
@@ -484,6 +510,7 @@ const saveSelection = async () => {
 
     if (result) { // Check if result is truthy (data was returned)
         ElMessage.success('选歌和顺序保存成功！');
+        // The watch on store.userMatchSelection will update the local state
     } else {
         ElMessage.error(`保存失败: ${store.error}`);
     }
@@ -514,17 +541,7 @@ const handlePickerCurrentPageChange = (newPage: number) => {
 onMounted(() => {
     if (matchId.value) {
         store.fetchUserMatchSelectionData(matchId.value);
-        // No need to fetch filter options anymore
-        // store.fetchSongFilterOptions();
-
-        // Fetch all songs for the picker on mount
-        // This ensures song details are available for displaying saved selections immediately
-        // This list is NOT used for the picker table data anymore, only for initial display of saved songs.
-        // We still need this because the `watch` for `store.userMatchSelection` uses `store.getSongForPickerById`
-        // which looks up songs in `store.allSongsForPicker`.
-        if (store.allSongsForPicker.length === 0 && !store.isLoading.allSongsForPicker) {
-             store.fetchAllSongsForPicker();
-        }
+        // REMOVED: store.fetchAllSongsForPicker(); // No longer needed as picker uses paginated fetch
     } else {
         ElMessage.error('无效的比赛ID');
     }

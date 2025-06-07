@@ -51,13 +51,15 @@
              clearable
              filterable
              @change="handleFilterChange"
+             :loading="store.isLoading.songFilters"
              style="width: 120px;"
            >
+             <!-- Use levels from store.songFilterOptions -->
              <el-option
-               v-for="level in levelOptions"
-               :key="level.value"
-               :label="level.label"
-               :value="level.value"
+               v-for="level in store.songFilterOptions.levels"
+               :key="level"
+               :label="level"
+               :value="level"
              />
            </el-select>
         </el-form-item>
@@ -72,8 +74,8 @@
         </el-form-item>
       </el-form>
 
-      <!-- Use filteredSongs for the table data -->
-      <el-table :data="filteredSongs" v-loading="store.isLoading.songs" style="width: 100%" border stripe>
+      <!-- Use store.songs directly for the table data -->
+      <el-table :data="store.songs" v-loading="store.isLoading.songs" style="width: 100%" border stripe>
         <el-table-column type="index" width="50" />
         <el-table-column label="封面" width="100">
           <template #default="{ row }">
@@ -136,7 +138,8 @@ import { reactive, onMounted, ref, computed } from 'vue';
 import { useAppStore } from '@/store'; // Adjust path
 import { ElMessage } from 'element-plus';
 import { Picture } from '@element-plus/icons-vue';
-import type { Song, SongLevel } from '@/store'; // Adjust path and import SongLevel
+// Import types directly from store.ts
+import type { Song, SongLevel } from '@/store';
 
 const store = useAppStore();
 
@@ -149,56 +152,31 @@ const filters = reactive({
   limit: 20, // Default page size
 });
 
-// Define Level Options based on your description
-const levelOptions = ref([
-    { value: '1', label: '1' }, { value: '2', label: '2' }, { value: '3', label: '3' }, { value: '4', label: '4' },
-    { value: '5', label: '5' }, { value: '5+', label: '5+' },
-    { value: '6', label: '6' }, { value: '6+', label: '6+' },
-    { value: '7', label: '7' }, { value: '7+', label: '7+' },
-    { value: '8', label: '8' }, // Assuming 8+ doesn't exist based on your list, but 8 does
-    { value: '9', label: '9' }, { value: '9+', label: '9+' },
-    { value: '10', label: '10' }, // Assuming 10+ doesn't exist
-    { value: '11', label: '11' }, // Assuming 11+ doesn't exist
-    { value: '12', label: '12' }, { value: '12+', label: '12+' },
-    { value: '13', label: '13' }, // Assuming 13+ doesn't exist
-    { value: '14', label: '14' }, { value: '14+', label: '14+' },
-    { value: '15', label: '15' },
-]);
-// NOTE: Double check the exact levels with '+' in the game data if needed.
+// REMOVED: Hardcoded levelOptions ref
+// The level options will come from store.songFilterOptions.levels
 
-// --- Level Filtering Logic (Client-Side) ---
-// This computed property filters the songs *after* they are fetched from the backend page
-const filteredSongs = computed(() => {
-    if (!filters.level) {
-        return store.songs; // No level filter applied, show all songs from the current page
-    }
-    // Filter songs on the current page based on the selected level
-    return store.songs.filter(song => {
-        if (!song.parsedLevels) return false;
-        // Check if the selected level matches *any* of the song's difficulty levels (B, A, E, M, R)
-        // We need to check the VALUES of the parsedLevels object
-        const levels = Object.values(song.parsedLevels) as (string | undefined)[]; // Get all level values
-        return levels.some(lvl => lvl === filters.level); // Check if any value matches the filter
-    });
-});
-// --- End Level Filtering Logic ---
+// REMOVED: Client-side filteredSongs computed property
+// The table now binds directly to store.songs which is the paginated list from the backend
 
 
 /**
  * Loads songs from the store based on current filters and pagination.
- * Note: Level filter is applied client-side in `filteredSongs`.
+ * Note: All filters (category, type, search, level) are now applied backend-side.
  */
 const loadSongs = async () => {
-  // Pass filters and pagination params to the store action
+  // Pass ALL filters and pagination params to the store action
   await store.fetchSongs({
     category: filters.category || undefined, // Pass empty string as undefined to remove from params
     type: filters.type || undefined,
     search: filters.search || undefined,
+    level: filters.level || undefined, // Pass level filter
     page: filters.page,
     limit: filters.limit,
   });
-  // Display error if fetching songs failed (but not if just filter options failed)
-  if (store.error && !store.error.startsWith('Failed to load filter options')) {
+  // Display error if fetching songs failed
+  if (store.error) {
+    // Check if the error is specifically from fetching songs (optional, can show any error)
+    // For simplicity, let's just show the error if any exists after fetchSongs
     ElMessage.error(`加载歌曲失败: ${store.error}`);
   }
 };
