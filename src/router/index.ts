@@ -20,7 +20,7 @@ import UserMatches from '@/views/UserMatches.vue'; // NEW Import (for user's Tou
 import LiveMatchPublic from '@/views/LiveMatchPublic.vue'; // Public view for DO matches (Qualifier/Final)
 import ScheduleSecond from '@/views/ScheduleSecond.vue'; // NEW Import (for Semifinal management - semifinal_matches)
 import LiveMatchSecond from '@/views/LiveMatchSecond.vue'; // NEW Import (Public view for Semifinal - semifinal_matches)
-
+import LiveStage from '@/views/LiveStage.vue';
 
 // Extend RouteMeta to include custom fields
 declare module 'vue-router' {
@@ -28,6 +28,7 @@ declare module 'vue-router' {
     title?: string;
     requiresAuth?: boolean; // Requires user authentication
     requiresAdmin?: boolean; // Requires admin privileges
+    hideAppLayout?: boolean; // <-- NEW: Flag to hide App.vue layout elements
   }
 }
 
@@ -118,13 +119,19 @@ const routes: Array<RouteRecordRaw> = [
     meta: { title: '我的比赛', requiresAuth: true }, // 需要用户认证
   },
   {
+    path: '/stage',
+    name: 'LiveStage',
+    component: LiveStage,
+    meta: { title: '主舞台', requiresAuth: false }, 
+  },
+  {
     // Public view for DO matches (Qualifier/Final)
     // Changed path to be distinct from admin control
     path: '/live-match-public/:doId',
     name: 'LiveMatchPublic', // Kept name
     component: LiveMatchPublic, // Assuming LiveMatchPublic.vue is the public view
     props: true,
-    meta: { title: '比赛直播', requiresAuth: false, requiresAdmin: false }, // Public view
+    meta: { title: '比赛直播', requiresAuth: false, requiresAdmin: false, hideAppLayout: true }, // <-- ADDED hideAppLayout: true
   },
   {
     // Public view for Semifinal matches (DB-based)
@@ -132,7 +139,7 @@ const routes: Array<RouteRecordRaw> = [
     name: 'LiveMatchSecond', // Kept name
     component: LiveMatchSecond, // Use the imported component directly
     props: true, // Pass id as a prop
-    meta: { title: '复赛直播', requiresAuth: false, requiresAdmin: false }, // Public view
+    meta: { title: '复赛直播', requiresAuth: false, requiresAdmin: false, hideAppLayout: true }, // <-- ADDED hideAppLayout: true
   },
   // 404 Page - Must be the last route
   {
@@ -173,18 +180,19 @@ router.beforeEach(async (to, from, next) => {
     }
 
     // Define public routes explicitly by name
+    // Note: Routes with hideAppLayout: true are also public, but we don't need to list them here
+    // unless they have other specific public-only logic.
     const publicRoutes = [
         'Index',
         'Teams',
         'Songs',
         'MatchHistory',
-        'LiveMatchPublic', // Public view for DO matches
-        'LiveMatchSecond', // Public view for Semifinal matches
         'NotFound',
         'privacy-policy'
+        // LiveMatchPublic and LiveMatchSecond are public by meta, no need to list here
     ];
 
-    // Check if the target route is explicitly public
+    // Check if the target route is explicitly public (excluding the live match pages which are handled by meta)
     if (publicRoutes.includes(to.name as string)) {
         next();
         return;
