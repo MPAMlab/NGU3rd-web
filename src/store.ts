@@ -495,14 +495,14 @@ export type Profession = '矩盾手' | '炼星师' | '绝剑士';
 
 // Semifinal Score Calculation Result (Frontend) - Must match backend structure
 export interface SemifinalScoreResult {
-  id: number;
-  nickname: string;
-  profession: Profession;
-  originalScore: number; // 原始得分（小数点后四位）
-  bonusScore: number; // 职业技能加成
-  totalScore: number; // 最终得分
-  log: string[]; // 计分日志
-}
+    id: number;
+    nickname: string;
+    profession: Profession; // 确保有 profession
+    originalScore: number;
+    bonusScore: number;
+    totalScore: number;
+    log: string[];
+  }
 
 // Semifinal Match Table Structure (Frontend) - Must match backend structure + frontend convenience
 export interface SemifinalMatch {

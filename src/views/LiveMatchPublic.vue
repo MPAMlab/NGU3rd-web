@@ -93,30 +93,9 @@
                     </div>
                 </div>
 
-                <!-- Center Column -->
-                <div class="glass rounded-xl p-6 w-2/4 flex flex-col">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-xl font-bold">
-                            第 {{ (store.currentMatchState.current_match_song_index ?? 0) + 1 }} 轮
-                            <span v-if="store.currentMatchState.current_song?.is_tiebreaker_song" class="text-purple-400">(加时赛)</span>
-                        </h3>
-                    </div>
-
-                    <!-- Current Song Info -->
-                    <div v-if="store.currentMatchState.current_song" class="text-center mb-6">
-                        <h4 class="text-2xl font-bold mb-2">{{ store.currentMatchState.current_song.song_title }}</h4>
-                        <p class="text-gray-300 mb-1">难度: {{ store.currentMatchState.current_song.song_difficulty }} | BPM: {{ store.currentMatchState.current_song.bpm || 'N/A' }}</p>
-                        <p class="text-gray-300">
-                            选曲选手: {{ getMemberNicknameById(store.currentMatchState.current_song.picker_member_id) }} ({{ getTeamNameById(store.currentMatchState.current_song.picker_team_id) }})
-                        </p>
-                    </div>
-                    <div v-else class="text-center mb-6">
-                        <h4 class="text-2xl font-bold mb-2">等待歌曲信息...</h4>
-                        <p class="text-gray-300">请等待裁判选择下一首歌曲</p>
-                    </div>
-
-                    <!-- Vertical 9:16 Chroma Key Areas -->
-                    <div class="flex justify-center space-x-6 mb-6 flex-1">
+                <!-- Center Column - Just 9:16 Camera Frames -->
+                <div class="glass rounded-xl p-6 w-2/4 flex flex-col items-center justify-center">
+                    <div class="flex justify-center space-x-6 w-full h-full">
                         <!-- Team A View (Left Green Area) -->
                         <div class="camera-container">
                             <div class="camera-frame bg-[#00FF00]"></div>
@@ -125,37 +104,6 @@
                         <div class="camera-container">
                             <div class="camera-frame bg-[#00FF00]"></div>
                         </div>
-                    </div>
-
-                    <!-- Round Summary Display -->
-                    <div v-if="store.currentMatchState.roundSummary" class="glass rounded-lg p-4 text-sm text-gray-300">
-                        <h4 class="font-bold mb-3 text-white">上一轮总结 (第 {{ store.currentMatchState.roundSummary.round_number_in_match }} 轮)</h4>
-                        <div class="grid grid-cols-2 gap-x-4 gap-y-2">
-                            <p><strong>歌曲:</strong> {{ store.currentMatchState.roundSummary.song_title }} ({{ store.currentMatchState.roundSummary.selected_difficulty }})</p>
-                            <p><strong>{{ store.currentMatchState.teamA_name || '队伍 A' }} 选手:</strong> {{ store.currentMatchState.roundSummary.teamA_player_nickname }}</p>
-                            <p><strong>{{ store.currentMatchState.teamB_name || '队伍 B' }} 选手:</strong> {{ store.currentMatchState.roundSummary.teamB_player_nickname }}</p>
-                            <p><strong>{{ store.currentMatchState.teamA_name || '队伍 A' }} 百分比:</strong> {{ store.currentMatchState.roundSummary.teamA_percentage?.toFixed(2) || 'N/A' }}%</p>
-                            <p><strong>{{ store.currentMatchState.teamB_name || '队伍 B' }} 百分比:</strong> {{ store.currentMatchState.roundSummary.teamB_percentage?.toFixed(2) || 'N/A' }}%</p>
-                            <p><strong>{{ store.currentMatchState.teamA_name || '队伍 A' }} 伤害:</strong> {{ store.currentMatchState.roundSummary.teamA_final_damage_dealt || 'N/A' }}</p>
-                            <p><strong>{{ store.currentMatchState.teamB_name || '队伍 B' }} 伤害:</strong> {{ store.currentMatchState.roundSummary.teamB_final_damage_dealt || 'N/A' }}</p>
-                            <p><strong>{{ store.currentMatchState.teamA_name || '队伍 A' }} 血量变化:</strong> {{ store.currentMatchState.roundSummary.teamA_health_change || 'N/A' }}</p>
-                            <p><strong>{{ store.currentMatchState.teamB_name || '队伍 B' }} 血量变化:</strong> {{ store.currentMatchState.roundSummary.teamB_health_change || 'N/A' }}</p>
-                            <p><strong>{{ store.currentMatchState.teamA_name || '队伍 A' }} 赛后血量:</strong> {{ store.currentMatchState.roundSummary.teamA_health_after || 'N/A' }}</p>
-                            <p><strong>{{ store.currentMatchState.teamB_name || '队伍 B' }} 赛后血量:</strong> {{ store.currentMatchState.roundSummary.teamB_health_after || 'N/A' }}</p>
-                            <p class="col-span-2">
-                                <strong>复影折镜:</strong>
-                                A: <span :class="store.currentMatchState.roundSummary.teamA_mirror_triggered ? 'status-available' : 'status-used'">{{ store.currentMatchState.roundSummary.teamA_mirror_triggered ? '是' : '否' }}</span>,
-                                B: <span :class="store.currentMatchState.roundSummary.teamB_mirror_triggered ? 'status-available' : 'status-used'">{{ store.currentMatchState.roundSummary.teamB_mirror_triggered ? '是' : '否' }}</span>
-                            </p>
-                            <div v-if="store.currentMatchState.roundSummary.log && store.currentMatchState.roundSummary.log.length > 0" class="col-span-2">
-                                <strong>日志:</strong>
-                                <p v-for="(log, index) in store.currentMatchState.roundSummary.log" :key="index" class="text-xs text-gray-400">{{ log }}</p>
-                            </div>
-                            <p v-else class="col-span-2"><strong>日志:</strong> -</p>
-                        </div>
-                    </div>
-                    <div v-else class="glass rounded-lg p-4 text-sm text-gray-300 text-center">
-                        <p>等待第一轮总结...</p>
                     </div>
                 </div>
 
@@ -374,9 +322,11 @@ const teamBHealthWidth = computed(() => {
     animation: pulse 2s infinite;
 }
 
+/* Larger 9:16 Camera Container */
 .camera-container {
-    width: 270px;
-    height: 480px; /* 9:16 ratio */
+    width: 300px; /* Increased width */
+    height: 533px; /* Maintaining 9:16 ratio */
+    margin: 0 10px;
 }
 
 .camera-frame {
