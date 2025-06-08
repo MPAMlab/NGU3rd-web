@@ -25,43 +25,53 @@
           </el-table-column>
           <el-table-column label="操作" width="300">
             <template #default="{ row }">
-              <el-button
-                  v-if="row.status === 'scheduled' || row.status === 'pending_song_confirmation'"
-                  size="small"
-                  @click="openConfirmSetupDialog(row)"
-                  :loading="store.isLoading.checkingMatchSelectionStatus"
-              >
-                  查看/编译歌单
-              </el-button>
-              <el-button
-                  v-if="row.status === 'ready_to_start'"
-                  size="small"
-                  type="success"
-                  @click="startLiveMatch(row)"
-                  :loading="startingMatchId === row.id"
-              >
-                  开始直播
-              </el-button>
-               <el-button
-                  v-if="row.status === 'live' && row.match_do_id"
-                  size="small"
-                  type="primary"
-                  @click="$router.push(`/live-match/${row.match_do_id}`)"
-              >
-                  进入直播
-              </el-button>
-               <el-button
-                  v-if="row.status === 'completed' || row.status === 'archived'"
-                  size="small"
-                  disabled
-              >
-                  已结束
-               </el-button>
-              <!-- TODO: Add Edit/Delete buttons if backend supports -->
-              <!-- <el-button size="small" @click="handleEdit(row)">编辑</el-button> -->
-              <!-- <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button> -->
+                <el-button
+                    v-if="row.status === 'scheduled' || row.status === 'pending_song_confirmation'"
+                    size="small"
+                    @click="openConfirmSetupDialog(row)"
+                    :loading="store.isLoading.checkingMatchSelectionStatus"
+                >
+                    查看/编译歌单
+                </el-button>
+                <el-button
+                    v-if="row.status === 'ready_to_start'"
+                    size="small"
+                    type="success"
+                    @click="startLiveMatch(row)"
+                    :loading="startingMatchId === row.id"
+                >
+                    开始直播
+                </el-button>
+                <!-- 修改这里，添加两个按钮 -->
+                <el-button
+                    v-if="row.status === 'live' && row.match_do_id"
+                    size="small"
+                    type="primary"
+                    @click="$router.push(`/live-match-admin/${row.match_do_id}`)"
+                >
+                    进入控制台
+                </el-button>
+                <el-button
+                    v-if="row.status === 'live' && row.match_do_id"
+                    size="small"
+                    type="info"
+                    @click="$router.push(`/live-match/${row.match_do_id}`)"
+                >
+                    查看直播
+                </el-button>
+                <el-button
+                    v-if="row.status === 'completed' || row.status === 'archived'"
+                    size="small"
+                    disabled
+                >
+                    已结束
+                </el-button>
+                <!-- TODO: Add Edit/Delete buttons if backend supports -->
+                <!-- <el-button size="small" @click="handleEdit(row)">编辑</el-button> -->
+                <!-- <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button> -->
             </template>
-          </el-table-column>
+            </el-table-column>
+
         </el-table>
 
         <!-- Create Match Dialog -->
